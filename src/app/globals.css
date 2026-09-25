@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+:root {
+  --surface: #fbf9f5;
+  --surface-low: #f4efea;
+  --card: #ffffff;
+  --ink: #081c36;
+  --muted: #5c6470;
+  --primary: #0e4d8c;
+  --primary-dark: #0a1d37;
+  --gold: #c59b27;
+  --gold-light: #ffdf98;
+  --line: #dfe5ec;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-low: var(--surface-low);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-line: var(--line);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-arabic: var(--font-arabic);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--surface);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body), sans-serif;
+}
+
+html[lang="ar"] body {
+  font-family: var(--font-arabic), sans-serif;
+}
+
+html[lang="ar"] .font-display {
+  font-family: var(--font-amiri), serif;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--gold) 28%, transparent);
+}
+
+.site-shell {
+  width: min(100% - 2rem, 74rem);
+  margin-inline: auto;
+}
+
+.section-space {
+  padding-block: clamp(4rem, 8vw, 7rem);
+}
+
+.eyebrow {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+html[dir="rtl"] .eyebrow {
+  letter-spacing: 0;
+}
+
+.font-display {
+  font-family: var(--font-display), serif;
+}
+
+.card-lift {
+  transition:
+    transform 250ms ease,
+    border-color 250ms ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+}
+
+.hero-drift {
+  animation: hero-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes hero-drift {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.08) translateY(-1%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
