@@ -15,9 +15,6 @@ export const siteConfig = {
   email:
     process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "Falco.services2026@gmail.com",
   company: {
-    nationalNumber: "7054472027",
-    registrationDate: "2026-06-03",
-    capital: "50,000 SAR",
     address: {
       en: "Al Mursalat District, Al Masjid Al Haram Road, Makkah, Saudi Arabia",
       ar: "مكة المكرمة، حي المرسلات، طريق المسجد الحرام، المملكة العربية السعودية",

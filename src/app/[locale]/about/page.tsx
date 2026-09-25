@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { FileCheck2, Target } from "lucide-react";
+import { MapPin, Target } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { siteConfig } from "@/lib/site";
@@ -63,40 +63,13 @@ export default async function AboutPage({ params }: PageProps) {
             <p className="mt-3 text-sm leading-7 text-muted">{t("mission")}</p>
           </article>
           <article className="rounded-2xl border border-gold/30 bg-gold-light/20 p-7">
-            <FileCheck2 className="text-gold" size={28} />
+            <MapPin className="text-gold" size={28} />
             <h2 className="font-display mt-5 text-2xl font-bold text-primary">
-              {t("legalTitle")}
+              {t("locationTitle")}
             </h2>
-            <dl className="mt-5 grid gap-4 text-sm">
-              <div>
-                <dt className="font-bold text-primary">{t("statusLabel")}</dt>
-                <dd className="mt-1 text-muted">{t("statusValue")}</dd>
-              </div>
-              <div>
-                <dt className="font-bold text-primary">{t("entityLabel")}</dt>
-                <dd className="mt-1 text-muted">{t("entityValue")}</dd>
-              </div>
-              <div>
-                <dt className="font-bold text-primary">{t("nationalLabel")}</dt>
-                <dd className="mt-1 text-muted">
-                  {siteConfig.company.nationalNumber}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-bold text-primary">
-                  {t("registeredLabel")}
-                </dt>
-                <dd className="mt-1 text-muted">
-                  {siteConfig.company.registrationDate}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-bold text-primary">{t("addressLabel")}</dt>
-                <dd className="mt-1 text-muted">
-                  {siteConfig.company.address[locale]}
-                </dd>
-              </div>
-            </dl>
+            <p className="mt-3 text-sm leading-7 text-muted">
+              {siteConfig.company.address[locale]}
+            </p>
           </article>
         </div>
       </div>

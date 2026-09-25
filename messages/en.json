@@ -29,13 +29,9 @@
     "subtitle": "Complete pilgrimage planning for travellers and international agencies across Makkah, Madinah and Jeddah—from arrival to the final transfer.",
     "pilgrimCta": "I’m a pilgrim",
     "agencyCta": "I’m a travel agency",
-    "metricsTitle": "Registered company profile",
-    "activeValue": "Active",
-    "activeLabel": "Commercial registration status",
-    "entityValue": "LLC",
-    "entityLabel": "Single-person limited liability company",
+    "metricsTitle": "Falco at a glance",
     "locationValue": "Makkah",
-    "locationLabel": "Registered business address",
+    "locationLabel": "Saudi operations base",
     "clientsValue": "B2C + B2B",
     "clientsLabel": "Travellers, groups, and travel agencies",
     "support": "Journey support",
@@ -101,17 +97,10 @@
   "About": {
     "eyebrow": "About Falco",
     "title": "A Saudi company focused on pilgrimage journey coordination",
-    "description": "Falco Services is a registered Saudi limited liability company based in Makkah, serving travellers, groups, and international travel partners.",
+    "description": "Falco Services is a Saudi company based in Makkah, serving travellers, groups, and international travel partners.",
     "missionTitle": "Our mission",
     "mission": "Make complex pilgrimage logistics clear, coordinated, and reassuring for travellers and partners.",
-    "legalTitle": "Company information",
-    "statusLabel": "Registration status",
-    "statusValue": "Active",
-    "entityLabel": "Legal entity",
-    "entityValue": "Single-person limited liability company",
-    "nationalLabel": "Unified national number",
-    "registeredLabel": "Commercial registration date",
-    "addressLabel": "Registered business address"
+    "locationTitle": "Our location"
   },
   "Contact": {
     "eyebrow": "Plan the next journey",
@@ -151,8 +140,7 @@
   "Footer": {
     "summary": "Saudi ground-service coordination for pilgrimage travellers, groups, and international travel agencies.",
     "coverage": "Service coverage",
-    "rights": "© {year} Falco Services. All rights reserved.",
-    "nationalNumber": "Unified national number"
+    "rights": "© {year} Falco Services. All rights reserved."
   },
   "Metadata": {
     "homeTitle": "Saudi Hajj & Umrah Ground Services",

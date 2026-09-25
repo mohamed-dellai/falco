@@ -78,12 +78,9 @@ export async function SiteFooter() {
 
       <div className="border-t border-white/10">
         <div className="site-shell py-5">
-          <div className="flex flex-col justify-between gap-2 text-xs text-blue-100/60 sm:flex-row">
-            <span>{t("rights", { year: new Date().getFullYear() })}</span>
-            <span>
-              {t("nationalNumber")}: {siteConfig.company.nationalNumber}
-            </span>
-          </div>
+          <span className="text-xs text-blue-100/60">
+            {t("rights", { year: new Date().getFullYear() })}
+          </span>
         </div>
       </div>
     </footer>

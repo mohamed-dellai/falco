@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { BadgeCheck, Building2, MapPinned, Users } from "lucide-react";
+import { MapPinned, Users } from "lucide-react";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -43,8 +43,6 @@ export default async function HomePage({ params }: PageProps) {
   const common = await getTranslations("Common");
 
   const metrics = [
-    { value: t("activeValue"), label: t("activeLabel"), icon: BadgeCheck },
-    { value: t("entityValue"), label: t("entityLabel"), icon: Building2 },
     { value: t("locationValue"), label: t("locationLabel"), icon: MapPinned },
     { value: t("clientsValue"), label: t("clientsLabel"), icon: Users },
   ];
@@ -107,7 +105,7 @@ export default async function HomePage({ params }: PageProps) {
           <p className="mb-5 text-xs font-extrabold uppercase tracking-wider text-muted">
             {t("metricsTitle")}
           </p>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2">
             {metrics.map((metric) => (
               <div
                 key={metric.label}
