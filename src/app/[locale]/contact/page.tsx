@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Building2, Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { QuoteForm } from "@/components/forms";
-import { Link } from "@/i18n/navigation";
-import type { Locale } from "@/i18n/routing";
+import { localeAlternates, type Locale } from "@/i18n/routing";
+import { getHotel, getRoom, parseStay } from "@/lib/inventory";
 import { siteConfig } from "@/lib/site";
 
 type PageProps = {
   params: Promise<{ locale: Locale }>;
-  searchParams: Promise<{ package?: string }>;
+  searchParams: Promise<{
+    hotel?: string;
+    room?: string;
+    checkIn?: string;
+    checkOut?: string;
+    rooms?: string;
+  }>;
 };
 
 export async function generateMetadata({
@@ -20,7 +26,7 @@ export async function generateMetadata({
     title: t("contactTitle"),
     alternates: {
       canonical: `/${locale}/contact`,
-      languages: { en: "/en/contact", ar: "/ar/contact" },
+      languages: localeAlternates("/contact"),
     },
   };
 }
@@ -30,7 +36,17 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
   const query = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("Contact");
-  const agencies = await getTranslations("Agencies");
+  const hotel = query.hotel ? await getHotel(query.hotel) : null;
+  const room = query.room ? await getRoom(query.room) : null;
+  const requestedRoom = [hotel?.name, room?.name].filter(Boolean).join(" — ");
+  const stay = parseStay(query.checkIn, query.checkOut);
+  const requestedRooms = Number(query.rooms);
+  const roomCount =
+    Number.isInteger(requestedRooms) &&
+    requestedRooms >= 1 &&
+    requestedRooms <= 500
+      ? requestedRooms
+      : 1;
 
   const steps = [t("responseOne"), t("responseTwo"), t("responseThree")];
 
@@ -87,24 +103,22 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
                 </p>
               </div>
             </div>
-            <Link
-              href="/agencies"
-              className="flex items-center gap-3 rounded-2xl bg-primary-dark p-6 text-white"
-            >
-              <Building2 className="shrink-0 text-gold" size={25} />
-              <span>
-                <strong className="block">{t("agencyForm")}</strong>
-                <small className="mt-1 block text-blue-100/70">
-                  {agencies("formCopy")}
-                </small>
-              </span>
-            </Link>
           </div>
           <div>
             <h2 className="font-display mb-5 text-2xl font-bold text-primary">
               {t("travellerForm")}
             </h2>
-            <QuoteForm packageSlug={query.package ?? ""} />
+            {requestedRoom && (
+              <p className="mb-4 text-sm font-bold text-primary">
+                {requestedRoom}
+              </p>
+            )}
+            <QuoteForm
+              packageSlug={requestedRoom}
+              arrival={stay?.checkIn ?? ""}
+              departure={stay?.checkOut ?? ""}
+              roomCount={roomCount}
+            />
           </div>
         </div>
       </div>

@@ -10,14 +10,16 @@ function resolveSiteUrl() {
 export const siteConfig = {
   name: "Falco Services",
   url: resolveSiteUrl(),
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "966569740101",
-  phoneDisplay: "+966 56 974 0101",
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "966564896683",
+  phoneDisplay: "00966 56 489 6683",
   email:
     process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "Falco.services2026@gmail.com",
   company: {
     address: {
       en: "Al Mursalat District, Al Masjid Al Haram Road, Makkah, Saudi Arabia",
       ar: "مكة المكرمة، حي المرسلات، طريق المسجد الحرام، المملكة العربية السعودية",
+      fr: "Quartier Al Mursalat, route Al Masjid Al Haram, La Mecque, Arabie saoudite",
+      it: "Quartiere Al Mursalat, strada Al Masjid Al Haram, La Mecca, Arabia Saudita",
     },
   },
 };

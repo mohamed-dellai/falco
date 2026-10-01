@@ -1,0 +1,2323 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+      name="viewport"
+    />
+    <meta content="mobile_tab" name="shell-type" />
+    <meta
+      content="Falco Services coordinates Hajj and Umrah accommodation, transport, Ziyarat, and Saudi ground support for pilgrims and international travel agencies."
+      name="description"
+    />
+    <title>Falco Services | Saudi Hajj &amp; Umrah Ground Services</title>
+    <link href="image.png" rel="icon" type="image/png" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400..700;1,400..700&amp;family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&amp;family=Amiri:wght@400;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <style>
+      @layer base {
+        *,
+        *::before,
+        *::after {
+          box-sizing: border-box;
+        }
+        html {
+          width: 100%;
+          scroll-behavior: smooth;
+        }
+        body {
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          overflow-x: hidden;
+          font-family: "Plus Jakarta Sans", sans-serif;
+        }
+        .pb-safe {
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .pt-safe {
+          padding-top: env(safe-area-inset-top, 0px);
+        }
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f4efea;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #0e4d8c;
+        border: 3px solid #f4efea;
+        border-radius: 999px;
+      }
+      details summary::-webkit-details-marker {
+        display: none;
+      }
+      :focus-visible {
+        outline: 3px solid #c59b27;
+        outline-offset: 3px;
+      }
+      .header-inner {
+        width: 100%;
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+      .site-section,
+      .site-footer {
+        padding-left: max(1rem, calc((100vw - 1180px) / 2)) !important;
+        padding-right: max(1rem, calc((100vw - 1180px) / 2)) !important;
+      }
+      .hero-image {
+        transform: scale(1.02);
+        animation: hero-drift 18s ease-in-out infinite alternate;
+      }
+      .hero-content,
+      .hero-badges {
+        width: auto;
+        left: 1rem !important;
+        right: 1rem !important;
+        transform: none;
+      }
+      .hero-content {
+        max-width: 1180px;
+      }
+      .reveal {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .js .reveal {
+        opacity: 0;
+        transform: translateY(22px);
+        transition:
+          opacity 700ms cubic-bezier(0.2, 0.65, 0.3, 1),
+          transform 700ms cubic-bezier(0.2, 0.65, 0.3, 1);
+        transition-delay: var(--reveal-delay, 0ms);
+      }
+      .js .reveal.in-view {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .interactive-card {
+        transition:
+          transform 300ms ease,
+          border-color 300ms ease,
+          background-color 300ms ease;
+      }
+      .interactive-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(197, 155, 39, 0.55);
+      }
+      .header-scrolled {
+        box-shadow: 0 12px 35px rgba(10, 29, 55, 0.08);
+      }
+      html[lang="ar"] body {
+        font-family: "Tajawal", sans-serif;
+      }
+      html[lang="ar"] .font-serif {
+        font-family: "Amiri", serif;
+      }
+      html[lang="ar"] .hero-ar-subtitle {
+        display: none;
+      }
+      html[dir="rtl"] .text-right {
+        text-align: left;
+      }
+      html[dir="rtl"] input[type="email"],
+      html[dir="rtl"] input[type="tel"] {
+        direction: ltr;
+        text-align: right;
+      }
+      html[dir="rtl"] .desktop-whatsapp {
+        right: auto;
+        left: 1.5rem;
+      }
+      dialog::backdrop {
+        background: rgba(8, 28, 54, 0.72);
+        backdrop-filter: blur(6px);
+      }
+      dialog[open] {
+        animation: dialog-in 260ms ease-out both;
+      }
+      @keyframes hero-drift {
+        from {
+          transform: scale(1.02) translate3d(0, 0, 0);
+        }
+        to {
+          transform: scale(1.08) translate3d(0, -1.5%, 0);
+        }
+      }
+      @keyframes dialog-in {
+        from {
+          opacity: 0;
+          transform: translateY(12px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      @media (min-width: 768px) {
+        .metrics-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+        .field-grid,
+        .package-grid,
+        .testimonial-grid {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .guarantee-grid,
+        .service-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+        .faq-list {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          align-items: start;
+        }
+        .quote-grid {
+          grid-template-columns: 0.8fr 1.2fr !important;
+        }
+        .hero-content {
+          padding: 0 0 4.5rem !important;
+        }
+      }
+      @media (min-width: 1024px) {
+        .hero-frame {
+          height: min(760px, 82vh) !important;
+          min-height: 620px;
+        }
+        .hero-copy {
+          max-width: 710px;
+        }
+        .b2b-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(340px, 0.8fr);
+          grid-template-rows: auto auto;
+          gap: 1.5rem 4rem;
+          align-items: start;
+        }
+        .b2b-benefits {
+          grid-column: 2;
+          grid-row: 1 / span 2;
+        }
+        .b2b-actions {
+          grid-column: 1;
+          grid-row: 2;
+          max-width: 520px;
+        }
+      }
+      @media (min-width: 1212px) {
+        .hero-content,
+        .hero-badges {
+          width: 1180px;
+          left: 50% !important;
+          right: auto !important;
+          transform: translateX(-50%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        .js .reveal {
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0E4D8C",
+              "primary-dark": "#0A1D37",
+              secondary: "#C59B27",
+              "secondary-light": "#FFDF98",
+              surface: "#FBF9F5",
+              "surface-low": "#F4EFEA",
+              "surface-card": "#FFFFFF",
+              "on-surface": "#081C36",
+              "on-surface-variant": "#424750",
+              "border-subtle": "#E2E8F0",
+            },
+            fontFamily: {
+              body: ["Plus Jakarta Sans", "sans-serif"],
+              serif: ["Noto Serif", "serif"],
+              amiri: ["Amiri", "serif"],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body
+    class="bg-surface text-on-surface flex flex-col min-h-screen antialiased selection:bg-secondary/20"
+  >
+    <!-- Header -->
+    <header
+      class="fixed top-0 w-full z-50 pt-safe bg-[#FBF9F5]/95 backdrop-blur-xl border-b border-border-subtle/80 transition-shadow duration-300"
+      id="site-header"
+    >
+      <div
+        class="header-inner h-20 px-4 flex items-center justify-between gap-4"
+      >
+        <!-- Menu & Logo -->
+        <div class="flex items-center gap-3 min-w-0">
+          <details class="relative group lg:hidden" id="mobile-menu">
+            <summary
+              class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-low text-primary hover:bg-slate-200/60 cursor-pointer transition-colors list-none"
+            >
+              <span class="material-symbols-outlined text-2xl">menu</span>
+            </summary>
+            <div
+              class="fixed inset-0 top-20 bg-surface/98 backdrop-blur-2xl z-40 p-6 flex flex-col justify-between overflow-y-auto"
+            >
+              <div class="flex flex-col gap-5">
+                <div
+                  class="flex items-center justify-between pb-3 border-b border-border-subtle"
+                >
+                  <div class="flex flex-col">
+                    <span class="font-serif text-lg font-bold text-primary"
+                      >Falco Services</span
+                    >
+                    <span
+                      class="font-amiri text-xs text-secondary font-bold uppercase tracking-wider"
+                      >فالكو سيرفيسز · حلول متكاملة للأعمال</span
+                    >
+                  </div>
+                  <span
+                    class="text-[11px] px-2.5 py-1 rounded bg-secondary-light text-[#5A4300] font-bold tracking-wide uppercase"
+                    >Prototype</span
+                  >
+                </div>
+                <nav class="flex flex-col gap-1.5 text-sm font-semibold">
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary"
+                    href="#"
+                    ><span class="material-symbols-outlined text-xl">home</span
+                    ><span>Home</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#field-reports"
+                    ><span class="material-symbols-outlined text-xl"
+                      >videocam</span
+                    ><span>Field Video &amp; Proof</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#packages-section"
+                    ><span class="material-symbols-outlined text-xl">stars</span
+                    ><span>Umrah Packages</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#guarantee-section"
+                    ><span class="material-symbols-outlined text-xl"
+                      >verified_user</span
+                    ><span>Service Commitments</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#ground-services"
+                    ><span class="material-symbols-outlined text-xl"
+                      >directions_bus</span
+                    ><span>Ground Services</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#b2b-section"
+                    ><span class="material-symbols-outlined text-xl"
+                      >corporate_fare</span
+                    ><span>Travel Agency B2B Desk</span></a
+                  >
+                  <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-low hover:text-primary transition-colors"
+                    href="#footer-contact"
+                    ><span class="material-symbols-outlined text-xl">call</span
+                    ><span>24/7 Saudi Dispatch</span></a
+                  >
+                </nav>
+              </div>
+              <div
+                class="pt-4 border-t border-border-subtle flex items-center justify-between text-xs text-on-surface-variant"
+              >
+                <span>Saudi Operations Hotline</span>
+                <span class="font-bold text-primary">+966 12 555 0192</span>
+              </div>
+            </div>
+          </details>
+          <a
+            aria-label="Falco Services home"
+            class="flex items-center gap-2 min-w-0"
+            href="#"
+          >
+            <img
+              alt="Falco Services Logo"
+              class="h-14 w-14 rounded-xl object-cover bg-white shrink-0"
+              src="image.png"
+            />
+            <span class="hidden sm:flex flex-col leading-none">
+              <span class="font-serif text-base font-bold text-primary"
+                >Falco Services</span
+              >
+              <span
+                class="font-amiri text-xs text-secondary font-bold mt-1"
+                dir="rtl"
+                >فالكو سيرفيسز</span
+              >
+            </span>
+          </a>
+        </div>
+        <nav
+          aria-label="Primary navigation"
+          class="hidden lg:flex items-center gap-6 text-xs font-bold text-on-surface-variant"
+        >
+          <a
+            class="hover:text-primary transition-colors"
+            href="#packages-section"
+            >Packages</a
+          >
+          <a
+            class="hover:text-primary transition-colors"
+            href="#ground-services"
+            >Services</a
+          >
+          <a class="hover:text-primary transition-colors" href="#field-reports"
+            >Our approach</a
+          >
+          <a class="hover:text-primary transition-colors" href="#b2b-section"
+            >For agencies</a
+          >
+          <a class="hover:text-primary transition-colors" href="#quote-section"
+            >Get a quote</a
+          >
+        </nav>
+        <!-- Action badges & Quick chat -->
+        <div class="flex shrink-0 items-center gap-2">
+          <div
+            aria-label="Language selector"
+            class="flex items-center bg-surface-low rounded-full p-0.5 border border-border-subtle"
+          >
+            <button
+              aria-pressed="true"
+              class="px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-white"
+              id="lang-en"
+              type="button"
+            >
+              EN
+            </button>
+            <button
+              aria-pressed="false"
+              class="px-2 py-0.5 rounded-full text-xs font-medium text-on-surface-variant"
+              id="lang-ar"
+              type="button"
+            >
+              العربية
+            </button>
+          </div>
+          <a
+            aria-label="WhatsApp Hotline"
+            class="relative w-10 h-10 flex items-center justify-center rounded-full bg-surface-low text-primary hover:bg-slate-200 transition-colors border border-border-subtle"
+            href="https://wa.me/"
+          >
+            <span class="material-symbols-outlined text-xl text-primary"
+              >chat</span
+            >
+            <span
+              class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface animate-pulse"
+            ></span>
+          </a>
+        </div>
+      </div>
+    </header>
+    <!-- Main Content Container -->
+    <main class="flex flex-col relative w-full pt-20 pb-28 md:pb-0 bg-surface">
+      <!-- 1. Hero Section with Real Pilgrimage Documentary Photo -->
+      <section
+        class="relative w-full overflow-hidden bg-primary-dark text-white"
+        id="home"
+      >
+        <div class="hero-frame relative w-full h-[560px]">
+          <img
+            alt="Pilgrims walking peacefully towards the holy sanctuary in Makkah"
+            class="hero-image w-full h-full object-cover object-center"
+            src="https://lh3.googleusercontent.com/aida/AEtjO1UzeNA4wDm_h9ZzKXXS1GVyDwCPVOmAa_Ng-Mrync_DrhPNzdMMdxXUB7HUM0VqKdx3nkraTMOX41GZUPY1l08km3A2rNmVZZylqo82gcxR4qHQ0gjss9_aLX83KaVnLGm-iUfW-7YxIMzlsRLDJbSx73TH8Y7lZewFxE4scOiBUaaZhZOiohCjwlEG0HeZaS3ZZ73QB3iNhe1XC9WTsutazXna_lpsgb1xDJ3XRbVo5mcbp6ze1kf0xCA"
+          />
+          <div
+            class="absolute inset-0 bg-gradient-to-t from-[#0A1D37] via-[#0A1D37]/75 to-transparent"
+          ></div>
+          <div
+            class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent"
+          ></div>
+          <!-- Badges on top hero -->
+          <div
+            class="hero-badges absolute top-4 flex items-center justify-between z-10 gap-2"
+          >
+            <div
+              class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1D37]/90 backdrop-blur-md text-white border border-secondary/40 shadow-sm"
+            >
+              <span class="material-symbols-outlined text-xs text-secondary"
+                >location_on</span
+              >
+              <span
+                class="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-secondary-light"
+                >Saudi pilgrimage support</span
+              >
+            </div>
+            <div
+              class="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white text-[11px] font-semibold backdrop-blur-md"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+              <span>24/7 SUPPORT CONCEPT</span>
+            </div>
+          </div>
+          <!-- Hero Content Overlay -->
+          <div
+            class="hero-content absolute bottom-0 p-5 flex flex-col justify-end"
+          >
+            <div class="hero-copy">
+              <div
+                class="inline-flex items-center gap-1.5 text-secondary font-bold text-xs tracking-widest uppercase mb-1.5"
+              >
+                <span class="material-symbols-outlined text-sm"
+                  >workspace_premium</span
+                >
+                <span>Falco Pilgrimage Operations · KSA</span>
+              </div>
+              <h1
+                class="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.08] tracking-[-0.025em]"
+              >
+                Your trusted Saudi partner for Hajj and Umrah services.
+              </h1>
+              <p
+                class="hero-ar-subtitle font-amiri text-lg md:text-2xl text-secondary-light mt-1 leading-snug"
+                dir="rtl"
+              >
+                شريككم السعودي الموثوق لخدمات الحج والعمرة
+              </p>
+              <p
+                class="text-sm md:text-lg text-slate-200 mt-3 font-normal leading-relaxed max-w-2xl"
+              >
+                Complete pilgrimage planning for travellers and international
+                agencies across Makkah, Madinah and Jeddah—from arrival to the
+                final transfer.
+              </p>
+              <!-- Dual Prominent Persona Buttons -->
+              <div
+                class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-6 max-w-xl"
+              >
+                <a
+                  class="py-3.5 px-4 rounded-lg bg-primary hover:bg-[#115293] text-white text-sm font-bold text-center flex items-center justify-center gap-1.5 shadow-md border border-white/20 active:scale-[0.98] transition-transform"
+                  href="#packages-section"
+                >
+                  <span class="material-symbols-outlined text-base"
+                    >person</span
+                  >
+                  <span>I'm a Pilgrim</span>
+                </a>
+                <a
+                  class="py-3.5 px-4 rounded-lg bg-secondary hover:bg-[#b0881f] text-on-surface font-bold text-sm text-center flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] transition-transform"
+                  href="#b2b-section"
+                >
+                  <span class="material-symbols-outlined text-base"
+                    >apartment</span
+                  >
+                  <span>I'm a Travel Agency</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 2. Verified Metric Baseline Strip -->
+      <section
+        class="site-section w-full bg-surface-low px-4 py-6 border-b border-border-subtle"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <span
+            class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider"
+            >Sample service profile</span
+          >
+          <span
+            class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold"
+            >Prototype figures</span
+          >
+        </div>
+        <div class="metrics-grid grid grid-cols-2 gap-2.5">
+          <div
+            class="interactive-card p-3.5 rounded-xl bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-serif text-xl font-bold text-primary"
+                >12,500+</span
+              >
+              <span class="material-symbols-outlined text-secondary text-xl"
+                >groups</span
+              >
+            </div>
+            <span class="text-xs text-on-surface-variant font-medium mt-1"
+              >Pilgrims Hosted</span
+            >
+          </div>
+          <div
+            class="interactive-card p-3.5 rounded-xl bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-serif text-xl font-bold text-primary">28+</span>
+              <span class="material-symbols-outlined text-secondary text-xl"
+                >handshake</span
+              >
+            </div>
+            <span class="text-xs text-on-surface-variant font-medium mt-1"
+              >Global Agency Partners</span
+            >
+          </div>
+          <div
+            class="interactive-card p-3.5 rounded-xl bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-serif text-xl font-bold text-primary"
+                >24/7</span
+              >
+              <span class="material-symbols-outlined text-secondary text-xl"
+                >support_agent</span
+              >
+            </div>
+            <span class="text-xs text-on-surface-variant font-medium mt-1"
+              >Saudi On-Ground Support</span
+            >
+          </div>
+          <div
+            class="interactive-card p-3.5 rounded-xl bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-serif text-xl font-bold text-primary"
+                >3 Active Hubs</span
+              >
+              <span class="material-symbols-outlined text-secondary text-xl"
+                >hub</span
+              >
+            </div>
+            <span class="text-xs text-on-surface-variant font-medium mt-1"
+              >Makkah, Madinah, Jeddah</span
+            >
+          </div>
+        </div>
+      </section>
+      <!-- 3. NEW HIGH-CREDIBILITY SECTION: On-the-Ground Reality & Video Field Reports -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-16 bg-surface"
+        id="field-reports"
+      >
+        <div class="mb-4">
+          <div
+            class="flex items-center gap-1.5 text-secondary font-bold text-xs uppercase tracking-wider mb-1"
+          >
+            <span class="material-symbols-outlined text-base"
+              >emergency_recording</span
+            >
+            <span>Inside the journey</span>
+          </div>
+          <h2 class="font-serif text-2xl md:text-4xl font-bold text-primary">
+            A closer look at the guest experience
+          </h2>
+          <p
+            class="font-amiri text-base font-bold text-secondary mt-0.5"
+            dir="rtl"
+          >
+            شاهد عملياتنا على أرض الواقع
+          </p>
+          <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+            Prototype imagery showing how airport reception, guided visits,
+            transport, and family stays could be presented once Falco has
+            original media.
+          </p>
+        </div>
+        <!-- Video Feature Card (Main Ground Dispatch Reel) -->
+        <div
+          class="rounded-xl overflow-hidden bg-primary-dark text-white border border-secondary/30 shadow-md mb-5"
+        >
+          <div class="relative w-full h-56 group cursor-pointer">
+            <img
+              alt="Ground Dispatch Video"
+              class="w-full h-56 object-cover rounded-xl"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaj3WuPv2qI0ggmfMWgd4kiKyMjshzCIxj2__Xu1cehst_gBgN5GRx9evN_59VquIihhtI-2wYB6P3h6TVajIj9GBsfSNMjcqQfwVf4lwgc7RtuVG_ClYUa8AU2n-vJs-rYSCfX8-LxZ5sTB7YsKbSLGaXdSwZogd0LOuKYtu7_JtbdsZu1GFbUXpXnzzPyOjc6DTB6RVPTcZQ-CEKoSA7M81yFLRnPp58RytKuHxovLpUKZmn7Vw8"
+            />
+            <!-- Pulsing Play Button Overlay -->
+            <div
+              class="absolute inset-0 bg-black/35 flex items-center justify-center"
+            >
+              <div class="relative flex items-center justify-center">
+                <span
+                  class="absolute w-16 h-16 rounded-full bg-secondary/40 animate-ping"
+                ></span>
+                <button
+                  aria-label="Play sample operations reel"
+                  class="w-14 h-14 rounded-full bg-secondary text-on-surface flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 z-10"
+                  id="field-play"
+                  type="button"
+                >
+                  <span
+                    class="material-symbols-outlined text-3xl font-bold text-[#0A1D37] ml-0.5"
+                    >play_arrow</span
+                  >
+                </button>
+              </div>
+            </div>
+            <!-- Badges inside Video -->
+            <div
+              class="absolute top-3 left-3 px-2 py-0.5 rounded bg-black/75 backdrop-blur-sm text-[11px] font-bold text-white flex items-center gap-1 border border-white/20"
+            >
+              <span
+                class="w-2 h-2 rounded-full bg-red-500 animate-pulse"
+              ></span>
+              <span>CONCEPT REEL</span>
+            </div>
+            <div
+              class="absolute top-3 right-3 px-2 py-0.5 rounded bg-primary/90 backdrop-blur-sm text-[11px] font-bold text-white"
+            >
+              02:14 HD
+            </div>
+          </div>
+          <div class="p-4 bg-primary-dark">
+            <h3 class="font-serif text-sm font-bold text-white leading-snug">
+              Preview: the Falco arrival-to-hotel service story
+            </h3>
+            <p class="text-xs text-[#D4E3FF] mt-1.5 leading-relaxed">
+              This placeholder should later be replaced with real Falco footage
+              from airport reception, transfers, hotel check-in, and guest
+              support.
+            </p>
+            <div
+              class="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-[#FFDF98]"
+            >
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-xs">pin_drop</span>
+                <span>Jeddah–Makkah Highway</span>
+              </span>
+              <span class="font-semibold">Prototype media</span>
+            </div>
+          </div>
+        </div>
+        <!-- Field Photography Proof Grid (3 Cards) -->
+        <div class="field-grid flex flex-col gap-4">
+          <!-- Card A: Airport Arrival Team -->
+          <div
+            class="rounded-xl overflow-hidden bg-surface-card border border-border-subtle shadow-sm flex flex-col"
+          >
+            <div class="relative w-full h-44">
+              <img
+                alt="Airport Arrival Team"
+                class="w-full h-44 object-cover rounded-lg"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDf9GDO9ZbJLTI2766OqHz9QuzWLHsFmpMvmB41SrZ6IbKQhWW-uHnSa1dyg0OJx5pNZ_ULwGL6c10iYGxkb0zBeH2z7P1fVDPk6eGB73dtLMKKpKhiykggHZt9BU98lvQUBOoQALxKJGOf7zy7M781bRp-tL8iacRWsHEBMIgLp93Yyv5WqwUeWefkJVKnapuuMkuoSH1WHElAaRYFxiE9q-nGHBjK_Hw9e0LuW628wfRBFJZOpH4t"
+              />
+              <div
+                class="absolute top-2.5 left-2.5 px-2.5 py-1 rounded bg-primary-dark/85 backdrop-blur-md text-emerald-300 text-[10px] font-bold uppercase tracking-wider border border-emerald-400/30 flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-xs text-emerald-400"
+                  >task_alt</span
+                >
+                <span>SAMPLE ARRIVAL SERVICE</span>
+              </div>
+              <div
+                class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-white text-[10px]"
+              >
+                KAIA Terminal 1 · Hall 4
+              </div>
+            </div>
+            <div class="p-3.5">
+              <h3 class="font-serif text-base font-bold text-primary">
+                Dedicated Airport Welcome Team
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Show the Falco welcome process here with original team
+                photography, clear meeting-point instructions, and assistance
+                options.
+              </p>
+            </div>
+          </div>
+          <!-- Card B: Licensed Ziyarat Historical Guide -->
+          <div
+            class="rounded-xl overflow-hidden bg-surface-card border border-border-subtle shadow-sm flex flex-col"
+          >
+            <div class="relative w-full h-44">
+              <img
+                alt="Licensed Ziyarat Historical Guide"
+                class="w-full h-44 object-cover rounded-lg"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPGWZWtp2v4MTCYoQ2VVbaoWvbuX-6E_NF7QmIo1Vs2jKg5DNwL_3Kl2p3tMmT-DX-mhel0wL6TrUSdNc7uANDTGohtO7F4r9oyeUlQSSNvaIvcmw-nyh-oNoiKQgRA9NBsjO0f3e_DHQGoqlnfUs4CBxeoedlrqTl7L-3ZrR-EmP3aQyvva5ak4VHTOMl11xEwu8jm1Hl6GHRQpdQR8qP7Dr0dQwQHuhmmnTTdNhsv5fmeqH08w92"
+              />
+              <div
+                class="absolute top-2.5 left-2.5 px-2.5 py-1 rounded bg-primary-dark/85 backdrop-blur-md text-secondary-light text-[10px] font-bold uppercase tracking-wider border border-secondary/40 flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-xs text-secondary"
+                  >verified</span
+                >
+                <span>GUIDED ZIYARAT CONCEPT</span>
+              </div>
+              <div
+                class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-white text-[10px]"
+              >
+                Mount Uhud &amp; Quba · Madinah
+              </div>
+            </div>
+            <div class="p-3.5">
+              <h3 class="font-serif text-base font-bold text-primary">
+                Scholarly Historical Ziyarat
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Present guide languages, itinerary details, accessibility
+                information, and guide credentials only after they are
+                confirmed.
+              </p>
+            </div>
+          </div>
+          <!-- Card C: Real Hotel Suite Haram View -->
+          <div
+            class="rounded-xl overflow-hidden bg-surface-card border border-border-subtle shadow-sm flex flex-col"
+          >
+            <div class="relative w-full h-44">
+              <img
+                alt="Real Hotel Suite Haram View"
+                class="w-full h-44 object-cover rounded-lg"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD--fXAGUxRdQjiANN5S_nu7ZVfU5heSOsnDSgNj2KeQbIUfUoMS5ESikF4lcLURh_jznPX71isp8m8yaCXYr3T735L-cQOyZ8PkBg__YNVOv77NcgnGk0P_h66G2ChBoRmDg-HxjlKwh1rDoZZIhYLLjFRHd76lAtVSQB2BtuJcnIInIyJQTMiBUdmlQAtcNrx1I4HiKxb9dlzhblLGJEufn2Nm9yeMTC1htS6HHS8cdh9muMXQFZ5"
+              />
+              <div
+                class="absolute top-2.5 left-2.5 px-2.5 py-1 rounded bg-primary-dark/85 backdrop-blur-md text-amber-200 text-[10px] font-bold uppercase tracking-wider border border-amber-400/40 flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-xs text-amber-300"
+                  >hotel_class</span
+                >
+                <span>SAMPLE HOTEL CATEGORY</span>
+              </div>
+              <div
+                class="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-white text-[10px]"
+              >
+                Direct Kaaba &amp; Haram View
+              </div>
+            </div>
+            <div class="p-3.5">
+              <h3 class="font-serif text-base font-bold text-primary">
+                Haram-area accommodation options
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                Replace this concept image with contracted-property photography
+                and show exact walking distance, room type, and view category.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 4. Field Transparency Guarantee Checklist -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-14 bg-surface-low border-y border-border-subtle"
+        id="guarantee-section"
+      >
+        <div class="mb-4">
+          <span
+            class="text-xs font-bold text-secondary uppercase tracking-wider"
+            >How Falco should earn trust</span
+          >
+          <h2 class="font-serif text-2xl md:text-3xl font-bold text-primary">
+            Clear service commitments
+          </h2>
+          <p class="text-sm text-on-surface-variant mt-1">
+            Four operational principles to confirm and publish before launch.
+          </p>
+        </div>
+        <div class="guarantee-grid grid grid-cols-1 gap-3">
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">handshake</span>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-primary">
+                Clear supplier relationships
+              </h4>
+              <p class="text-xs text-on-surface-variant mt-1">
+                State which services Falco manages directly and which are
+                fulfilled by approved local partners.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">pin_drop</span>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-primary">
+                Timely journey updates
+              </h4>
+              <p class="text-xs text-on-surface-variant mt-1">
+                Give travellers and group leaders practical pickup details,
+                driver contacts, and schedule updates.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl"
+                >call_quality</span
+              >
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-primary">
+                Responsive in-Kingdom support
+              </h4>
+              <p class="text-xs text-on-surface-variant mt-1">
+                Publish real support hours, escalation contacts, and languages
+                once the operating team is confirmed.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">verified</span>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-primary">
+                Practical Nusuk guidance
+              </h4>
+              <p class="text-xs text-on-surface-variant mt-1">
+                Explain the official booking steps clearly without promising
+                access to government-controlled appointment slots.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 5. Featured Umrah Packages with Authentic Photography -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-16"
+        id="packages-section"
+      >
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <span
+              class="text-xs font-bold text-secondary uppercase tracking-wider"
+              >Curated Pilgrimages</span
+            >
+            <h2 class="font-serif text-2xl md:text-4xl font-bold text-primary">
+              Featured Umrah Packages
+            </h2>
+          </div>
+          <span
+            class="text-[11px] px-2 py-0.5 rounded bg-surface-low text-on-surface-variant font-medium"
+            >Sample packages</span
+          >
+        </div>
+        <div class="package-grid flex flex-col gap-4">
+          <!-- Package 1: Family Comfort (Highlighted Most Popular) -->
+          <div
+            class="interactive-card rounded-xl overflow-hidden bg-surface-card border-2 border-secondary/50 flex flex-col relative"
+          >
+            <div
+              class="absolute top-2.5 right-2.5 z-10 px-2.5 py-0.5 rounded-full bg-secondary text-on-surface text-[11px] font-bold shadow flex items-center gap-1"
+            >
+              <span class="material-symbols-outlined text-xs">star</span>
+              <span>Most Popular</span>
+            </div>
+            <div class="relative w-full h-44">
+              <img
+                alt="Family Comfort Suite"
+                class="w-full h-44 object-cover rounded-t-xl"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuD--fXAGUxRdQjiANN5S_nu7ZVfU5heSOsnDSgNj2KeQbIUfUoMS5ESikF4lcLURh_jznPX71isp8m8yaCXYr3T735L-cQOyZ8PkBg__YNVOv77NcgnGk0P_h66G2ChBoRmDg-HxjlKwh1rDoZZIhYLLjFRHd76lAtVSQB2BtuJcnIInIyJQTMiBUdmlQAtcNrx1I4HiKxb9dlzhblLGJEufn2Nm9yeMTC1htS6HHS8cdh9muMXQFZ5"
+              />
+              <div
+                class="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded bg-[#0A1D37]/90 backdrop-blur-md text-white text-[11px] font-bold"
+              >
+                10 Nights Total · 6N Makkah · 4N Madinah
+              </div>
+            </div>
+            <div class="p-4 flex flex-col gap-2.5">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h3 class="font-serif text-lg font-bold text-primary">
+                    Family Comfort Package
+                  </h3>
+                  <p class="text-xs text-on-surface-variant">
+                    5-Star walkable suite with dedicated family amenities
+                  </p>
+                </div>
+                <div class="text-right shrink-0">
+                  <span
+                    class="text-[10px] uppercase font-bold text-on-surface-variant block"
+                    >From</span
+                  >
+                  <span class="font-serif text-lg font-bold text-secondary"
+                    >$1,850</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >/person</span
+                  >
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 py-1">
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Haram-area hotel</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Private GMC Yukon</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Family room request</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Nusuk Coordination</span
+                >
+              </div>
+              <div class="pt-2 flex items-center gap-2">
+                <a
+                  class="flex-1 py-2.5 px-3 rounded-lg bg-primary text-white text-xs font-bold text-center shadow-sm hover:bg-[#115293]"
+                  href="#quote-section"
+                >
+                  View Package Details
+                </a>
+                <a
+                  class="py-2.5 px-3 rounded-lg bg-surface-low text-primary text-xs font-bold text-center border border-border-subtle"
+                  href="https://wa.me/"
+                >
+                  Customize Itinerary
+                </a>
+              </div>
+            </div>
+          </div>
+          <!-- Package 2: Essential Umrah Package -->
+          <div
+            class="interactive-card rounded-xl overflow-hidden bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="relative w-full h-44">
+              <img
+                alt="Essential Ziyarat"
+                class="w-full h-44 object-cover rounded-t-xl"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPGWZWtp2v4MTCYoQ2VVbaoWvbuX-6E_NF7QmIo1Vs2jKg5DNwL_3Kl2p3tMmT-DX-mhel0wL6TrUSdNc7uANDTGohtO7F4r9oyeUlQSSNvaIvcmw-nyh-oNoiKQgRA9NBsjO0f3e_DHQGoqlnfUs4CBxeoedlrqTl7L-3ZrR-EmP3aQyvva5ak4VHTOMl11xEwu8jm1Hl6GHRQpdQR8qP7Dr0dQwQHuhmmnTTdNhsv5fmeqH08w92"
+              />
+              <div
+                class="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded bg-[#0A1D37]/90 backdrop-blur-md text-white text-[11px] font-bold"
+              >
+                7 Nights Total · 4N Makkah · 3N Madinah
+              </div>
+            </div>
+            <div class="p-4 flex flex-col gap-2.5">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h3 class="font-serif text-lg font-bold text-primary">
+                    Essential Umrah Package
+                  </h3>
+                  <p class="text-xs text-on-surface-variant">
+                    4-Star central hotel with certified historical tours
+                  </p>
+                </div>
+                <div class="text-right shrink-0">
+                  <span
+                    class="text-[10px] uppercase font-bold text-on-surface-variant block"
+                    >From</span
+                  >
+                  <span class="font-serif text-lg font-bold text-secondary"
+                    >$1,150</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >/person</span
+                  >
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 py-1">
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >4★ Central Hotel</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Haramain Fast Train</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Guided Historical Tours</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Breakfast Included</span
+                >
+              </div>
+              <div class="pt-2 flex items-center gap-2">
+                <a
+                  class="flex-1 py-2.5 px-3 rounded-lg bg-primary text-white text-xs font-bold text-center shadow-sm hover:bg-[#115293]"
+                  href="#quote-section"
+                >
+                  View Package Details
+                </a>
+                <a
+                  class="py-2.5 px-3 rounded-lg bg-surface-low text-primary text-xs font-bold text-center border border-border-subtle"
+                  href="https://wa.me/"
+                >
+                  Customize
+                </a>
+              </div>
+            </div>
+          </div>
+          <!-- Package 3: Premium Haramain Package -->
+          <div
+            class="interactive-card rounded-xl overflow-hidden bg-surface-card border border-border-subtle flex flex-col"
+          >
+            <div class="relative w-full h-44">
+              <img
+                alt="Pilgrims at Holy Haram"
+                class="w-full h-44 object-cover rounded-t-xl"
+                src="https://lh3.googleusercontent.com/aida/AEtjO1UzeNA4wDm_h9ZzKXXS1GVyDwCPVOmAa_Ng-Mrync_DrhPNzdMMdxXUB7HUM0VqKdx3nkraTMOX41GZUPY1l08km3A2rNmVZZylqo82gcxR4qHQ0gjss9_aLX83KaVnLGm-iUfW-7YxIMzlsRLDJbSx73TH8Y7lZewFxE4scOiBUaaZhZOiohCjwlEG0HeZaS3ZZ73QB3iNhe1XC9WTsutazXna_lpsgb1xDJ3XRbVo5mcbp6ze1kf0xCA"
+              />
+              <div
+                class="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded bg-[#0A1D37]/90 backdrop-blur-md text-white text-[11px] font-bold"
+              >
+                12 Nights Total · 7N Makkah · 5N Madinah
+              </div>
+            </div>
+            <div class="p-4 flex flex-col gap-2.5">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h3 class="font-serif text-lg font-bold text-primary">
+                    Premium Haramain Package
+                  </h3>
+                  <p class="text-xs text-on-surface-variant">
+                    Premium Haram-area stay with executive transit
+                  </p>
+                </div>
+                <div class="text-right shrink-0">
+                  <span
+                    class="text-[10px] uppercase font-bold text-on-surface-variant block"
+                    >From</span
+                  >
+                  <span class="font-serif text-lg font-bold text-secondary"
+                    >$2,950</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >/person</span
+                  >
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 py-1">
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >5★ hotel request</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >Haramain First Class</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >VIP Fast-Track</span
+                >
+                <span
+                  class="px-2 py-0.5 rounded bg-surface-low text-on-surface text-[11px] font-medium border border-border-subtle"
+                  >View category request</span
+                >
+              </div>
+              <div class="pt-2 flex items-center gap-2">
+                <a
+                  class="flex-1 py-2.5 px-3 rounded-lg bg-primary text-white text-xs font-bold text-center shadow-sm hover:bg-[#115293]"
+                  href="#quote-section"
+                >
+                  View Package Details
+                </a>
+                <a
+                  class="py-2.5 px-3 rounded-lg bg-surface-low text-primary text-xs font-bold text-center border border-border-subtle"
+                  href="https://wa.me/"
+                >
+                  Customize
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 6. Comprehensive Ground Services Grid -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-16 bg-surface-low"
+        id="ground-services"
+      >
+        <div class="mb-4">
+          <span
+            class="text-xs font-bold text-secondary uppercase tracking-wider"
+            >End-to-End Infrastructure</span
+          >
+          <h2 class="font-serif text-2xl md:text-4xl font-bold text-primary">
+            Comprehensive Saudi Ground Services
+          </h2>
+          <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+            Operational infrastructure managed directly in Makkah, Madinah, and
+            Jeddah.
+          </p>
+        </div>
+        <div class="service-grid grid grid-cols-1 gap-3">
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-surface-low text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">train</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-primary">
+                Haramain High-Speed Rail &amp; Fleet Transfers
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                Rail planning plus private cars, vans, and group coaches
+                selected around party size and itinerary.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-surface-low text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">flight_land</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-primary">
+                Airport welcome &amp; transfer coordination
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                Planned meeting points, flight monitoring, arrival assistance,
+                and onward transfers from Jeddah or Madinah.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-surface-low text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">hotel</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-primary">
+                Hotel sourcing for every service level
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                Economy through premium accommodation requests, with room
+                configuration and walking distance stated clearly.
+              </p>
+            </div>
+          </div>
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex items-start gap-3"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-surface-low text-primary flex items-center justify-center shrink-0"
+            >
+              <span class="material-symbols-outlined text-xl">badge</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-primary">
+                Visa information &amp; Nusuk journey guidance
+              </h3>
+              <p class="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                Clear requirements, document preparation, and guidance through
+                official channels according to current regulations.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- 7. B2B Institutional Spotlight -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-16 bg-primary-dark text-white"
+        id="b2b-section"
+      >
+        <div class="b2b-layout">
+          <div class="mb-4">
+            <div
+              class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-secondary text-on-surface font-bold text-[11px] uppercase mb-2"
+            >
+              Agency partner desk
+            </div>
+            <h2 class="font-serif text-2xl md:text-4xl font-bold text-white">
+              Your Saudi ground-handling team
+            </h2>
+            <p class="text-sm text-[#D4E3FF] mt-2 leading-relaxed max-w-xl">
+              Build your client experience while Falco coordinates the agreed
+              Saudi services behind the scenes—from room requests to final
+              departure.
+            </p>
+          </div>
+          <div class="b2b-benefits grid grid-cols-1 gap-2.5 mb-4">
+            <div
+              class="p-3 rounded-lg bg-primary/40 border border-primary flex items-start gap-2.5"
+            >
+              <span
+                class="material-symbols-outlined text-secondary text-xl mt-0.5"
+                >verified_user</span
+              >
+              <div>
+                <h4 class="text-sm font-bold text-white">
+                  White-label guest experience
+                </h4>
+                <p class="text-xs text-[#D4E3FF] mt-1">
+                  Optional agency branding on welcome signs, trip documents, and
+                  pilgrim kits.
+                </p>
+              </div>
+            </div>
+            <div
+              class="p-3 rounded-lg bg-primary/40 border border-primary flex items-start gap-2.5"
+            >
+              <span
+                class="material-symbols-outlined text-secondary text-xl mt-0.5"
+                >calendar_month</span
+              >
+              <div>
+                <h4 class="text-sm font-bold text-white">
+                  Group planning and quotations
+                </h4>
+                <p class="text-xs text-[#D4E3FF] mt-1">
+                  One service request covering rooms, transfers, meals, Ziyarat,
+                  and local support.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="b2b-actions flex flex-col sm:flex-row gap-2">
+            <a
+              class="py-3 px-4 rounded-lg bg-secondary text-on-surface text-xs font-bold text-center shadow"
+              href="#quote-section"
+            >
+              Apply for B2B Agency Partnership
+            </a>
+            <a
+              class="py-3 px-4 rounded-lg bg-primary text-white text-xs font-bold text-center border border-white/20"
+              href="#quote-section"
+            >
+              Request Group Pricing
+            </a>
+          </div>
+        </div>
+      </section>
+      <!-- 8. Sample Customer Testimonials -->
+      <section class="site-section w-full px-4 py-10 md:py-16 bg-surface">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span
+              class="text-xs font-bold text-secondary uppercase tracking-wider"
+              >Experience stories</span
+            >
+            <h2 class="font-serif text-2xl md:text-4xl font-bold text-primary">
+              Voices of Pilgrims &amp; Partners
+            </h2>
+          </div>
+          <span
+            class="text-[10px] px-2 py-0.5 rounded bg-secondary-light text-[#5A4300] font-bold"
+            >Prototype copy</span
+          >
+        </div>
+        <div class="testimonial-grid flex flex-col gap-3">
+          <!-- Testimonial 1 -->
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex flex-col gap-2"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center"
+                >
+                  AF
+                </div>
+                <div>
+                  <span class="text-xs font-bold text-primary block"
+                    >Al-Faruq Family</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >London, United Kingdom</span
+                  >
+                </div>
+              </div>
+              <span
+                class="px-2 py-0.5 rounded bg-surface-low text-on-surface-variant text-[10px] font-bold border border-border-subtle"
+              >
+                Sample profile
+              </span>
+            </div>
+            <p class="text-xs text-on-surface italic leading-relaxed">
+              “The airport meeting point was clear, the family transfer was
+              comfortable, and we always knew who to contact.”
+            </p>
+          </div>
+          <!-- Testimonial 2 -->
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex flex-col gap-2"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-8 h-8 rounded-full bg-secondary/20 text-secondary font-bold text-xs flex items-center justify-center"
+                >
+                  NT
+                </div>
+                <div>
+                  <span class="text-xs font-bold text-primary block"
+                    >Nusantara Travel Services</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >Jakarta, Indonesia</span
+                  >
+                </div>
+              </div>
+              <span
+                class="px-2 py-0.5 rounded bg-secondary-light text-[#5A4300] text-[10px] font-bold"
+              >
+                Sample agency
+              </span>
+            </div>
+            <p class="text-xs text-on-surface italic leading-relaxed">
+              “A single Saudi contact for hotels, group transport, and arrival
+              changes would make our operations much easier.”
+            </p>
+          </div>
+          <!-- Testimonial 3 -->
+          <div
+            class="interactive-card p-4 rounded-xl bg-surface-card border border-border-subtle flex flex-col gap-2"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center"
+                >
+                  TM
+                </div>
+                <div>
+                  <span class="text-xs font-bold text-primary block"
+                    >Tariq &amp; Layla Mansoor</span
+                  >
+                  <span class="text-[10px] text-on-surface-variant"
+                    >Algiers, Algeria</span
+                  >
+                </div>
+              </div>
+              <span
+                class="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold"
+              >
+                Sample traveller
+              </span>
+            </div>
+            <p class="text-xs text-on-surface italic leading-relaxed">
+              “The itinerary gave us enough time, accessible transport, and
+              guidance without making the journey feel rushed.”
+            </p>
+          </div>
+        </div>
+      </section>
+      <!-- 9. Interactive FAQ -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-14 bg-surface-low border-t border-border-subtle"
+      >
+        <div class="mb-4">
+          <span
+            class="text-xs font-bold text-secondary uppercase tracking-wider"
+            >Pilgrim Assistance</span
+          >
+          <h2 class="font-serif text-2xl md:text-3xl font-bold text-primary">
+            Frequently Asked Questions
+          </h2>
+        </div>
+        <div class="faq-list flex flex-col gap-2">
+          <details
+            class="group rounded-xl bg-surface-card p-3 shadow-sm border border-border-subtle"
+          >
+            <summary
+              class="flex items-center justify-between text-xs font-bold text-primary cursor-pointer list-none"
+            >
+              <span
+                >Where will Falco’s licence and registration details
+                appear?</span
+              >
+              <span
+                class="material-symbols-outlined text-sm text-primary group-open:rotate-180 transition-transform"
+                >expand_more</span
+              >
+            </summary>
+            <p class="text-[11px] text-on-surface-variant mt-2 leading-relaxed">
+              The final website should publish the exact verified legal entity,
+              commercial registration, tourism or Umrah permissions, and links
+              to official records. This prototype intentionally makes no licence
+              claim.
+            </p>
+          </details>
+          <details
+            class="group rounded-xl bg-surface-card p-3 shadow-sm border border-border-subtle"
+          >
+            <summary
+              class="flex items-center justify-between text-xs font-bold text-primary cursor-pointer list-none"
+            >
+              <span
+                >How are airport pickups handled at Jeddah Airport (KAIA)?</span
+              >
+              <span
+                class="material-symbols-outlined text-sm text-primary group-open:rotate-180 transition-transform"
+                >expand_more</span
+              >
+            </summary>
+            <p class="text-[11px] text-on-surface-variant mt-2 leading-relaxed">
+              The final process will show the confirmed meeting point,
+              coordinator contact, vehicle details, and what to do if a flight
+              or baggage collection is delayed.
+            </p>
+          </details>
+          <details
+            class="group rounded-xl bg-surface-card p-3 shadow-sm border border-border-subtle"
+          >
+            <summary
+              class="flex items-center justify-between text-xs font-bold text-primary cursor-pointer list-none"
+            >
+              <span
+                >Can you accommodate bespoke family or corporate groups?</span
+              >
+              <span
+                class="material-symbols-outlined text-sm text-primary group-open:rotate-180 transition-transform"
+                >expand_more</span
+              >
+            </summary>
+            <p class="text-[11px] text-on-surface-variant mt-2 leading-relaxed">
+              The planned quotation flow supports families, private groups, and
+              agency series, including room preferences, mobility assistance,
+              vehicle type, meals, and guide language.
+            </p>
+          </details>
+        </div>
+      </section>
+      <!-- 10. Quote Request -->
+      <section
+        class="site-section w-full px-4 py-10 md:py-16 bg-surface"
+        id="quote-section"
+      >
+        <div class="quote-grid grid grid-cols-1 gap-8 md:gap-14 items-start">
+          <div>
+            <span
+              class="text-xs font-bold text-secondary uppercase tracking-wider"
+              >Plan the next journey</span
+            >
+            <h2
+              class="font-serif text-2xl md:text-4xl font-bold text-primary mt-1"
+            >
+              Tell us what you need on the ground
+            </h2>
+            <p class="text-sm text-on-surface-variant mt-3 leading-relaxed">
+              This prototype form supports both direct pilgrims and
+              international travel agencies. Connect it to Falco’s CRM or email
+              workflow before launch.
+            </p>
+            <div
+              class="mt-6 p-4 rounded-xl bg-surface-low border border-border-subtle"
+            >
+              <p class="text-xs font-bold text-primary">What happens next</p>
+              <ol class="mt-3 space-y-2 text-xs text-on-surface-variant">
+                <li class="flex gap-2">
+                  <span class="font-bold text-secondary">01</span
+                  ><span
+                    >Falco reviews dates, group size, and requested
+                    services.</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="font-bold text-secondary">02</span
+                  ><span
+                    >The team confirms availability and any missing
+                    details.</span
+                  >
+                </li>
+                <li class="flex gap-2">
+                  <span class="font-bold text-secondary">03</span
+                  ><span
+                    >You receive one tailored proposal for the agreed Saudi
+                    services.</span
+                  >
+                </li>
+              </ol>
+            </div>
+          </div>
+          <form
+            class="p-5 md:p-7 rounded-2xl bg-white border border-border-subtle"
+            id="quote-form"
+          >
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                I am enquiring as
+                <select
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="audience"
+                  required
+                >
+                  <option value="">Choose one</option>
+                  <option>Pilgrim or family</option>
+                  <option>Group organizer</option>
+                  <option>Travel agency</option>
+                </select>
+              </label>
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                Full name
+                <input
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="name"
+                  placeholder="Your name"
+                  required
+                  type="text"
+                />
+              </label>
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                Email
+                <input
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="email"
+                  placeholder="name@example.com"
+                  required
+                  type="email"
+                />
+              </label>
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                WhatsApp number
+                <input
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="phone"
+                  placeholder="+966 ..."
+                  type="tel"
+                />
+              </label>
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                Expected arrival
+                <input
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="arrival"
+                  type="date"
+                />
+              </label>
+              <label
+                class="flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                Travellers
+                <input
+                  class="rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  min="1"
+                  name="travellers"
+                  placeholder="e.g. 24"
+                  type="number"
+                />
+              </label>
+              <label
+                class="sm:col-span-2 flex flex-col gap-1.5 text-xs font-bold text-primary"
+              >
+                Services and requirements
+                <textarea
+                  class="min-h-28 rounded-lg border-border-subtle bg-surface text-sm font-normal text-on-surface focus:border-secondary focus:ring-secondary"
+                  name="requirements"
+                  placeholder="Hotels, transfers, Ziyarat, meals, mobility assistance, guide language..."
+                  required
+                ></textarea>
+              </label>
+            </div>
+            <div class="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+              <button
+                class="inline-flex justify-center items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-[#115293] active:scale-[.98]"
+                type="submit"
+              >
+                <span class="material-symbols-outlined text-lg">send</span>
+                Request a tailored quote
+              </button>
+              <p class="text-[11px] text-on-surface-variant">
+                Demo only—no information is sent yet.
+              </p>
+            </div>
+            <div
+              aria-live="polite"
+              class="hidden mt-4 rounded-lg bg-primary/10 p-3 text-xs font-semibold text-primary"
+              id="form-success"
+              role="status"
+            >
+              Demo request received. Connect this form to a real CRM or email
+              service before launch.
+            </div>
+          </form>
+        </div>
+      </section>
+      <!-- 11. Full Dark Navy Footer -->
+      <footer
+        class="site-footer w-full px-4 pt-10 pb-5 bg-primary-dark text-white border-t border-secondary/20"
+        id="footer-company"
+      >
+        <div
+          class="flex flex-col items-center text-center pb-6 border-b border-white/10"
+        >
+          <img
+            alt="Falco Services Logo"
+            class="h-24 w-24 rounded-2xl object-cover bg-white mb-3"
+            src="image.png"
+          />
+          <div class="flex flex-col items-center">
+            <span class="font-amiri font-bold text-lg text-white tracking-wide"
+              >فالكو سيرفيسز</span
+            >
+            <span class="text-xs text-secondary font-semibold tracking-wider"
+              >حلول متكاملة للأعمال · Integrated Business Solutions</span
+            >
+          </div>
+          <p
+            class="text-xs text-[#D4E3FF] mt-2 max-w-xs text-center leading-relaxed"
+          >
+            A proposed digital home for Falco’s pilgrimage services across
+            Makkah, Madinah, and Jeddah.
+          </p>
+        </div>
+        <!-- Quick Contact & Saudi Ground Support -->
+        <div
+          class="p-4 rounded-xl bg-[#08162A] border border-white/10 flex flex-col gap-2.5 my-5"
+          id="footer-contact"
+        >
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-lg"
+              >headset_mic</span
+            >
+            <h4 class="font-serif text-sm font-bold text-white">
+              Sample contact information
+            </h4>
+          </div>
+          <div class="flex flex-col gap-2 text-xs text-[#D4E3FF]">
+            <div class="flex items-start gap-2">
+              <span
+                class="material-symbols-outlined text-sm text-secondary mt-0.5"
+                >location_on</span
+              >
+              <span
+                ><strong>Saudi office:</strong> Replace with Falco’s verified
+                business address</span
+              >
+            </div>
+            <div class="flex items-start gap-2">
+              <span
+                class="material-symbols-outlined text-sm text-secondary mt-0.5"
+                >flight_takeoff</span
+              >
+              <span
+                ><strong>Service coverage:</strong> Makkah, Madinah, and
+                Jeddah</span
+              >
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-secondary"
+                >call</span
+              >
+              <span><strong>Telephone:</strong> +966 XX XXX XXXX</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-secondary"
+                >mail</span
+              >
+              <span><strong>Email:</strong> hello@example.com</span>
+            </div>
+          </div>
+          <div class="pt-2 flex items-center gap-2">
+            <a
+              class="flex-1 py-2 px-3 rounded-lg bg-primary text-white text-xs font-bold text-center border border-white/20 hover:bg-[#115293]"
+              href="https://wa.me/"
+            >
+              WhatsApp Field Desk
+            </a>
+            <a
+              class="py-2 px-3 rounded-lg bg-secondary text-on-surface text-xs font-bold text-center"
+              href="#quote-section"
+            >
+              Request a quote
+            </a>
+          </div>
+        </div>
+        <!-- Prototype Notice -->
+        <div
+          class="p-3 rounded-lg bg-[#08162A]/60 border border-white/5 text-[#D4E3FF] text-[10px] leading-relaxed mb-4"
+        >
+          <strong class="text-secondary font-semibold"
+            >Prototype notice:</strong
+          >
+          Package prices, metrics, testimonials, photographs, contact details,
+          supplier relationships, and service descriptions on this page are
+          illustrative. Replace them with verified Falco information before
+          publication.
+        </div>
+        <div
+          class="flex flex-col items-center justify-center gap-0.5 text-[#D4E3FF]/70 text-[10px] pb-2 text-center"
+        >
+          <span
+            >© 2025 Falco Services (فالكو سيرفيسز) · All Rights Reserved</span
+          >
+          <span>Website prototype · Not yet a booking platform</span>
+        </div>
+      </footer>
+    </main>
+    <!-- Sticky Bottom WhatsApp / Custom Quote Action Bar -->
+    <nav
+      aria-label="Quick actions"
+      class="md:hidden fixed bottom-0 w-full z-50 pb-safe bg-[#FBF9F5]/95 backdrop-blur-xl shadow-[0_-4px_16px_rgba(10,29,55,0.08)] border-t border-border-subtle"
+    >
+      <div class="p-3 flex items-center gap-2 max-w-md mx-auto">
+        <a
+          class="flex-1 h-11 px-3 flex items-center justify-center gap-1.5 rounded-lg bg-secondary text-on-surface text-xs font-bold transition-transform active:scale-[0.98] shadow-sm"
+          href="https://wa.me/"
+        >
+          <span class="material-symbols-outlined text-lg">chat</span>
+          <span>Chat on WhatsApp</span>
+        </a>
+        <a
+          class="flex-[1.2] h-11 px-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-white text-xs font-bold transition-transform active:scale-[0.98] shadow-md border border-secondary/40"
+          href="#quote-section"
+        >
+          <span class="material-symbols-outlined text-lg text-secondary"
+            >request_quote</span
+          >
+          <span>Get a Quote</span>
+        </a>
+      </div>
+    </nav>
+    <a
+      aria-label="Chat with Falco on WhatsApp"
+      class="desktop-whatsapp hidden md:flex fixed right-6 bottom-6 z-40 items-center gap-2 rounded-full bg-secondary px-4 py-3 text-xs font-bold text-on-surface border border-white/50 transition hover:-translate-y-1"
+      href="https://wa.me/"
+    >
+      <span class="material-symbols-outlined text-lg">chat</span>
+      <span>WhatsApp</span>
+    </a>
+    <dialog
+      class="w-[min(92vw,680px)] rounded-2xl border border-border-subtle bg-surface p-0 text-on-surface"
+      id="video-dialog"
+    >
+      <div class="relative aspect-video overflow-hidden bg-primary-dark">
+        <img
+          alt="Sample pilgrimage operations video cover"
+          class="h-full w-full object-cover opacity-70"
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaj3WuPv2qI0ggmfMWgd4kiKyMjshzCIxj2__Xu1cehst_gBgN5GRx9evN_59VquIihhtI-2wYB6P3h6TVajIj9GBsfSNMjcqQfwVf4lwgc7RtuVG_ClYUa8AU2n-vJs-rYSCfX8-LxZ5sTB7YsKbSLGaXdSwZogd0LOuKYtu7_JtbdsZu1GFbUXpXnzzPyOjc6DTB6RVPTcZQ-CEKoSA7M81yFLRnPp58RytKuHxovLpUKZmn7Vw8"
+        />
+        <div
+          class="absolute inset-0 flex items-center justify-center p-6 text-center"
+        >
+          <div>
+            <span class="material-symbols-outlined text-5xl text-secondary"
+              >videocam</span
+            >
+            <p class="mt-2 font-serif text-xl font-bold text-white">
+              Falco operations reel placeholder
+            </p>
+            <p class="mt-1 text-sm text-slate-200">
+              Replace this panel with original footage before launch.
+            </p>
+          </div>
+        </div>
+        <button
+          aria-label="Close video preview"
+          class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur"
+          id="video-close"
+          type="button"
+        >
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="flex items-center justify-between gap-4 p-4">
+        <p class="text-xs text-on-surface-variant">
+          Recommended final edit: 60–90 seconds covering welcome, transport,
+          hotel check-in, and support.
+        </p>
+        <button
+          class="shrink-0 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white"
+          id="video-close-secondary"
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+    </dialog>
+    <script>
+      const arabicTranslations = {
+        "Falco Services": "فالكو سيرفيسز",
+        Prototype: "نموذج تجريبي",
+        Home: "الرئيسية",
+        "Field Video & Proof": "مشاهد من الميدان",
+        "Umrah Packages": "باقات العمرة",
+        "Service Commitments": "التزامات الخدمة",
+        "Ground Services": "الخدمات الميدانية",
+        "Travel Agency B2B Desk": "خدمات وكالات السفر",
+        "24/7 Saudi Dispatch": "دعم ميداني على مدار الساعة",
+        "Saudi Operations Hotline": "خط العمليات داخل السعودية",
+        Packages: "الباقات",
+        Services: "الخدمات",
+        "Our approach": "منهجنا",
+        "For agencies": "للوكالات",
+        "Get a quote": "اطلب عرض سعر",
+        "Saudi pilgrimage support": "دعم رحلات الحج والعمرة داخل السعودية",
+        "24/7 SUPPORT CONCEPT": "تصور لدعم على مدار الساعة",
+        "Falco Pilgrimage Operations · KSA":
+          "عمليات فالكو لخدمة ضيوف الرحمن · السعودية",
+        "Your trusted Saudi partner for Hajj and Umrah services.":
+          "شريككم السعودي الموثوق لخدمات الحج والعمرة.",
+        "Complete pilgrimage planning for travellers and international agencies across Makkah, Madinah and Jeddah—from arrival to the final transfer.":
+          "تنسيق متكامل لرحلات الأفراد والوكالات الدولية في مكة المكرمة والمدينة المنورة وجدة، من لحظة الوصول حتى آخر رحلة انتقال.",
+        "I'm a Pilgrim": "أنا حاج أو معتمر",
+        "I'm a Travel Agency": "أنا وكالة سفر",
+        "Sample service profile": "نموذج تعريفي للخدمات",
+        "Prototype figures": "أرقام توضيحية",
+        "Pilgrims Hosted": "ضيف تمت خدمته",
+        "Global Agency Partners": "شريك من وكالات السفر",
+        "Saudi On-Ground Support": "دعم ميداني داخل السعودية",
+        "3 Active Hubs": "3 مراكز تشغيل",
+        "Makkah, Madinah, Jeddah": "مكة المكرمة، المدينة المنورة، جدة",
+        "Inside the journey": "من قلب الرحلة",
+        "A closer look at the guest experience":
+          "نظرة أقرب إلى تجربة ضيوف الرحمن",
+        "Prototype imagery showing how airport reception, guided visits, transport, and family stays could be presented once Falco has original media.":
+          "صور تجريبية توضّح طريقة عرض الاستقبال في المطار والزيارات الإرشادية والنقل وإقامة العائلات إلى حين توفير مواد فالكو الأصلية.",
+        "CONCEPT REEL": "فيديو تصوري",
+        "Preview: the Falco arrival-to-hotel service story":
+          "معاينة: تجربة فالكو من الوصول حتى الفندق",
+        "This placeholder should later be replaced with real Falco footage from airport reception, transfers, hotel check-in, and guest support.":
+          "يُستبدل هذا المحتوى لاحقًا بمشاهد حقيقية لفالكو تشمل الاستقبال في المطار والنقل وتسجيل الدخول إلى الفندق ودعم الضيوف.",
+        "Jeddah–Makkah Highway": "طريق جدة–مكة",
+        "Prototype media": "محتوى تجريبي",
+        "SAMPLE ARRIVAL SERVICE": "نموذج لخدمة الاستقبال",
+        "KAIA Terminal 1 · Hall 4": "مطار جدة · الصالة 1 · القاعة 4",
+        "Dedicated Airport Welcome Team": "فريق مخصص للاستقبال في المطار",
+        "Show the Falco welcome process here with original team photography, clear meeting-point instructions, and assistance options.":
+          "اعرض هنا آلية استقبال فالكو بصور حقيقية للفريق، وتعليمات واضحة لنقطة اللقاء، وخيارات المساعدة.",
+        "GUIDED ZIYARAT CONCEPT": "تصور لخدمة الزيارات",
+        "Mount Uhud & Quba · Madinah": "جبل أحد وقباء · المدينة المنورة",
+        "Scholarly Historical Ziyarat": "زيارات تاريخية بإرشاد متخصص",
+        "Present guide languages, itinerary details, accessibility information, and guide credentials only after they are confirmed.":
+          "اعرض لغات المرشد وتفاصيل البرنامج ومعلومات سهولة الوصول ومؤهلات المرشد بعد تأكيدها.",
+        "SAMPLE HOTEL CATEGORY": "نموذج لفئة الفندق",
+        "Direct Kaaba & Haram View": "إطلالة على الكعبة والحرم",
+        "Haram-area accommodation options": "خيارات إقامة بالقرب من الحرم",
+        "Replace this concept image with contracted-property photography and show exact walking distance, room type, and view category.":
+          "استبدل هذه الصورة بصور حقيقية للفنادق المتعاقد معها، مع توضيح مسافة المشي ونوع الغرفة وفئة الإطلالة.",
+        "How Falco should earn trust": "كيف تبني فالكو الثقة",
+        "Clear service commitments": "التزامات خدمة واضحة",
+        "Four operational principles to confirm and publish before launch.":
+          "أربعة مبادئ تشغيلية يجب تأكيدها ونشرها قبل الإطلاق.",
+        "Clear supplier relationships": "علاقات واضحة مع مزودي الخدمات",
+        "State which services Falco manages directly and which are fulfilled by approved local partners.":
+          "وضّح الخدمات التي تديرها فالكو مباشرة والخدمات التي ينفذها شركاء محليون معتمدون.",
+        "Timely journey updates": "تحديثات الرحلة في الوقت المناسب",
+        "Give travellers and group leaders practical pickup details, driver contacts, and schedule updates.":
+          "زوّد المسافرين وقادة المجموعات بتفاصيل الاستقبال وبيانات السائق وتحديثات المواعيد.",
+        "Responsive in-Kingdom support": "دعم سريع داخل المملكة",
+        "Publish real support hours, escalation contacts, and languages once the operating team is confirmed.":
+          "انشر ساعات الدعم الفعلية وجهات التصعيد واللغات المتاحة بعد تأكيد فريق التشغيل.",
+        "Practical Nusuk guidance": "إرشاد عملي لاستخدام نسك",
+        "Explain the official booking steps clearly without promising access to government-controlled appointment slots.":
+          "اشرح خطوات الحجز الرسمية بوضوح دون ضمان مواعيد تتحكم فيها الجهات الحكومية.",
+        "Curated Pilgrimages": "رحلات مصممة بعناية",
+        "Featured Umrah Packages": "باقات العمرة المختارة",
+        "Sample packages": "باقات تجريبية",
+        "Most Popular": "الأكثر طلبًا",
+        "10 Nights Total · 6N Makkah · 4N Madinah":
+          "10 ليالٍ · 6 في مكة · 4 في المدينة",
+        "Family Comfort Package": "باقة راحة العائلة",
+        "5-Star walkable suite with dedicated family amenities":
+          "جناح خمس نجوم قريب من الحرم ومناسب للعائلات",
+        From: "ابتداءً من",
+        "/person": "للشخص",
+        "Haram-area hotel": "فندق بالقرب من الحرم",
+        "Private GMC Yukon": "سيارة GMC Yukon خاصة",
+        "Family room request": "طلب غرفة عائلية",
+        "Nusuk Coordination": "تنسيق خدمات نسك",
+        "View Package Details": "عرض تفاصيل الباقة",
+        "Customize Itinerary": "خصص برنامجك",
+        "7 Nights Total · 4N Makkah · 3N Madinah":
+          "7 ليالٍ · 4 في مكة · 3 في المدينة",
+        "Essential Umrah Package": "باقة العمرة الأساسية",
+        "4-Star central hotel with certified historical tours":
+          "فندق أربع نجوم مع جولات تاريخية منظمة",
+        "4★ Central Hotel": "فندق مركزي 4 نجوم",
+        "Haramain Fast Train": "قطار الحرمين السريع",
+        "Guided Historical Tours": "جولات تاريخية بإرشاد",
+        "Breakfast Included": "الإفطار مشمول",
+        Customize: "تخصيص",
+        "12 Nights Total · 7N Makkah · 5N Madinah":
+          "12 ليلة · 7 في مكة · 5 في المدينة",
+        "Premium Haramain Package": "باقة الحرمين المميزة",
+        "Premium Haram-area stay with executive transit":
+          "إقامة مميزة بالقرب من الحرم مع تنقلات تنفيذية",
+        "5★ hotel request": "طلب فندق 5 نجوم",
+        "Haramain First Class": "الدرجة الأولى في قطار الحرمين",
+        "VIP Fast-Track": "خدمة كبار الشخصيات",
+        "View category request": "طلب فئة الإطلالة",
+        "End-to-End Infrastructure": "خدمات متكاملة من البداية للنهاية",
+        "Comprehensive Saudi Ground Services":
+          "خدمات ميدانية متكاملة داخل السعودية",
+        "Operational infrastructure managed directly in Makkah, Madinah, and Jeddah.":
+          "تنسيق تشغيلي في مكة المكرمة والمدينة المنورة وجدة.",
+        "Haramain High-Speed Rail & Fleet Transfers":
+          "قطار الحرمين وخدمات النقل البري",
+        "Rail planning plus private cars, vans, and group coaches selected around party size and itinerary.":
+          "تنسيق القطار والسيارات الخاصة والحافلات بحسب حجم المجموعة وبرنامج الرحلة.",
+        "Airport welcome & transfer coordination":
+          "الاستقبال في المطار وتنسيق التنقلات",
+        "Planned meeting points, flight monitoring, arrival assistance, and onward transfers from Jeddah or Madinah.":
+          "نقاط لقاء محددة ومتابعة للرحلات ومساعدة عند الوصول وتنقلات من جدة أو المدينة.",
+        "Hotel sourcing for every service level":
+          "خيارات فندقية لمختلف مستويات الخدمة",
+        "Economy through premium accommodation requests, with room configuration and walking distance stated clearly.":
+          "طلبات إقامة من الاقتصادية إلى الفاخرة مع توضيح توزيع الغرف ومسافة المشي.",
+        "Visa information & Nusuk journey guidance":
+          "معلومات التأشيرة وإرشادات رحلة نسك",
+        "Clear requirements, document preparation, and guidance through official channels according to current regulations.":
+          "متطلبات واضحة وتجهيز للوثائق وإرشاد عبر القنوات الرسمية وفق الأنظمة الحالية.",
+        "Agency partner desk": "مكتب شركاء وكالات السفر",
+        "Your Saudi ground-handling team": "فريقكم الميداني داخل السعودية",
+        "Build your client experience while Falco coordinates the agreed Saudi services behind the scenes—from room requests to final departure.":
+          "حافظوا على علاقتكم بعملائكم بينما تنسق فالكو الخدمات المتفق عليها داخل السعودية، من طلبات الغرف حتى المغادرة النهائية.",
+        "White-label guest experience": "خدمة باسم وهوية وكالتكم",
+        "Optional agency branding on welcome signs, trip documents, and pilgrim kits.":
+          "إمكانية وضع هوية الوكالة على لوحات الاستقبال ووثائق الرحلة وحقائب المعتمرين.",
+        "Group planning and quotations": "تخطيط المجموعات وعروض الأسعار",
+        "One service request covering rooms, transfers, meals, Ziyarat, and local support.":
+          "طلب واحد يشمل الغرف والتنقلات والوجبات والزيارات والدعم المحلي.",
+        "Apply for B2B Agency Partnership": "قدّم طلب شراكة للوكالات",
+        "Request Group Pricing": "اطلب أسعار المجموعات",
+        "Experience stories": "قصص وتجارب",
+        "Voices of Pilgrims & Partners": "آراء المعتمرين والشركاء",
+        "Prototype copy": "محتوى تجريبي",
+        "Al-Faruq Family": "عائلة الفاروق",
+        "London, United Kingdom": "لندن، المملكة المتحدة",
+        "Sample profile": "ملف تجريبي",
+        "“The airport meeting point was clear, the family transfer was comfortable, and we always knew who to contact.”":
+          "«كانت نقطة اللقاء في المطار واضحة، والتنقل العائلي مريحًا، وكنا نعرف دائمًا بمن نتواصل.»",
+        "Nusantara Travel Services": "نوسانتارا لخدمات السفر",
+        "Jakarta, Indonesia": "جاكرتا، إندونيسيا",
+        "Sample agency": "وكالة تجريبية",
+        "“A single Saudi contact for hotels, group transport, and arrival changes would make our operations much easier.”":
+          "«وجود جهة سعودية واحدة للفنادق ونقل المجموعات وتغييرات الوصول يجعل عملياتنا أسهل بكثير.»",
+        "Tariq & Layla Mansoor": "طارق وليلى منصور",
+        "Algiers, Algeria": "الجزائر العاصمة، الجزائر",
+        "Sample traveller": "مسافر تجريبي",
+        "“The itinerary gave us enough time, accessible transport, and guidance without making the journey feel rushed.”":
+          "«منحنا البرنامج وقتًا كافيًا ونقلًا ميسرًا وإرشادًا دون أن تبدو الرحلة متعجلة.»",
+        "Pilgrim Assistance": "مساعدة ضيوف الرحمن",
+        "Frequently Asked Questions": "الأسئلة الشائعة",
+        "Where will Falco’s licence and registration details appear?":
+          "أين ستظهر بيانات ترخيص فالكو وتسجيلها؟",
+        "The final website should publish the exact verified legal entity, commercial registration, tourism or Umrah permissions, and links to official records. This prototype intentionally makes no licence claim.":
+          "يجب أن ينشر الموقع النهائي الاسم القانوني المؤكد والسجل التجاري وتصاريح السياحة أو العمرة وروابط السجلات الرسمية. هذا النموذج لا يدّعي وجود ترخيص.",
+        "How are airport pickups handled at Jeddah Airport (KAIA)?":
+          "كيف يجري الاستقبال في مطار جدة؟",
+        "The final process will show the confirmed meeting point, coordinator contact, vehicle details, and what to do if a flight or baggage collection is delayed.":
+          "ستوضح الآلية النهائية نقطة اللقاء المؤكدة وبيانات المنسق وتفاصيل المركبة وما يجب فعله عند تأخر الرحلة أو الأمتعة.",
+        "Can you accommodate bespoke family or corporate groups?":
+          "هل يمكن إعداد برامج خاصة للعائلات أو مجموعات الشركات؟",
+        "The planned quotation flow supports families, private groups, and agency series, including room preferences, mobility assistance, vehicle type, meals, and guide language.":
+          "يدعم نموذج عرض السعر العائلات والمجموعات الخاصة وبرامج الوكالات، بما يشمل تفضيلات الغرف والمساعدة الحركية ونوع المركبة والوجبات ولغة المرشد.",
+        "Plan the next journey": "خطط للرحلة القادمة",
+        "Tell us what you need on the ground":
+          "أخبرنا بما تحتاجه داخل السعودية",
+        "This prototype form supports both direct pilgrims and international travel agencies. Connect it to Falco’s CRM or email workflow before launch.":
+          "يدعم هذا النموذج التجريبي الأفراد ووكالات السفر الدولية. يجب ربطه بنظام إدارة العملاء أو بريد فالكو قبل الإطلاق.",
+        "What happens next": "ماذا يحدث بعد ذلك؟",
+        "Falco reviews dates, group size, and requested services.":
+          "تراجع فالكو التواريخ وحجم المجموعة والخدمات المطلوبة.",
+        "The team confirms availability and any missing details.":
+          "يؤكد الفريق التوفر ويطلب أي تفاصيل ناقصة.",
+        "You receive one tailored proposal for the agreed Saudi services.":
+          "تحصل على عرض مخصص واحد للخدمات المتفق عليها داخل السعودية.",
+        "I am enquiring as": "أتواصل بصفتي",
+        "Choose one": "اختر",
+        "Pilgrim or family": "حاج أو معتمر أو عائلة",
+        "Group organizer": "منظم مجموعة",
+        "Travel agency": "وكالة سفر",
+        "Full name": "الاسم الكامل",
+        Email: "البريد الإلكتروني",
+        "WhatsApp number": "رقم واتساب",
+        "Expected arrival": "تاريخ الوصول المتوقع",
+        Travellers: "عدد المسافرين",
+        "Services and requirements": "الخدمات والمتطلبات",
+        "Request a tailored quote": "اطلب عرض سعر مخصص",
+        "Demo only—no information is sent yet.":
+          "نموذج تجريبي فقط—لا تُرسل أي معلومات حاليًا.",
+        "Demo request received. Connect this form to a real CRM or email service before launch.":
+          "تم استلام الطلب التجريبي. اربط النموذج بنظام إدارة عملاء أو خدمة بريد حقيقية قبل الإطلاق.",
+        "حلول متكاملة للأعمال · Integrated Business Solutions":
+          "حلول متكاملة للأعمال",
+        "A proposed digital home for Falco’s pilgrimage services across Makkah, Madinah, and Jeddah.":
+          "واجهة رقمية مقترحة لخدمات فالكو في مكة المكرمة والمدينة المنورة وجدة.",
+        "Sample contact information": "بيانات اتصال تجريبية",
+        "Saudi office:": "المكتب داخل السعودية:",
+        "Replace with Falco’s verified business address":
+          "يُستبدل بعنوان فالكو التجاري المؤكد",
+        "Service coverage:": "نطاق الخدمة:",
+        "Makkah, Madinah, and Jeddah": "مكة المكرمة والمدينة المنورة وجدة",
+        "Telephone:": "الهاتف:",
+        "WhatsApp Field Desk": "مكتب واتساب الميداني",
+        "Request a quote": "اطلب عرض سعر",
+        "Prototype notice:": "تنبيه النموذج التجريبي:",
+        "Package prices, metrics, testimonials, photographs, contact details, supplier relationships, and service descriptions on this page are illustrative. Replace them with verified Falco information before publication.":
+          "أسعار الباقات والأرقام والتقييمات والصور وبيانات الاتصال وعلاقات الموردين ووصف الخدمات في هذه الصفحة توضيحية. يجب استبدالها بمعلومات فالكو المؤكدة قبل النشر.",
+        "© 2025 Falco Services (فالكو سيرفيسز) · All Rights Reserved":
+          "© 2025 فالكو سيرفيسز · جميع الحقوق محفوظة",
+        "Website prototype · Not yet a booking platform":
+          "نموذج موقع تجريبي · ليس منصة حجز بعد",
+        "Chat on WhatsApp": "تواصل عبر واتساب",
+        "Get a Quote": "اطلب عرض سعر",
+        WhatsApp: "واتساب",
+        "Falco operations reel placeholder": "فيديو تجريبي لعمليات فالكو",
+        "Replace this panel with original footage before launch.":
+          "استبدل هذه اللوحة بمشاهد أصلية قبل الإطلاق.",
+        "Recommended final edit: 60–90 seconds covering welcome, transport, hotel check-in, and support.":
+          "المدة المقترحة للفيديو النهائي: 60–90 ثانية تشمل الاستقبال والنقل وتسجيل الفندق والدعم.",
+        Close: "إغلاق",
+        "Primary navigation": "التنقل الرئيسي",
+        "Language selector": "اختيار اللغة",
+        "WhatsApp Hotline": "خط واتساب",
+        "Quick actions": "إجراءات سريعة",
+        "Chat with Falco on WhatsApp": "تواصل مع فالكو عبر واتساب",
+        "Close video preview": "إغلاق معاينة الفيديو",
+        "Play sample operations reel": "تشغيل فيديو العمليات التجريبي",
+        "Your name": "اسمك",
+        "e.g. 24": "مثال: 24",
+        "Hotels, transfers, Ziyarat, meals, mobility assistance, guide language...":
+          "الفنادق، التنقلات، الزيارات، الوجبات، المساعدة الحركية، لغة المرشد...",
+      };
+
+      const languageButtons = {
+        en: document.getElementById("lang-en"),
+        ar: document.getElementById("lang-ar"),
+      };
+      const translatedTextNodes = [];
+      const textWalker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+      );
+      let currentTextNode = textWalker.nextNode();
+      while (currentTextNode) {
+        const parentTag = currentTextNode.parentElement?.tagName;
+        const source = currentTextNode.nodeValue.replace(/\s+/g, " ").trim();
+        if (
+          source &&
+          parentTag !== "SCRIPT" &&
+          parentTag !== "STYLE" &&
+          arabicTranslations[source]
+        ) {
+          translatedTextNodes.push({
+            node: currentTextNode,
+            original: currentTextNode.nodeValue,
+            source,
+          });
+        }
+        currentTextNode = textWalker.nextNode();
+      }
+
+      const translatedAttributes = [];
+      document
+        .querySelectorAll("[placeholder], [aria-label], [title], [alt]")
+        .forEach((element) => {
+          ["placeholder", "aria-label", "title", "alt"].forEach((attribute) => {
+            const source = element.getAttribute(attribute);
+            if (source && arabicTranslations[source]) {
+              translatedAttributes.push({ element, attribute, source });
+            }
+          });
+        });
+
+      function updateLanguageButton(button, active) {
+        button.setAttribute("aria-pressed", String(active));
+        button.classList.toggle("bg-primary", active);
+        button.classList.toggle("text-white", active);
+        button.classList.toggle("font-bold", active);
+        button.classList.toggle("text-on-surface-variant", !active);
+        button.classList.toggle("font-medium", !active);
+      }
+
+      function setLanguage(language, persist = true) {
+        const isArabic = language === "ar";
+        document.documentElement.lang = language;
+        document.documentElement.dir = isArabic ? "rtl" : "ltr";
+        document.title = isArabic
+          ? "فالكو سيرفيسز | خدمات الحج والعمرة داخل السعودية"
+          : "Falco Services | Saudi Hajj & Umrah Ground Services";
+        document
+          .querySelector('meta[name="description"]')
+          ?.setAttribute(
+            "content",
+            isArabic
+              ? "تنسق فالكو سيرفيسز خدمات الإقامة والنقل والزيارات والدعم الميداني للحجاج والمعتمرين ووكالات السفر الدولية داخل السعودية."
+              : "Falco Services coordinates Hajj and Umrah accommodation, transport, Ziyarat, and Saudi ground support for pilgrims and international travel agencies.",
+          );
+
+        translatedTextNodes.forEach(({ node, original, source }) => {
+          if (!isArabic) {
+            node.nodeValue = original;
+            return;
+          }
+          const leadingSpace = original.match(/^\s*/)?.[0] ?? "";
+          const trailingSpace = original.match(/\s*$/)?.[0] ?? "";
+          node.nodeValue = `${leadingSpace}${arabicTranslations[source]}${trailingSpace}`;
+        });
+        translatedAttributes.forEach(({ element, attribute, source }) => {
+          element.setAttribute(
+            attribute,
+            isArabic ? arabicTranslations[source] : source,
+          );
+        });
+        updateLanguageButton(languageButtons.en, !isArabic);
+        updateLanguageButton(languageButtons.ar, isArabic);
+
+        if (persist) {
+          try {
+            window.localStorage.setItem("falco-language", language);
+          } catch {}
+        }
+      }
+
+      languageButtons.en.addEventListener("click", () => setLanguage("en"));
+      languageButtons.ar.addEventListener("click", () => setLanguage("ar"));
+      let initialLanguage = "en";
+      const requestedLanguage = new URLSearchParams(window.location.search).get(
+        "lang",
+      );
+      try {
+        if (requestedLanguage === "ar" || requestedLanguage === "en") {
+          initialLanguage = requestedLanguage;
+        } else {
+          initialLanguage =
+            window.localStorage.getItem("falco-language") === "ar"
+              ? "ar"
+              : "en";
+        }
+      } catch {}
+      setLanguage(initialLanguage, false);
+
+      const header = document.getElementById("site-header");
+      const mobileMenu = document.getElementById("mobile-menu");
+      const quoteForm = document.getElementById("quote-form");
+      const formSuccess = document.getElementById("form-success");
+      const videoDialog = document.getElementById("video-dialog");
+
+      const revealTargets = document.querySelectorAll(
+        "main > section:not(#home) > *, footer > *",
+      );
+      revealTargets.forEach((element, index) => {
+        element.classList.add("reveal");
+        element.style.setProperty("--reveal-delay", `${(index % 4) * 70}ms`);
+      });
+
+      if ("IntersectionObserver" in window) {
+        const revealObserver = new IntersectionObserver(
+          (entries, observer) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add("in-view");
+              observer.unobserve(entry.target);
+            });
+          },
+          { threshold: 0.12, rootMargin: "0px 0px -40px" },
+        );
+        revealTargets.forEach((element) => revealObserver.observe(element));
+      } else {
+        revealTargets.forEach((element) => element.classList.add("in-view"));
+      }
+      if (window.location.hash) {
+        document
+          .querySelector(window.location.hash)
+          ?.querySelectorAll(".reveal")
+          .forEach((element) => element.classList.add("in-view"));
+      }
+      window.setTimeout(() => {
+        revealTargets.forEach((element) => element.classList.add("in-view"));
+      }, 1400);
+
+      window.addEventListener(
+        "scroll",
+        () => {
+          header.classList.toggle("header-scrolled", window.scrollY > 16);
+        },
+        { passive: true },
+      );
+
+      mobileMenu?.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () =>
+          mobileMenu.removeAttribute("open"),
+        );
+      });
+
+      quoteForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        formSuccess.classList.remove("hidden");
+        formSuccess.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        quoteForm.reset();
+      });
+
+      document.getElementById("field-play")?.addEventListener("click", () => {
+        videoDialog.showModal();
+      });
+      document
+        .getElementById("video-close")
+        ?.addEventListener("click", () => videoDialog.close());
+      document
+        .getElementById("video-close-secondary")
+        ?.addEventListener("click", () => videoDialog.close());
+      videoDialog?.addEventListener("click", (event) => {
+        if (event.target === videoDialog) videoDialog.close();
+      });
+    </script>
+  </body>
+</html>

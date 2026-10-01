@@ -1,30 +1,28 @@
 import type { MetadataRoute } from "next";
-import { packages } from "@/content/site";
 import { routing } from "@/i18n/routing";
+import { listHotels } from "@/lib/inventory";
 import { siteConfig } from "@/lib/site";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const pages = [
-    "",
-    "/packages",
-    "/services",
-    "/agencies",
-    "/about",
-    "/contact",
-  ];
-  const packagePages = packages.map((item) => `/packages/${item.slug}`);
+export const dynamic = "force-dynamic";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const hotels = await listHotels().catch(() => []);
+  const pages = ["", "/hotels", "/about", "/contact"];
+  const hotelPages = hotels.map((hotel) => `/hotels/${hotel.id}`);
 
   return routing.locales.flatMap((locale) =>
-    [...pages, ...packagePages].map((path) => ({
+    [...pages, ...hotelPages].map((path) => ({
       url: `${siteConfig.url}/${locale}${path}`,
       lastModified: new Date(),
-      changeFrequency: path.startsWith("/packages") ? "weekly" : "monthly",
-      priority: path === "" ? 1 : path === "/packages" ? 0.9 : 0.7,
+      changeFrequency: path.startsWith("/hotels/") ? "daily" : "weekly",
+      priority: path === "" ? 1 : 0.7,
       alternates: {
-        languages: {
-          en: `${siteConfig.url}/en${path}`,
-          ar: `${siteConfig.url}/ar${path}`,
-        },
+        languages: Object.fromEntries(
+          routing.locales.map((alternateLocale) => [
+            alternateLocale,
+            `${siteConfig.url}/${alternateLocale}${path}`,
+          ]),
+        ),
       },
     })),
   );

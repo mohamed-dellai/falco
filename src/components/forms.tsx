@@ -49,7 +49,17 @@ function SubmissionStatus({
   );
 }
 
-export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
+export function QuoteForm({
+  packageSlug = "",
+  arrival = "",
+  departure = "",
+  roomCount = 1,
+}: {
+  packageSlug?: string;
+  arrival?: string;
+  departure?: string;
+  roomCount?: number;
+}) {
   const t = useTranslations("Form");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [reference, setReference] = useState("");
@@ -58,12 +68,15 @@ export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
   const form = useForm<QuoteInput>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
+      agencyName: "",
       name: "",
       email: "",
       phone: "",
       country: "",
-      arrival: "",
+      arrival,
+      departure,
       travellers: 1,
+      roomCount,
       requirements: "",
       packageSlug,
       websiteField: "",
@@ -86,12 +99,15 @@ export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
       setStatus("success");
       form.reset({
         ...form.getValues(),
+        agencyName: "",
         name: "",
         email: "",
         phone: "",
         country: "",
         arrival: "",
+        departure: "",
         travellers: 1,
+        roomCount: 1,
         requirements: "",
         websiteField: "",
         startedAt,
@@ -108,6 +124,13 @@ export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
       noValidate
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={t("agencyName")}
+          error={!!form.formState.errors.agencyName}
+          className="sm:col-span-2"
+        >
+          <input {...form.register("agencyName")} className={inputClass} />
+        </Field>
         <Field label={t("name")} error={!!form.formState.errors.name}>
           <input
             {...form.register("name")}
@@ -145,12 +168,27 @@ export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
             className={inputClass}
           />
         </Field>
+        <Field label={t("departure")} error={!!form.formState.errors.departure}>
+          <input
+            {...form.register("departure")}
+            type="date"
+            className={inputClass}
+          />
+        </Field>
         <Field
           label={t("travellers")}
           error={!!form.formState.errors.travellers}
         >
           <input
             {...form.register("travellers", { valueAsNumber: true })}
+            type="number"
+            min={1}
+            className={inputClass}
+          />
+        </Field>
+        <Field label={t("rooms")} error={!!form.formState.errors.roomCount}>
+          <input
+            {...form.register("roomCount", { valueAsNumber: true })}
             type="number"
             min={1}
             className={inputClass}
@@ -186,6 +224,7 @@ export function QuoteForm({ packageSlug = "" }: { packageSlug?: string }) {
         <Send size={17} />
         {form.formState.isSubmitting ? t("sending") : t("submitQuote")}
       </button>
+      <input type="hidden" {...form.register("packageSlug")} />
       <SubmissionStatus status={status} reference={reference} />
     </form>
   );

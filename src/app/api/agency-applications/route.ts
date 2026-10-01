@@ -6,6 +6,7 @@ import {
 } from "@/lib/forms";
 import { deliverSubmission } from "@/lib/email";
 import { allowSubmission } from "@/lib/rate-limit";
+import { recordAgencyApplication } from "@/lib/submissions";
 
 export async function POST(request: Request) {
   let payload: unknown;
@@ -48,13 +49,19 @@ export async function POST(request: Request) {
   const reference = createSubmissionReference("FA");
 
   try {
-    await deliverSubmission("agency", parsed.data, reference);
+    await recordAgencyApplication(parsed.data, reference);
   } catch (error) {
-    console.error("Agency application delivery failed", error);
+    console.error("Agency application save failed", error);
     return NextResponse.json(
       { ok: false, code: "DELIVERY_UNAVAILABLE" },
       { status: 503 },
     );
+  }
+
+  try {
+    await deliverSubmission("agency", parsed.data, reference);
+  } catch (error) {
+    console.error("Agency application email failed", error);
   }
 
   return NextResponse.json({ ok: true, reference }, { status: 202 });

@@ -10,7 +10,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { routing } from "@/i18n/routing";
+import { routing, type Locale } from "@/i18n/routing";
 import { siteConfig } from "@/lib/site";
 import "../globals.css";
 
@@ -36,14 +36,20 @@ const amiriFont = Amiri({
   variable: "--font-amiri",
 });
 
+const skipLabels: Record<Locale, string> = {
+  en: "Skip to content",
+  ar: "انتقل إلى المحتوى",
+  fr: "Aller au contenu",
+  it: "Vai al contenuto",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
     default: "Falco Services",
     template: "%s | Falco Services",
   },
-  description:
-    "Saudi Hajj and Umrah ground services for pilgrims and international agencies.",
+  description: "Hajj and Umrah hotel rooms for travel agencies.",
   icons: {
     icon: "/falco-logo.png",
     apple: "/falco-logo.png",
@@ -74,14 +80,16 @@ export default async function LocaleLayout({
     notFound();
   }
 
-  setRequestLocale(locale);
+  const activeLocale = locale as Locale;
+  setRequestLocale(activeLocale);
   const messages = await getMessages();
-  const direction = locale === "ar" ? "rtl" : "ltr";
+  const direction = activeLocale === "ar" ? "rtl" : "ltr";
 
   return (
     <html
-      lang={locale}
+      lang={activeLocale}
       dir={direction}
+      data-scroll-behavior="smooth"
       className={`${bodyFont.variable} ${displayFont.variable} ${arabicFont.variable} ${amiriFont.variable}`}
     >
       <body>
@@ -90,7 +98,7 @@ export default async function LocaleLayout({
             href="#main-content"
             className="fixed start-4 top-3 z-[100] -translate-y-20 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-ink transition focus:translate-y-0"
           >
-            {locale === "ar" ? "انتقل إلى المحتوى" : "Skip to content"}
+            {skipLabels[activeLocale]}
           </a>
           <SiteHeader />
           <main id="main-content" className="min-h-screen pt-20">

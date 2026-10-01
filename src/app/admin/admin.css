@@ -1,0 +1,51 @@
+.font-news {
+  font-family: var(--font-news), Georgia, serif;
+}
+
+.font-plex {
+  font-family: var(--font-plex), ui-monospace, monospace;
+}
+
+.desk-press:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cap-fill {
+    transform-origin: left center;
+    animation: cap-grow 700ms ease-out both;
+  }
+
+  .desk-rise {
+    animation: desk-rise 500ms ease-out both;
+  }
+
+  @keyframes cap-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes desk-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-fill,
+  .desk-rise,
+  .desk-press {
+    animation: none;
+    transform: none;
+  }
+}

@@ -31,15 +31,15 @@ export async function SiteFooter() {
         </div>
 
         <nav className="grid content-start gap-3 text-sm text-blue-100/80">
-          <strong className="text-white">{nav("home")}</strong>
-          <Link href="/packages" className="hover:text-gold">
-            {nav("packages")}
+          <strong className="text-white">{t("explore")}</strong>
+          <Link href="/" className="hover:text-gold">
+            {nav("home")}
           </Link>
-          <Link href="/services" className="hover:text-gold">
-            {nav("services")}
+          <Link href="/hotels" className="hover:text-gold">
+            {nav("hotels")}
           </Link>
-          <Link href="/agencies" className="hover:text-gold">
-            {nav("agencies")}
+          <Link href="/about" className="hover:text-gold">
+            {nav("about")}
           </Link>
           <Link href="/contact" className="hover:text-gold">
             {nav("contact")}

@@ -12,8 +12,11 @@ const baseFields = {
 
 export const quoteSchema = z.object({
   ...baseFields,
+  agencyName: z.string().trim().min(2).max(160),
   arrival: z.string().trim(),
+  departure: z.string().trim().max(40),
   travellers: z.number().int().min(1).max(10000),
+  roomCount: z.number().int().min(1).max(500),
   packageSlug: z.string().trim().max(100),
 });
 

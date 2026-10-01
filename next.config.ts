@@ -5,13 +5,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "lh3.googleusercontent.com",
-      },
-    ],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
   },
 };
 

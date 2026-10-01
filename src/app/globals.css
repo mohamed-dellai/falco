@@ -68,6 +68,14 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 :focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 3px;
@@ -108,13 +116,82 @@ html[dir="rtl"] .eyebrow {
     border-color 250ms ease;
 }
 
-.card-lift:hover {
-  transform: translateY(-4px);
-  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+.home-hero-visual {
+  position: absolute;
+  inset: 0;
+}
+
+.home-hero-copy {
+  margin-inline-end: auto;
+}
+
+.directional-icon {
+  flex: none;
+}
+
+html[dir="rtl"] .directional-icon {
+  transform: scaleX(-1);
 }
 
 .hero-drift {
   animation: hero-drift 18s ease-in-out infinite alternate;
+}
+
+.hero-scrim {
+  background:
+    linear-gradient(180deg, rgb(8 28 54 / 0.38), rgb(8 28 54 / 0.88)),
+    linear-gradient(90deg, rgb(8 28 54 / 0.58), transparent 75%);
+}
+
+html[dir="rtl"] .hero-scrim {
+  background:
+    linear-gradient(180deg, rgb(8 28 54 / 0.38), rgb(8 28 54 / 0.88)),
+    linear-gradient(270deg, rgb(8 28 54 / 0.58), transparent 75%);
+}
+
+@media (hover: hover) {
+  .card-lift:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-hero-visual {
+    inset-block: 2.5rem;
+    inset-inline-start: calc(50% + 5rem);
+    inset-inline-end: max(1rem, calc((100vw - 74rem) / 2));
+    overflow: hidden;
+    border-radius: 22rem 22rem 1.5rem 1.5rem;
+    box-shadow: 0 28px 70px rgb(2 12 27 / 0.38);
+  }
+
+  .home-hero-visual::after {
+    position: absolute;
+    z-index: 2;
+    inset: 0.75rem;
+    border: 1px solid rgb(255 223 152 / 0.45);
+    border-radius: inherit;
+    content: "";
+    pointer-events: none;
+  }
+
+  .home-hero-copy {
+    width: calc(50% + 4rem);
+  }
+
+  .hero-scrim,
+  html[dir="rtl"] .hero-scrim {
+    background: linear-gradient(
+      180deg,
+      transparent 35%,
+      rgb(8 28 54 / 0.58) 100%
+    );
+  }
+
+  .hero-location {
+    z-index: 3;
+  }
 }
 
 @keyframes hero-drift {

@@ -6,6 +6,7 @@ import {
 } from "@/lib/forms";
 import { deliverSubmission } from "@/lib/email";
 import { allowSubmission } from "@/lib/rate-limit";
+import { recordQuote } from "@/lib/submissions";
 
 export async function POST(request: Request) {
   let payload: unknown;
@@ -48,13 +49,19 @@ export async function POST(request: Request) {
   const reference = createSubmissionReference("FQ");
 
   try {
-    await deliverSubmission("quote", parsed.data, reference);
+    await recordQuote(parsed.data, reference);
   } catch (error) {
-    console.error("Quote delivery failed", error);
+    console.error("Quote save failed", error);
     return NextResponse.json(
       { ok: false, code: "DELIVERY_UNAVAILABLE" },
       { status: 503 },
     );
+  }
+
+  try {
+    await deliverSubmission("quote", parsed.data, reference);
+  } catch (error) {
+    console.error("Quote email failed", error);
   }
 
   return NextResponse.json({ ok: true, reference }, { status: 202 });

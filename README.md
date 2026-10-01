@@ -1,8 +1,8 @@
 # Falco Services
 
-Bilingual English/Arabic website for Falco’s Saudi Hajj and Umrah
-ground-services business. The original `design.html` remains in the repository
-as a visual reference.
+Bilingual English/Arabic website for Falco’s wholesale Hajj and Umrah hotel
+rooms. Admins add hotels, rooms, and photos, then assign open rooms to travel
+agencies at an agreed price. The public site shows only rooms that are open.
 
 ## Requirements
 
@@ -17,8 +17,14 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000`. Locale middleware redirects to `/en`; Arabic is
-available under `/ar`.
+Open `http://localhost:3000`. Locale middleware redirects to `/en`; Arabic,
+French, and Italian are available under `/ar`, `/fr`, and `/it`. The inventory
+admin is at `http://localhost:3000/admin`.
+
+Set `ADMIN_PASSWORD`, `DATABASE_URL`, and `BLOB_READ_WRITE_TOKEN` in
+`.env.local` before signing in. Hotels, rooms, prices, and assignments are
+stored in PostgreSQL. Photos are stored in Vercel Blob. Set the same variables
+in Vercel before deploying.
 
 ## Checks
 
@@ -31,13 +37,12 @@ npm run build
 
 ## Routes
 
-- `/{locale}` — homepage
-- `/{locale}/packages` — filterable package catalogue
-- `/{locale}/packages/{slug}` — package details
-- `/{locale}/services` — local service catalogue
-- `/{locale}/agencies` — B2B proposition and agency application
+- `/{locale}` — available-room showcase
+- `/{locale}/hotels` — open hotel inventory
+- `/{locale}/hotels/{id}` — hotel and room details
 - `/{locale}/about` — company content
-- `/{locale}/contact` — traveller quotation form
+- `/{locale}/contact` — agency allotment request
+- `/admin` — hotels, rooms, photos, costs, and agency assignments
 
 The forms validate input, reject honeypots and implausibly fast submissions,
 apply a basic cooldown, send each accepted request to Falco through Resend, and

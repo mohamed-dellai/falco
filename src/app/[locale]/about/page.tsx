@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { MapPin, Target } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import type { Locale } from "@/i18n/routing";
+import { localeAlternates, type Locale } from "@/i18n/routing";
 import { siteConfig } from "@/lib/site";
 
 type PageProps = {
@@ -18,7 +18,7 @@ export async function generateMetadata({
     title: t("aboutTitle"),
     alternates: {
       canonical: `/${locale}/about`,
-      languages: { en: "/en/about", ar: "/ar/about" },
+      languages: localeAlternates("/about"),
     },
   };
 }
