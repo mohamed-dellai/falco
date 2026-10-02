@@ -8,7 +8,7 @@ import {
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { listHotels, listRooms } from "@/lib/inventory";
+import { heldOn, listHotels, listRooms } from "@/lib/inventory";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,11 @@ export default async function RoomsPage({
   const copy = adminCopy(locale);
   const query = await searchParams;
   const [rooms, hotels] = await Promise.all([listRooms(), listHotels()]);
+  const heldByRoom = new Map(
+    await Promise.all(
+      rooms.map(async (room) => [room.id, await heldOn(room)] as const),
+    ),
+  );
   const hotelsById = new Map(hotels.map((hotel) => [hotel.id, hotel]));
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
   const rows = rooms
@@ -89,9 +94,11 @@ export default async function RoomsPage({
                   </span>
                   <span>
                     <span className="block text-[var(--desk-muted)]">
-                      {copy.roomsHeld}
+                      {copy.heldToday}
                     </span>
-                    <strong className="font-plex">{room.quantity}</strong>
+                    <strong className="font-plex">
+                      {heldByRoom.get(room.id) ?? 0}
+                    </strong>
                   </span>
                   <span className="text-end">
                     <span className="block text-[var(--desk-muted)]">
@@ -113,7 +120,7 @@ export default async function RoomsPage({
                     <th className="px-4 py-3 text-start">{copy.roomType}</th>
                     <th className="px-4 py-3 text-start">{copy.hotel}</th>
                     <th className="px-4 py-3 text-end">{copy.guests}</th>
-                    <th className="px-4 py-3 text-end">{copy.roomsHeld}</th>
+                    <th className="px-4 py-3 text-end">{copy.heldToday}</th>
                     <th className="px-4 py-3 text-end">{copy.costNight}</th>
                     <th className="px-4 py-3 text-end">
                       {copy.publicPriceNight}
@@ -143,7 +150,7 @@ export default async function RoomsPage({
                         {room.capacity}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
-                        {room.quantity}
+                        {heldByRoom.get(room.id) ?? 0}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
                         {formatMoney(room.costPerNight, locale)}

@@ -319,6 +319,7 @@ function purchaseLineInputs(formData: FormData) {
   const descriptions = formData
     .getAll("lineDescription")
     .map((value) => String(value).trim());
+  const quantities = formData.getAll("lineQuantity");
   const capacities = formData.getAll("lineCapacity");
   const checkIns = formData.getAll("lineCheckIn");
   const checkOuts = formData.getAll("lineCheckOut");
@@ -332,11 +333,15 @@ function purchaseLineInputs(formData: FormData) {
     const checkOut = dateValue(String(checkOuts[index] ?? ""));
     if (!name && !price && !checkIn && !checkOut) continue;
 
+    const quantity = Number(quantities[index]);
     const capacity = Number(capacities[index]);
     const costPerNight = parseMoney(prices[index] ?? null);
     if (
       name.length < 2 ||
       name.length > 140 ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 5000 ||
       !Number.isInteger(capacity) ||
       capacity < 1 ||
       capacity > 20 ||
@@ -350,7 +355,7 @@ function purchaseLineInputs(formData: FormData) {
       roomName: name,
       description: (descriptions[index] ?? "").slice(0, 500),
       capacity,
-      quantity: 1,
+      quantity,
       costPerNight,
       checkIn,
       checkOut,
@@ -425,6 +430,7 @@ function allotmentLineInputs(formData: FormData) {
   const rooms = formData
     .getAll("lineRoom")
     .map((value) => String(value).trim());
+  const quantities = formData.getAll("lineQuantity");
   const costs = formData.getAll("lineCost");
   const prices = formData.getAll("linePrice");
   const lines: AllotmentLineInput[] = [];
@@ -435,15 +441,23 @@ function allotmentLineInputs(formData: FormData) {
     const priceRaw = String(prices[index] ?? "").trim();
     if (!roomId && !costRaw && !priceRaw) continue;
 
+    const quantity = Number(quantities[index]);
     const costPerNight = parseMoney(costs[index] ?? null);
     const agencyPricePerNight = parseMoney(prices[index] ?? null);
-    if (!roomId || costPerNight === null || agencyPricePerNight === null) {
+    if (
+      !roomId ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 5000 ||
+      costPerNight === null ||
+      agencyPricePerNight === null
+    ) {
       return null;
     }
 
     lines.push({
       roomId,
-      quantity: 1,
+      quantity,
       costPerNight,
       agencyPricePerNight,
     });

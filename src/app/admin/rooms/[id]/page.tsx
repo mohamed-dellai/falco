@@ -122,10 +122,10 @@ export default async function RoomAdminPage({
                   className={adminFieldClass}
                 />
               </AdminField>
-              <AdminField label={copy.roomsHeld}>
+              <AdminField label={purchased ? copy.heldToday : copy.roomsHeld}>
                 {purchased ? (
                   <span className="flex min-h-11 items-center font-plex text-sm lg:min-h-10">
-                    {room.quantity}
+                    {heldToday}
                   </span>
                 ) : (
                   <input

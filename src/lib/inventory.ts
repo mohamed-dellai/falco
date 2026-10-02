@@ -1298,8 +1298,8 @@ export async function confirmPurchase(id: string) {
         );
       } else {
         await sql.execute(
-          `UPDATE rooms SET cost_per_night = ? WHERE id = ?`,
-          [line.costPerNight, roomId],
+          `UPDATE rooms SET cost_per_night = ?, capacity = ? WHERE id = ?`,
+          [line.costPerNight, line.capacity, roomId],
         );
       }
       roomIds.set(key, roomId);

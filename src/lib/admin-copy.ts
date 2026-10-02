@@ -260,7 +260,7 @@ const en = {
   addLine: "Add a room line",
   addRoom: "Add a room",
   purchaseLineHelp:
-    "Each room type has its own stay dates and cost. Use one room type per line.",
+    "Each line is one room type: how many rooms, how many people each room holds, the stay dates, and the cost.",
   roomNameExample: "Quad",
   roomDetailsExample: "Haram view, breakfast",
   notesExample: "Contract reference, payment terms",
@@ -585,7 +585,7 @@ const fr: Record<keyof typeof en, string> = {
   addLine: "Ajouter une ligne de chambre",
   addRoom: "Ajouter une chambre",
   purchaseLineHelp:
-    "Chaque type de chambre a ses propres dates et son coût. Utilisez un type par ligne.",
+    "Chaque ligne est un type de chambre : le nombre de chambres, le nombre de personnes par chambre, les dates et le coût.",
   roomNameExample: "Quadruple",
   roomDetailsExample: "Vue Haram, petit-déjeuner",
   notesExample: "Référence du contrat, conditions de paiement",

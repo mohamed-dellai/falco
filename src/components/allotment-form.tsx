@@ -35,6 +35,7 @@ type RoomOption = {
 type DraftLine = {
   key: string;
   roomId: string;
+  quantity: string;
   cost: string;
   price: string;
   label: string;
@@ -68,10 +69,17 @@ function lineHalalas(price: string) {
   return Math.round(Number(normalized) * 100);
 }
 
+function parsedQuantity(value: string) {
+  const quantity = Number(value);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 5000) return null;
+  return quantity;
+}
+
 function emptyLine(room?: RoomOption): DraftLine {
   return {
     key: crypto.randomUUID(),
     roomId: room?.id ?? "",
+    quantity: "1",
     cost: room ? moneyInput(room.costPerNight) : "",
     price: "",
     label: room ? `${room.hotelName} — ${room.name}` : "",
@@ -82,6 +90,7 @@ function lineFromAllotment(allotment: Allotment): DraftLine[] {
   return allotment.lines.map((line) => ({
     key: line.id,
     roomId: line.roomId,
+    quantity: String(line.quantity),
     cost: moneyInput(line.costPerNight),
     price: moneyInput(line.agencyPricePerNight),
     label: `${line.hotelName} — ${line.roomName}`,
@@ -141,10 +150,11 @@ export function AllotmentForm({
     for (const line of lines) {
       const lineCost = lineHalalas(line.cost);
       const linePrice = lineHalalas(line.price);
-      if (lineCost === null || linePrice === null) continue;
-      rooms += 1;
-      cost += lineCost * nights;
-      revenue += linePrice * nights;
+      const quantity = parsedQuantity(line.quantity);
+      if (lineCost === null || linePrice === null || quantity === null) continue;
+      rooms += quantity;
+      cost += lineCost * nights * quantity;
+      revenue += linePrice * nights * quantity;
     }
     return { nights, cost, revenue, margin: revenue - cost, rooms };
   }, [checkIn, checkOut, lines]);
@@ -184,6 +194,7 @@ export function AllotmentForm({
     const broken = filled.find(
       (line) =>
         !line.roomId ||
+        parsedQuantity(line.quantity) === null ||
         lineHalalas(line.cost) === null ||
         lineHalalas(line.price) === null,
     );
@@ -349,11 +360,12 @@ export function AllotmentForm({
           {copy.draftNote}
         </p>
 
-        <div>
+        <div className="min-w-0 overflow-x-auto">
           <table className="block w-full border-collapse text-start text-sm lg:table">
             <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
               <tr>
                 <th className="px-2 py-2">{copy.rooms}</th>
+                <th className="px-2 py-2 text-end">{copy.qty}</th>
                 <th className="px-2 py-2 text-end">{copy.costNight}</th>
                 <th className="px-2 py-2 text-end">{copy.agencyPriceNight}</th>
                 <th className="px-2 py-2 text-end">{copy.sell}</th>
@@ -364,8 +376,11 @@ export function AllotmentForm({
               {lines.map((line) => {
                 const nights = nightsBetween(checkIn, checkOut);
                 const price = lineHalalas(line.price);
+                const quantity = parsedQuantity(line.quantity);
                 const sell =
-                  nights > 0 && price !== null ? price * nights : null;
+                  nights > 0 && price !== null && quantity !== null
+                    ? price * nights * quantity
+                    : null;
                 const known = rooms.some((room) => room.id === line.roomId);
                 return (
                   <tr
@@ -408,6 +423,28 @@ export function AllotmentForm({
                             </option>
                           ))}
                         </select>
+                      )}
+                    </td>
+                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.qty}
+                      </span>
+                      {locked ? (
+                        <span className="tabular-nums">{line.quantity}</span>
+                      ) : (
+                        <input
+                          name="lineQuantity"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={line.quantity}
+                          onChange={(event) =>
+                            updateLine(line.key, {
+                              quantity: event.target.value,
+                            })
+                          }
+                          className={`${adminFieldClass} w-full text-end lg:w-16`}
+                        />
                       )}
                     </td>
                     <td className="block px-0 py-2 lg:table-cell lg:px-2">

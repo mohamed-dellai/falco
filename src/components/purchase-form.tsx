@@ -30,6 +30,7 @@ type DraftLine = {
   key: string;
   name: string;
   description: string;
+  quantity: string;
   capacity: string;
   checkIn: string;
   checkOut: string;
@@ -71,11 +72,18 @@ function lineHalalas(price: string) {
   return Math.round(Number(normalized) * 100);
 }
 
+function parsedQuantity(value: string) {
+  const quantity = Number(value);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 5000) return null;
+  return quantity;
+}
+
 function emptyLine(): DraftLine {
   return {
     key: crypto.randomUUID(),
     name: "",
     description: "",
+    quantity: "1",
     capacity: "4",
     checkIn: "",
     checkOut: "",
@@ -88,6 +96,7 @@ function lineFromPurchase(purchase: Purchase): DraftLine[] {
     key: line.id,
     name: line.roomName,
     description: line.description,
+    quantity: String(line.quantity),
     capacity: String(line.capacity),
     checkIn: line.checkIn,
     checkOut: line.checkOut,
@@ -128,9 +137,10 @@ export function PurchaseForm({
     for (const line of lines) {
       const nights = nightsBetween(line.checkIn, line.checkOut);
       const price = lineHalalas(line.price);
-      if (nights < 1 || price === null) continue;
-      rooms += 1;
-      amount += price * nights;
+      const quantity = parsedQuantity(line.quantity);
+      if (nights < 1 || price === null || quantity === null) continue;
+      rooms += quantity;
+      amount += price * nights * quantity;
     }
     return { amount, rooms };
   }, [lines]);
@@ -161,8 +171,10 @@ export function PurchaseForm({
       const nights = nightsBetween(line.checkIn, line.checkOut);
       return (
         line.name.trim().length < 2 ||
+        parsedQuantity(line.quantity) === null ||
         !Number.isInteger(capacity) ||
         capacity < 1 ||
+        capacity > 20 ||
         nights < 1 ||
         nights > 1095 ||
         lineHalalas(line.price) === null
@@ -302,12 +314,13 @@ export function PurchaseForm({
           {copy.purchaseLineHelp}
         </p>
 
-        <div>
+        <div className="min-w-0 overflow-x-auto">
           <table className="block w-full border-collapse text-start text-sm lg:table">
             <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
               <tr>
                 <th className="px-2 py-2">{copy.rooms}</th>
                 <th className="px-2 py-2">{copy.details}</th>
+                <th className="px-2 py-2 text-end">{copy.qty}</th>
                 <th className="px-2 py-2 text-end">{copy.sleeps}</th>
                 <th className="px-2 py-2">{copy.from}</th>
                 <th className="px-2 py-2">{copy.to}</th>
@@ -320,8 +333,11 @@ export function PurchaseForm({
               {lines.map((line) => {
                 const nights = nightsBetween(line.checkIn, line.checkOut);
                 const price = lineHalalas(line.price);
+                const quantity = parsedQuantity(line.quantity);
                 const amount =
-                  nights > 0 && price !== null ? price * nights : 0;
+                  nights > 0 && price !== null && quantity !== null
+                    ? price * nights * quantity
+                    : 0;
                 return (
                   <tr
                     key={line.key}
@@ -373,6 +389,28 @@ export function PurchaseForm({
                             })
                           }
                           className={adminFieldClass}
+                        />
+                      )}
+                    </td>
+                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.qty}
+                      </span>
+                      {locked ? (
+                        <span className="tabular-nums">{line.quantity}</span>
+                      ) : (
+                        <input
+                          name="lineQuantity"
+                          type="number"
+                          min={1}
+                          max={5000}
+                          value={line.quantity}
+                          onChange={(event) =>
+                            updateLine(line.key, {
+                              quantity: event.target.value,
+                            })
+                          }
+                          className={`${adminFieldClass} w-full text-end lg:w-16`}
                         />
                       )}
                     </td>
