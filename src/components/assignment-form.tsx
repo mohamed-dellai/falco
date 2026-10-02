@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { assignRoomAction } from "@/app/admin/actions";
-import { adminButtonClass, adminFieldClass } from "@/components/admin-shell";
+import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
+import { AdminSubmitButton } from "@/components/admin-submit-button";
+import {
+  AdminField,
+  adminButtonClass,
+  adminFieldClass,
+} from "@/components/admin-ui";
+import { fill } from "@/lib/admin-copy";
 import { formatMoney, moneyInput, nightsBetween } from "@/lib/money";
 
 export function AssignmentForm({
@@ -14,6 +21,8 @@ export function AssignmentForm({
   costPerNight: number;
   agencies: Array<{ id: string; name: string; country: string }>;
 }) {
+  const copy = useAdminCopy();
+  const locale = useAdminLocale();
   const [cost, setCost] = useState(moneyInput(costPerNight));
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -37,10 +46,9 @@ export function AssignmentForm({
   return (
     <form action={assignRoomAction} className="grid gap-4">
       <input type="hidden" name="roomId" value={roomId} />
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Travel agency
+      <AdminField label={copy.agency}>
         <select name="agencyId" required className={adminFieldClass}>
-          <option value="">Select an agency</option>
+          <option value="">{copy.selectAgency}</option>
           {agencies.map((agency) => (
             <option key={agency.id} value={agency.id}>
               {agency.name}
@@ -48,10 +56,9 @@ export function AssignmentForm({
             </option>
           ))}
         </select>
-      </label>
+      </AdminField>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Rooms
+        <AdminField label={copy.rooms}>
           <input
             name="quantity"
             type="number"
@@ -61,9 +68,8 @@ export function AssignmentForm({
             onChange={(event) => setQuantity(event.target.value)}
             className={adminFieldClass}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Falco cost / night (SAR)
+        </AdminField>
+        <AdminField label={copy.costNight}>
           <input
             name="costPerNight"
             inputMode="decimal"
@@ -72,9 +78,8 @@ export function AssignmentForm({
             onChange={(event) => setCost(event.target.value)}
             className={adminFieldClass}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Check-in
+        </AdminField>
+        <AdminField label={copy.checkIn}>
           <input
             name="checkIn"
             type="date"
@@ -83,9 +88,8 @@ export function AssignmentForm({
             onChange={(event) => setCheckIn(event.target.value)}
             className={adminFieldClass}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Check-out
+        </AdminField>
+        <AdminField label={copy.checkOut}>
           <input
             name="checkOut"
             type="date"
@@ -94,10 +98,9 @@ export function AssignmentForm({
             onChange={(event) => setCheckOut(event.target.value)}
             className={adminFieldClass}
           />
-        </label>
+        </AdminField>
       </div>
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Agency price / night (SAR)
+      <AdminField label={copy.agencyPriceNight}>
         <input
           name="agencyPricePerNight"
           inputMode="decimal"
@@ -106,40 +109,47 @@ export function AssignmentForm({
           onChange={(event) => setPrice(event.target.value)}
           className={adminFieldClass}
         />
-      </label>
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Notes
-        <textarea name="notes" className={`${adminFieldClass} !h-auto min-h-24 py-2`} />
-      </label>
+      </AdminField>
+      <AdminField label={copy.notes}>
+        <textarea
+          name="notes"
+          className={`${adminFieldClass} !h-auto min-h-24 py-2`}
+        />
+      </AdminField>
       {estimate && (
-        <dl className="grid grid-cols-3 gap-px overflow-hidden rounded border border-[#d5dbe3] bg-[#d5dbe3] text-sm">
-          <div className="bg-[#f4f7fa] px-3 py-2">
-            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-              Cost
-            </dt>
-            <dd className="tabular-nums">{formatMoney(estimate.cost, "en")}</dd>
-          </div>
-          <div className="bg-[#f4f7fa] px-3 py-2">
-            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-              Sell
+        <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[var(--desk-line)] bg-[var(--desk-line)] text-sm">
+          <div className="bg-white px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[var(--desk-muted)]">
+              {copy.cost}
             </dt>
             <dd className="tabular-nums">
-              {formatMoney(estimate.revenue, "en")}
+              {formatMoney(estimate.cost, locale)}
             </dd>
           </div>
-          <div className="bg-[#f4f7fa] px-3 py-2">
-            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-              Margin · {estimate.nights} nights
+          <div className="bg-white px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[var(--desk-muted)]">
+              {copy.sell}
             </dt>
-            <dd className="font-semibold tabular-nums text-[#0e4d8c]">
-              {formatMoney(estimate.margin, "en")}
+            <dd className="tabular-nums">
+              {formatMoney(estimate.revenue, locale)}
+            </dd>
+          </div>
+          <div className="bg-white px-3 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[var(--desk-muted)]">
+              {fill(copy.marginWithNights, { count: estimate.nights })}
+            </dt>
+            <dd className="font-semibold tabular-nums text-[var(--desk-primary)]">
+              {formatMoney(estimate.margin, locale)}
             </dd>
           </div>
         </dl>
       )}
-      <button type="submit" className={`${adminButtonClass} w-fit`}>
-        Save allotment
-      </button>
+      <AdminSubmitButton
+        pendingLabel={copy.saving}
+        className={`${adminButtonClass} w-fit`}
+      >
+        {copy.saveAllotment}
+      </AdminSubmitButton>
     </form>
   );
 }

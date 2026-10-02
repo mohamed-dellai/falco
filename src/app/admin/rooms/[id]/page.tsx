@@ -6,14 +6,23 @@ import {
   updateRoomAction,
 } from "@/app/admin/actions";
 import { AssignmentTable } from "@/components/assignment-table";
+import { AdminError, AdminShell } from "@/components/admin-shell";
 import {
-  AdminError,
+  AdminField,
   AdminPanel,
-  AdminShell,
+  AdminSectionHeader,
+  AdminStatStrip,
+  AdminTableFrame,
   adminButtonClass,
+  adminButtonDangerClass,
   adminFieldClass,
-} from "@/components/admin-shell";
+} from "@/components/admin-ui";
+import { AdminSubmitButton } from "@/components/admin-submit-button";
+import { NamedConfirm } from "@/components/named-confirm";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { requireAdmin } from "@/lib/admin-auth";
+import { adminCopy, fill } from "@/lib/admin-copy";
+import { getAdminLocale } from "@/lib/admin-locale";
 import {
   costForStay,
   getHotel,
@@ -25,7 +34,7 @@ import {
   openQuantity,
   roomHasPurchaseLines,
 } from "@/lib/inventory";
-import { formatMoney, moneyInput } from "@/lib/money";
+import { formatDateRange, formatMoney, moneyInput } from "@/lib/money";
 import { PurchaseStatusPill } from "@/components/purchase-form";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +47,8 @@ export default async function RoomAdminPage({
   searchParams: Promise<{ error?: string; remaining?: string }>;
 }) {
   await requireAdmin();
+  const locale = await getAdminLocale();
+  const copy = adminCopy(locale);
   const { id } = await params;
   const query = await searchParams;
   const room = await getRoom(id);
@@ -45,16 +56,23 @@ export default async function RoomAdminPage({
   const hotel = await getHotel(room.hotelId);
   if (!hotel) notFound();
 
-  const [photos, assignments, openToday, heldToday, stayCost, purchased, purchases] =
-    await Promise.all([
-      listRoomPhotos(id),
-      listAssignments(),
-      openQuantity(room),
-      heldOn(room),
-      costForStay(room),
-      roomHasPurchaseLines(id),
-      listRoomPurchases(id),
-    ]);
+  const [
+    photos,
+    assignments,
+    openToday,
+    heldToday,
+    stayCost,
+    purchased,
+    purchases,
+  ] = await Promise.all([
+    listRoomPhotos(id),
+    listAssignments(),
+    openQuantity(room),
+    heldOn(room),
+    costForStay(room),
+    roomHasPurchaseLines(id),
+    listRoomPurchases(id),
+  ]);
   const roomAssignments = assignments.filter(
     (assignment) => assignment.roomId === room.id,
   );
@@ -63,33 +81,38 @@ export default async function RoomAdminPage({
     <AdminShell
       title={room.name}
       crumbs={[
-        { href: "/admin/hotels", label: "Hotels" },
+        { href: "/admin/rooms", label: copy.rooms },
         { href: `/admin/hotels/${hotel.id}`, label: hotel.name },
       ]}
     >
-      <div className="mb-4 grid gap-px overflow-hidden rounded border border-[#d5dbe3] bg-[#d5dbe3] sm:grid-cols-3">
-        <Stat label="Open today" value={String(openToday)} />
-        <Stat label="Held today" value={String(heldToday)} />
-        <Stat label="Cost / night" value={formatMoney(stayCost, "en")} />
+      <div className="mb-5">
+        <AdminStatStrip
+          items={[
+            { label: copy.openToday, value: openToday },
+            { label: copy.heldToday, value: heldToday },
+            {
+              label: copy.costNight,
+              value: formatMoney(stayCost, locale),
+            },
+          ]}
+        />
       </div>
       <AdminError code={query.error} remaining={query.remaining} />
 
       <div className="grid items-start gap-4 xl:grid-cols-2">
-        <AdminPanel title="Room record">
+        <AdminPanel title={copy.roomRecord}>
           <form action={updateRoomAction} className="grid gap-3">
             <input type="hidden" name="id" value={room.id} />
-            <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-              Room name
+            <AdminField label={copy.roomName}>
               <input
                 name="name"
                 required
                 defaultValue={room.name}
                 className={adminFieldClass}
               />
-            </label>
-            <div className={`grid gap-3 ${purchased ? "" : "sm:grid-cols-3"}`}>
-              <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-                Guests
+            </AdminField>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <AdminField label={copy.guests}>
                 <input
                   name="capacity"
                   type="number"
@@ -98,162 +121,211 @@ export default async function RoomAdminPage({
                   defaultValue={room.capacity}
                   className={adminFieldClass}
                 />
-              </label>
-              {!purchased && (
-                <>
-                  <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-                    Rooms held
-                    <input
-                      name="quantity"
-                      type="number"
-                      min={1}
-                      required
-                      defaultValue={room.quantity}
-                      className={adminFieldClass}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-                    Cost / night (SAR)
-                    <input
-                      name="costPerNight"
-                      required
-                      defaultValue={moneyInput(room.costPerNight)}
-                      className={adminFieldClass}
-                    />
-                  </label>
-                </>
-              )}
+              </AdminField>
+              <AdminField label={copy.roomsHeld}>
+                {purchased ? (
+                  <span className="flex min-h-11 items-center font-plex text-sm lg:min-h-10">
+                    {room.quantity}
+                  </span>
+                ) : (
+                  <input
+                    name="quantity"
+                    type="number"
+                    min={1}
+                    required
+                    defaultValue={room.quantity}
+                    className={adminFieldClass}
+                  />
+                )}
+              </AdminField>
+              <AdminField label={copy.costNight}>
+                <input
+                  name="costPerNight"
+                  required
+                  defaultValue={moneyInput(room.costPerNight)}
+                  className={adminFieldClass}
+                />
+              </AdminField>
             </div>
             {purchased && (
-              <p className="text-xs text-[#5c6776]">
-                Quantity and cost come from confirmed purchases.
+              <p className="text-xs text-[var(--desk-muted)]">
+                {copy.quantityCostPurchase}
               </p>
             )}
-            <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-              Description
+            <AdminField
+              label={copy.publicPriceNight}
+              hint={copy.publicPriceHint}
+            >
+              <input
+                name="publicPricePerNight"
+                defaultValue={
+                  room.publicPricePerNight == null
+                    ? ""
+                    : moneyInput(room.publicPricePerNight)
+                }
+                className={adminFieldClass}
+              />
+            </AdminField>
+            <AdminField label={copy.description}>
               <textarea
                 name="description"
                 defaultValue={room.description}
                 className={`${adminFieldClass} !h-auto min-h-20 py-2`}
               />
-            </label>
-            <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-              Add photos
-              <input
-                name="photos"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                className={adminFieldClass}
-              />
-            </label>
-            <button type="submit" className={`${adminButtonClass} w-fit`}>
-              Save room
-            </button>
+            </AdminField>
+            <AdminSubmitButton
+              pendingLabel={copy.saving}
+              className={`${adminButtonClass} w-fit`}
+            >
+              {copy.saveRoom}
+            </AdminSubmitButton>
           </form>
         </AdminPanel>
 
-        <AdminPanel title="Allot this room">
-          <p className="text-sm leading-6 text-[#5c6776]">
-            Choose the agency, the stay, and the price. Save a draft or confirm
-            the hold.
-          </p>
-          <Link
-            href={`/admin/assignments/new?room=${room.id}`}
-            className={`${adminButtonClass} mt-3`}
+        <div className="grid gap-4">
+          <AdminPanel
+            title={copy.allotRoom}
+            description={copy.allotRoomDescription}
           >
-            New allotment
-          </Link>
-        </AdminPanel>
-      </div>
-
-      {photos.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-6">
-          {photos.map((photo) => (
-            <figure
-              key={photo.id}
-              className="overflow-hidden rounded border border-[#d5dbe3] bg-white"
+            <Link
+              href={`/admin/allotments/new?room=${room.id}`}
+              className={`${adminButtonClass} mt-3`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.url} alt="" className="h-20 w-full object-cover" />
-              <form action={deleteRoomPhotoAction}>
-                <input type="hidden" name="roomId" value={room.id} />
-                <input type="hidden" name="photoId" value={photo.id} />
-                <button
-                  type="submit"
-                  className="w-full px-2 py-1 text-xs font-semibold text-red-700"
-                >
-                  Remove
-                </button>
-              </form>
-            </figure>
-          ))}
+              {copy.newAllotment}
+            </Link>
+          </AdminPanel>
+
+          <AdminPanel title={copy.photos}>
+            <PhotoUploader roomId={room.id} />
+            {photos.length ? (
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {photos.map((photo, index) => (
+                  <figure
+                    key={photo.id}
+                    className="overflow-hidden rounded-xl border border-[var(--desk-line)] bg-white"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={fill(copy.photoAlt, {
+                        record: room.name,
+                        count: index + 1,
+                      })}
+                      className="h-24 w-full object-cover"
+                    />
+                    <div className="flex justify-center px-2 py-2">
+                      <NamedConfirm
+                        title={copy.removePhotoTitle}
+                        body={fill(copy.removePhotoBody, { record: room.name })}
+                        confirm={copy.removePhotoConfirm}
+                        pendingLabel={copy.removing}
+                        cancelLabel={copy.keepPhoto}
+                        action={deleteRoomPhotoAction}
+                        fields={{ roomId: room.id, photoId: photo.id }}
+                        trigger={copy.remove}
+                      />
+                    </div>
+                  </figure>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-[var(--desk-muted)]">
+                {copy.noPhotos}
+              </p>
+            )}
+          </AdminPanel>
         </div>
-      )}
+      </div>
 
       {purchases.length > 0 && (
         <>
-          <h2 className="mt-6 mb-2 text-sm font-semibold">Purchases</h2>
-          <div className="overflow-x-auto rounded border border-[#d5dbe3] bg-white">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead className="bg-[#f4f7fa] text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-                <tr>
-                  <th className="px-3 py-2">Number</th>
-                  <th className="px-3 py-2">Period</th>
-                  <th className="px-3 py-2 text-end">Cost / night</th>
-                  <th className="px-3 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchases.map((purchase) => (
-                  <tr key={purchase.lineId} data-search-item className="border-t border-[#e6ebf0]">
-                    <td className="px-3 py-2">
-                      <Link
-                        href={`/admin/purchases/${purchase.id}`}
-                        className="font-medium text-[#0e4d8c] hover:underline"
-                      >
-                        {purchase.number}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {purchase.checkIn} → {purchase.checkOut}
-                    </td>
-                    <td className="px-3 py-2 text-end tabular-nums">
-                      {formatMoney(purchase.costPerNight, "en")}
-                    </td>
-                    <td className="px-3 py-2">
-                      <PurchaseStatusPill status={purchase.status} />
-                    </td>
+          <div className="mt-6">
+            <AdminSectionHeader title={copy.purchases} />
+          </div>
+          <div className="grid gap-3 lg:hidden">
+            {purchases.map((purchase) => (
+              <Link
+                key={purchase.lineId}
+                href={`/admin/purchases/${purchase.id}`}
+                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-plex text-xs text-[var(--desk-muted)]">
+                    {purchase.number}
+                  </span>
+                  <PurchaseStatusPill status={purchase.status} />
+                </div>
+                <p className="mt-3 font-plex text-xs">
+                  {formatDateRange(purchase.checkIn, purchase.checkOut, locale)}
+                </p>
+                <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-end font-plex text-sm">
+                  {formatMoney(purchase.costPerNight, locale)}
+                </p>
+              </Link>
+            ))}
+          </div>
+          <div className="hidden lg:block">
+            <AdminTableFrame>
+              <table className="desk-table w-full border-collapse text-start text-sm">
+                <thead className="bg-[var(--desk-canvas)]">
+                  <tr>
+                    <th className="px-4 py-3 text-start">{copy.number}</th>
+                    <th className="px-4 py-3 text-start">{copy.period}</th>
+                    <th className="px-4 py-3 text-end">{copy.costNight}</th>
+                    <th className="px-4 py-3 text-start">{copy.status}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {purchases.map((purchase) => (
+                    <tr key={purchase.lineId}>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/purchases/${purchase.id}`}
+                          className="desk-focus rounded-sm font-plex font-medium text-[var(--desk-primary)] hover:underline"
+                        >
+                          {purchase.number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-plex text-xs">
+                        {formatDateRange(
+                          purchase.checkIn,
+                          purchase.checkOut,
+                          locale,
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {formatMoney(purchase.costPerNight, locale)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PurchaseStatusPill status={purchase.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AdminTableFrame>
           </div>
         </>
       )}
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold">Allotments</h2>
+      <div className="mt-6">
+        <AdminSectionHeader title={copy.activeRoomHolds} />
+      </div>
       <AssignmentTable assignments={roomAssignments} allowRelease />
 
-      <form action={deleteRoomAction} className="mt-4">
-        <input type="hidden" name="id" value={room.id} />
-        <button type="submit" className="text-xs font-semibold text-red-700">
-          Delete room
-        </button>
-      </form>
+      <div className="mt-5">
+        <NamedConfirm
+          title={copy.deleteRoomTitle}
+          body={fill(copy.deleteRoomBody, { room: room.name })}
+          confirm={copy.deleteRoom}
+          pendingLabel={copy.deleting}
+          cancelLabel={copy.keepRoom}
+          action={deleteRoomAction}
+          fields={{ id: room.id }}
+          trigger={copy.deleteRoom}
+          triggerClassName={adminButtonDangerClass}
+        />
+      </div>
     </AdminShell>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="bg-white px-4 py-3">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-        {label}
-      </span>
-      <strong className="mt-1 block text-lg font-semibold tabular-nums">
-        {value}
-      </strong>
-    </article>
   );
 }

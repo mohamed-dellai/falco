@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Instrument_Sans, Newsreader } from "next/font/google";
 import { AdminLocaleProvider } from "@/components/admin-locale";
+import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import "../globals.css";
 import "./admin.css";
@@ -21,10 +22,13 @@ const plex = IBM_Plex_Mono({
   variable: "--font-plex",
 });
 
-export const metadata: Metadata = {
-  title: "Falco room desk",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = adminCopy(await getAdminLocale());
+  return {
+    title: `${copy.brand} — ${copy.desk}`,
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function AdminLayout({
   children,
@@ -34,14 +38,13 @@ export default async function AdminLayout({
   const locale = await getAdminLocale();
 
   return (
-    <html lang={locale} className={`${sans.variable} ${news.variable} ${plex.variable}`}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.48.0/dist/tabler-icons.min.css"
-        />
-      </head>
-      <body className={`${sans.className} bg-[#fbf9f5] text-[#081c36] antialiased`}>
+    <html
+      lang={locale}
+      className={`${sans.variable} ${news.variable} ${plex.variable}`}
+    >
+      <body
+        className={`${sans.className} admin-desk bg-[var(--desk-canvas)] text-[var(--desk-ink)] antialiased`}
+      >
         <AdminLocaleProvider locale={locale}>{children}</AdminLocaleProvider>
       </body>
     </html>

@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { AdminShell } from "@/components/admin-shell";
-import { SubmissionSheet } from "@/components/submission-sheet";
+import { notFound, redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSubmission } from "@/lib/submissions";
 
@@ -16,12 +14,5 @@ export default async function FormPage({
   const submission = await getSubmission(id);
   if (!submission) notFound();
 
-  return (
-    <AdminShell
-      title={submission.reference}
-      crumbs={[{ href: "/admin/forms", label: "Requests" }]}
-    >
-      <SubmissionSheet submission={submission} />
-    </AdminShell>
-  );
+  redirect(`/admin/forms?selected=${encodeURIComponent(submission.id)}`);
 }

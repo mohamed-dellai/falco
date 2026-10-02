@@ -29,6 +29,10 @@
     "heroAlt": "La Kaaba nella Grande Moschea della Mecca, vista attraverso un arco al tramonto",
     "heroLocation": "La Mecca, Arabia Saudita",
     "audience": "Per agenzie di viaggio e organizzatori di gruppi",
+    "audienceLabel": "Chi sta cercando",
+    "agencyChoice": "Sono un’agenzia di viaggi",
+    "travellerChoice": "Sto viaggiando",
+    "travellerAudience": "Prezzi pubblici per il tuo soggiorno",
     "heroSecondary": "Scopri come funziona l’assegnazione",
     "inventoryCta": "Vedi le camere disponibili",
     "agencyCta": "Richiedi un allotment",
@@ -192,6 +196,41 @@
     "chooseHotel": "Vedi le camere disponibili",
     "requestRooms": "{count, plural, one {Richiedi # camera} other {Richiedi # camere}}"
   },
+  "Traveller": {
+    "eyebrow": "Soggiorno individuale",
+    "title": "Camere con un prezzo pubblico a notte",
+    "description": "Cerca le tue date. Vedrai hotel e camere con un prezzo pubblico che coprono tutto il soggiorno. Quantità e tariffe agenzia restano private.",
+    "prompt": "Inserisci arrivo e partenza per vedere le camere prenotabili direttamente.",
+    "empty": "Nessuna camera a prezzo pubblico è aperta per ogni notte di questo soggiorno.",
+    "available": "Disponibile",
+    "nightly": "{price} a notte",
+    "total": "Totale soggiorno {price} per una camera",
+    "book": "Prenota questa camera"
+  },
+  "Book": {
+    "eyebrow": "Pagamento ospite",
+    "name": "Nome e cognome",
+    "email": "Email",
+    "phone": "WhatsApp",
+    "country": "Paese",
+    "rooms": "Camere",
+    "travellers": "Viaggiatori",
+    "nightly": "{price} a notte",
+    "summary": "{nightly} a notte · totale soggiorno {total}",
+    "capacity": "Quel numero di viaggiatori non entra nelle camere scelte.",
+    "unavailable": "Queste camere non sono più disponibili per queste date.",
+    "payment": "Il pagamento online non è disponibile in questo momento. Riprova tra poco.",
+    "cancelled": "Il pagamento è stato annullato. Puoi riprovare.",
+    "pay": "Continua al pagamento",
+    "paying": "Apertura del pagamento…",
+    "pendingTitle": "In attesa della conferma di pagamento",
+    "pendingCopy": "La prenotazione si conferma solo dopo l’arrivo del pagamento. Questa pagina si aggiorna da sola.",
+    "confirmedTitle": "Prenotazione confermata",
+    "confirmedCopy": "Il riferimento è {reference}. L’email di conferma è in arrivo.",
+    "cancelledTitle": "Prenotazione non completata",
+    "cancelledCopy": "La finestra di pagamento si è chiusa o la prenotazione è stata annullata. Cerca di nuovo.",
+    "back": "Torna alla ricerca"
+  },
   "Footer": {
     "summary": "Inventario alberghiero per Hajj e Umrah disponibile per date alle agenzie di viaggio alla Mecca, a Medina e a Gedda.",
     "explore": "Esplora",
@@ -206,6 +245,9 @@
     "servicesTitle": "Servizi a terra in Arabia Saudita",
     "agenciesTitle": "Partnership con agenzie di viaggio",
     "aboutTitle": "Chi è Falco Services",
-    "contactTitle": "Contatti e preventivi"
+    "contactTitle": "Contatti e preventivi",
+    "stayTitle": "Prenota una camera",
+    "stayDescription": "Prezzi pubblici a notte per le camere aperte ai viaggiatori individuali alla Mecca, a Medina e a Gedda.",
+    "bookTitle": "Pagamento"
   }
 }

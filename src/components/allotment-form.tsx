@@ -7,14 +7,23 @@ import {
   saveAllotmentAction,
 } from "@/app/admin/actions";
 import {
+  AdminField,
+  AdminStatusPill,
   adminButtonClass,
+  adminButtonDangerClass,
   adminButtonSecondaryClass,
   adminFieldClass,
-} from "@/components/admin-shell";
-import { useAdminCopy } from "@/components/admin-locale";
+} from "@/components/admin-ui";
+import { NamedConfirm } from "@/components/named-confirm";
+import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill } from "@/lib/admin-copy";
 import type { Allotment, AllotmentStatus } from "@/lib/inventory";
-import { formatMoney, moneyInput, nightsBetween } from "@/lib/money";
+import {
+  formatDate,
+  formatMoney,
+  moneyInput,
+  nightsBetween,
+} from "@/lib/money";
 
 type RoomOption = {
   id: string;
@@ -31,12 +40,6 @@ type DraftLine = {
   label: string;
 };
 
-const statusStyle: Record<AllotmentStatus, string> = {
-  draft: "bg-[#eef2f6] text-[#334155]",
-  confirmed: "bg-[#e5f6ea] text-[#146c36]",
-  cancelled: "bg-[#fdecec] text-[#9b1c1c]",
-};
-
 export function AllotmentStatusPill({ status }: { status: AllotmentStatus }) {
   const copy = useAdminCopy();
   const statusLabel: Record<AllotmentStatus, string> = {
@@ -45,11 +48,17 @@ export function AllotmentStatusPill({ status }: { status: AllotmentStatus }) {
     cancelled: copy.cancelled,
   };
   return (
-    <span
-      className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle[status]}`}
+    <AdminStatusPill
+      tone={
+        status === "confirmed"
+          ? "success"
+          : status === "cancelled"
+            ? "danger"
+            : "neutral"
+      }
     >
       {statusLabel[status]}
-    </span>
+    </AdminStatusPill>
   );
 }
 
@@ -88,19 +97,32 @@ export function AllotmentForm({
   rooms,
   allotment,
   roomId,
+  agencyId,
+  initialCheckIn,
+  initialCheckOut,
 }: {
   agencies: Array<{ id: string; name: string; country: string }>;
   rooms: RoomOption[];
   allotment?: Allotment;
   roomId?: string;
+  agencyId?: string;
+  initialCheckIn?: string;
+  initialCheckOut?: string;
 }) {
   const copy = useAdminCopy();
+  const locale = useAdminLocale();
   const locked =
     allotment?.status === "confirmed" || allotment?.status === "cancelled";
   const preset = rooms.find((room) => room.id === roomId);
-  const [agencyId, setAgencyId] = useState(allotment?.agencyId ?? "");
-  const [checkIn, setCheckIn] = useState(allotment?.checkIn ?? "");
-  const [checkOut, setCheckOut] = useState(allotment?.checkOut ?? "");
+  const [selectedAgencyId, setSelectedAgencyId] = useState(
+    allotment?.agencyId ?? agencyId ?? "",
+  );
+  const [checkIn, setCheckIn] = useState(
+    allotment?.checkIn ?? initialCheckIn ?? "",
+  );
+  const [checkOut, setCheckOut] = useState(
+    allotment?.checkOut ?? initialCheckOut ?? "",
+  );
   const [lines, setLines] = useState<DraftLine[]>(
     allotment?.lines.length
       ? lineFromAllotment(allotment)
@@ -114,7 +136,8 @@ export function AllotmentForm({
     let cost = 0;
     let revenue = 0;
     let rooms = 0;
-    if (nights < 1) return { nights: 0, cost: 0, revenue: 0, margin: 0, rooms: 0 };
+    if (nights < 1)
+      return { nights: 0, cost: 0, revenue: 0, margin: 0, rooms: 0 };
     for (const line of lines) {
       const lineCost = lineHalalas(line.cost);
       const linePrice = lineHalalas(line.price);
@@ -137,9 +160,9 @@ export function AllotmentForm({
     const intent =
       submitter instanceof HTMLButtonElement ? submitter.value : "draft";
     const filled = lines.filter(lineIsFilled);
-    if (!agencyId) {
+    if (!selectedAgencyId) {
       event.preventDefault();
-      setFormError("Select the agency.");
+      setFormError(copy.agencyError);
       return;
     }
     const nights = nightsBetween(checkIn, checkOut);
@@ -150,12 +173,12 @@ export function AllotmentForm({
     }
     if (nights > 1095) {
       event.preventDefault();
-      setFormError("A stay can't be longer than three years.");
+      setFormError(copy.spanError);
       return;
     }
     if (intent === "confirm" && filled.length === 0) {
       event.preventDefault();
-      setFormError("Add at least one room before confirming the allotment.");
+      setFormError(copy.allotmentLinesError);
       return;
     }
     const broken = filled.find(
@@ -166,7 +189,7 @@ export function AllotmentForm({
     );
     if (broken) {
       event.preventDefault();
-      setFormError("Each room needs Falco's cost and the agency price.");
+      setFormError(copy.linePricingError);
       return;
     }
     setFormError("");
@@ -174,8 +197,8 @@ export function AllotmentForm({
   }
 
   return (
-    <div className="rounded border border-[#d5dbe3] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ebf0] px-4 py-3">
+    <div className="overflow-visible rounded-2xl border border-[var(--desk-line)] bg-white">
+      <div className="sticky top-[4.5rem] z-10 flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[var(--desk-line)] bg-white/95 px-4 py-3 backdrop-blur lg:static">
         <div className="flex flex-wrap gap-2">
           {!locked && (
             <>
@@ -187,7 +210,9 @@ export function AllotmentForm({
                 disabled={pending !== ""}
                 className={`${adminButtonClass} min-w-40`}
               >
-                {pending === "confirm" ? copy.confirming : copy.confirmAllotment}
+                {pending === "confirm"
+                  ? copy.confirming
+                  : copy.confirmAllotment}
               </button>
               <button
                 type="submit"
@@ -202,54 +227,73 @@ export function AllotmentForm({
             </>
           )}
           {allotment?.status === "confirmed" && (
-            <form action={cancelAllotmentAction}>
-              <input type="hidden" name="id" value={allotment.id} />
-              <button type="submit" className={adminButtonSecondaryClass}>
-                Cancel
-              </button>
-            </form>
+            <NamedConfirm
+              title={copy.cancelAllotmentTitle}
+              body={fill(copy.cancelAllotmentBody, {
+                number: allotment.number,
+              })}
+              confirm={copy.cancelAction}
+              pendingLabel={copy.cancelling}
+              cancelLabel={copy.keepAllotment}
+              action={cancelAllotmentAction}
+              fields={{ id: allotment.id }}
+              trigger={copy.cancelAction}
+              triggerClassName={adminButtonDangerClass}
+            />
           )}
           {allotment?.status === "draft" && (
-            <form action={deleteAllotmentAction}>
-              <input type="hidden" name="id" value={allotment.id} />
-              <button
-                type="submit"
-                className="h-9 px-2 text-sm font-semibold text-red-700"
-              >
-                Delete
-              </button>
-            </form>
+            <NamedConfirm
+              title={copy.deleteDraftTitle}
+              body={fill(copy.deleteDraftBody, { number: allotment.number })}
+              confirm={copy.deleteAction}
+              pendingLabel={copy.deleting}
+              cancelLabel={copy.keepDraft}
+              action={deleteAllotmentAction}
+              fields={{ id: allotment.id }}
+              trigger={copy.deleteAction}
+              triggerClassName={adminButtonDangerClass}
+            />
           )}
         </div>
-        <AllotmentStatusPill status={allotment?.status ?? "draft"} />
+        <div className="flex items-center gap-3">
+          <span
+            aria-live="polite"
+            className="font-plex text-xs tabular-nums text-[var(--desk-muted)]"
+          >
+            {copy.sell} · {formatMoney(totals.revenue, locale)}
+          </span>
+          <AllotmentStatusPill status={allotment?.status ?? "draft"} />
+        </div>
       </div>
 
       <form
         id="allotment-form"
         action={saveAllotmentAction}
         onSubmit={onSubmit}
-        className="grid gap-4 p-4"
+        className="grid gap-5 p-4 sm:p-5"
       >
         {allotment && <input type="hidden" name="id" value={allotment.id} />}
         {formError && (
-          <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p
+            role="alert"
+            className="rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
+          >
             {formError}
           </p>
         )}
 
         <div className="grid gap-4 md:grid-cols-3">
-          <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-            {copy.agency}
+          <AdminField label={copy.agency}>
             {locked ? (
-              <span className="flex h-9 items-center text-sm font-medium">
+              <span className="flex min-h-10 items-center text-sm font-medium">
                 {allotment?.agencyName}
               </span>
             ) : (
               <select
                 name="agencyId"
                 required
-                value={agencyId}
-                onChange={(event) => setAgencyId(event.target.value)}
+                value={selectedAgencyId}
+                onChange={(event) => setSelectedAgencyId(event.target.value)}
                 className={adminFieldClass}
               >
                 <option value="">{copy.selectAgency}</option>
@@ -261,12 +305,11 @@ export function AllotmentForm({
                 ))}
               </select>
             )}
-          </label>
-          <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-            {copy.checkIn}
+          </AdminField>
+          <AdminField label={copy.checkIn}>
             {locked ? (
-              <span className="flex h-9 items-center text-sm font-medium tabular-nums">
-                {allotment?.checkIn}
+              <span className="flex min-h-10 items-center font-plex text-xs font-medium">
+                {formatDate(allotment?.checkIn, locale)}
               </span>
             ) : (
               <input
@@ -278,12 +321,11 @@ export function AllotmentForm({
                 className={adminFieldClass}
               />
             )}
-          </label>
-          <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-            {copy.checkOut}
+          </AdminField>
+          <AdminField label={copy.checkOut}>
             {locked ? (
-              <span className="flex h-9 items-center text-sm font-medium tabular-nums">
-                {allotment?.checkOut}
+              <span className="flex min-h-10 items-center font-plex text-xs font-medium">
+                {formatDate(allotment?.checkOut, locale)}
               </span>
             ) : (
               <input
@@ -295,19 +337,21 @@ export function AllotmentForm({
                 className={adminFieldClass}
               />
             )}
-          </label>
+          </AdminField>
         </div>
 
-        <p className="text-xs text-[#5c6776]">
+        <p className="text-xs leading-5 text-[var(--desk-muted)]">
           {allotment
-            ? `${allotment.number} · ${fill(copy.orderedOn, { date: allotment.createdAt.slice(0, 10) })}. `
+            ? `${allotment.number} · ${fill(copy.orderedOn, {
+                date: formatDate(allotment.createdAt, locale),
+              })}. `
             : `${copy.numberAssigned} `}
           {copy.draftNote}
         </p>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead className="bg-[#f4f7fa] text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
+        <div>
+          <table className="block w-full border-collapse text-start text-sm lg:table">
+            <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
               <tr>
                 <th className="px-2 py-2">{copy.rooms}</th>
                 <th className="px-2 py-2 text-end">{copy.costNight}</th>
@@ -316,15 +360,22 @@ export function AllotmentForm({
                 {!locked && <th className="w-8 px-2 py-2" />}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="grid gap-3 lg:table-row-group">
               {lines.map((line) => {
                 const nights = nightsBetween(checkIn, checkOut);
                 const price = lineHalalas(line.price);
-                const sell = nights > 0 && price !== null ? price * nights : null;
+                const sell =
+                  nights > 0 && price !== null ? price * nights : null;
                 const known = rooms.some((room) => room.id === line.roomId);
                 return (
-                  <tr key={line.key} data-search-item className="border-t border-[#e6ebf0]">
-                    <td className="px-2 py-2">
+                  <tr
+                    key={line.key}
+                    className="block rounded-xl border border-[var(--desk-line)] p-3 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
+                  >
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.rooms}
+                      </span>
                       {locked ? (
                         <span>{line.label}</span>
                       ) : (
@@ -340,7 +391,9 @@ export function AllotmentForm({
                               label: room
                                 ? `${room.hotelName} — ${room.name}`
                                 : "",
-                              cost: room ? moneyInput(room.costPerNight) : line.cost,
+                              cost: room
+                                ? moneyInput(room.costPerNight)
+                                : line.cost,
                             });
                           }}
                           className={adminFieldClass}
@@ -357,7 +410,10 @@ export function AllotmentForm({
                         </select>
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.costNight}
+                      </span>
                       {locked ? (
                         <span className="block text-end tabular-nums">
                           {line.cost}
@@ -374,7 +430,10 @@ export function AllotmentForm({
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.agencyPriceNight}
+                      </span>
                       {locked ? (
                         <span className="block text-end tabular-nums">
                           {line.price}
@@ -391,23 +450,28 @@ export function AllotmentForm({
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2 text-end tabular-nums">
-                      {sell === null ? "—" : formatMoney(sell, "en")}
+                    <td className="block px-0 py-2 text-end font-plex lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.sell}
+                      </span>
+                      {sell === null ? "—" : formatMoney(sell, locale)}
                     </td>
                     {!locked && (
-                      <td className="px-2 py-2 text-end">
+                      <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
                         <button
                           type="button"
                           onClick={() =>
                             setLines((current) =>
                               current.length === 1
                                 ? [emptyLine()]
-                                : current.filter((item) => item.key !== line.key),
+                                : current.filter(
+                                    (item) => item.key !== line.key,
+                                  ),
                             )
                           }
-                          className="text-xs font-semibold text-red-700"
+                          className="desk-focus rounded text-xs font-semibold text-[var(--desk-danger)]"
                         >
-                          Remove
+                          {copy.removeLine}
                         </button>
                       </td>
                     )}
@@ -422,16 +486,15 @@ export function AllotmentForm({
           <button
             type="button"
             onClick={() => setLines((current) => [...current, emptyLine()])}
-            className="w-fit text-sm font-semibold text-[#0e4d8c]"
+            className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
           >
-            Add a room
+            {copy.addRoom}
           </button>
         )}
 
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          {copy.notes}
+        <AdminField label={copy.notes}>
           {locked ? (
-            <p className="text-sm font-normal text-[#172033]">
+            <p className="text-sm font-normal text-[var(--desk-text)]">
               {allotment?.notes || "—"}
             </p>
           ) : (
@@ -441,27 +504,28 @@ export function AllotmentForm({
               className={`${adminFieldClass} !h-auto min-h-20 py-2`}
             />
           )}
-        </label>
+        </AdminField>
 
-        <dl className="ms-auto grid w-full max-w-sm gap-1 text-sm">
+        <dl className="ms-auto grid w-full max-w-sm gap-2 rounded-xl bg-[var(--desk-canvas)] p-4 text-sm">
           <div className="flex justify-between gap-6">
-            <dt className="text-[#5c6776]">{copy.rooms}</dt>
-            <dd className="tabular-nums">{totals.rooms}</dd>
+            <dt className="text-[var(--desk-muted)]">{copy.rooms}</dt>
+            <dd className="font-plex">{totals.rooms}</dd>
           </div>
           <div className="flex justify-between gap-6">
-            <dt className="text-[#5c6776]">{copy.cost}</dt>
-            <dd className="tabular-nums">{formatMoney(totals.cost, "en")}</dd>
+            <dt className="text-[var(--desk-muted)]">{copy.cost}</dt>
+            <dd className="font-plex">{formatMoney(totals.cost, locale)}</dd>
           </div>
           <div className="flex justify-between gap-6">
-            <dt className="text-[#5c6776]">{copy.sell}</dt>
-            <dd className="tabular-nums">{formatMoney(totals.revenue, "en")}</dd>
+            <dt className="text-[var(--desk-muted)]">{copy.sell}</dt>
+            <dd className="font-plex">{formatMoney(totals.revenue, locale)}</dd>
           </div>
-          <div className="flex justify-between gap-6 font-semibold text-[#0e4d8c]">
+          <div className="flex justify-between gap-6 border-t border-[var(--desk-line)] pt-2 font-semibold text-[var(--desk-primary)]">
             <dt>
-              Margin
-              {totals.nights > 0 ? ` · ${totals.nights} nights` : ""}
+              {totals.nights > 0
+                ? fill(copy.marginWithNights, { count: totals.nights })
+                : copy.margin}
             </dt>
-            <dd className="tabular-nums">{formatMoney(totals.margin, "en")}</dd>
+            <dd className="font-plex">{formatMoney(totals.margin, locale)}</dd>
           </div>
         </dl>
       </form>

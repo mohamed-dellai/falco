@@ -8,14 +8,23 @@ import {
   savePurchaseAction,
 } from "@/app/admin/actions";
 import {
+  AdminField,
+  AdminStatusPill,
   adminButtonClass,
+  adminButtonDangerClass,
   adminButtonSecondaryClass,
   adminFieldClass,
-} from "@/components/admin-shell";
-import { useAdminCopy } from "@/components/admin-locale";
-import type { AdminCopy } from "@/lib/admin-copy";
+} from "@/components/admin-ui";
+import { NamedConfirm } from "@/components/named-confirm";
+import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
+import { fill, type AdminCopy } from "@/lib/admin-copy";
 import type { Purchase, PurchaseStatus } from "@/lib/inventory";
-import { formatMoney, moneyInput, nightsBetween } from "@/lib/money";
+import {
+  formatDate,
+  formatMoney,
+  moneyInput,
+  nightsBetween,
+} from "@/lib/money";
 
 type DraftLine = {
   key: string;
@@ -29,15 +38,10 @@ type DraftLine = {
 };
 
 function cityName(copy: AdminCopy, city: string) {
-  if (city === "makkah" || city === "madinah" || city === "jeddah") return copy[city];
+  if (city === "makkah" || city === "madinah" || city === "jeddah")
+    return copy[city];
   return city;
 }
-
-const statusStyle: Record<PurchaseStatus, string> = {
-  draft: "bg-[#eef2f6] text-[#334155]",
-  confirmed: "bg-[#e5f6ea] text-[#146c36]",
-  cancelled: "bg-[#fdecec] text-[#9b1c1c]",
-};
 
 export function PurchaseStatusPill({ status }: { status: PurchaseStatus }) {
   const copy = useAdminCopy();
@@ -47,11 +51,17 @@ export function PurchaseStatusPill({ status }: { status: PurchaseStatus }) {
     cancelled: copy.cancelled,
   };
   return (
-    <span
-      className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle[status]}`}
+    <AdminStatusPill
+      tone={
+        status === "confirmed"
+          ? "success"
+          : status === "cancelled"
+            ? "danger"
+            : "neutral"
+      }
     >
       {statusLabel[status]}
-    </span>
+    </AdminStatusPill>
   );
 }
 
@@ -102,7 +112,9 @@ export function PurchaseForm({
   hotelId?: string;
 }) {
   const copy = useAdminCopy();
-  const locked = purchase?.status === "confirmed" || purchase?.status === "cancelled";
+  const locale = useAdminLocale();
+  const locked =
+    purchase?.status === "confirmed" || purchase?.status === "cancelled";
   const [hotel, setHotel] = useState(purchase?.hotelId ?? hotelId ?? "");
   const [lines, setLines] = useState<DraftLine[]>(
     purchase?.lines.length ? lineFromPurchase(purchase) : [emptyLine()],
@@ -173,8 +185,8 @@ export function PurchaseForm({
   }
 
   return (
-    <div className="rounded border border-[#d5dbe3] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ebf0] px-4 py-3">
+    <div className="overflow-visible rounded-2xl border border-[var(--desk-line)] bg-white">
+      <div className="sticky top-[4.5rem] z-10 flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[var(--desk-line)] bg-white/95 px-4 py-3 backdrop-blur lg:static">
         <div className="flex flex-wrap gap-2">
           {!locked && (
             <>
@@ -201,40 +213,64 @@ export function PurchaseForm({
             </>
           )}
           {purchase?.status === "confirmed" && (
-            <form action={cancelPurchaseAction}>
-              <input type="hidden" name="id" value={purchase.id} />
-              <button type="submit" className={adminButtonSecondaryClass}>
-                {copy.cancelAction}
-              </button>
-            </form>
+            <NamedConfirm
+              title={copy.cancelPurchaseTitle}
+              body={fill(copy.cancelPurchaseBody, {
+                number: purchase.number,
+              })}
+              confirm={copy.cancelAction}
+              pendingLabel={copy.cancelling}
+              cancelLabel={copy.keepPurchase}
+              action={cancelPurchaseAction}
+              fields={{ id: purchase.id }}
+              trigger={copy.cancelAction}
+              triggerClassName={adminButtonDangerClass}
+            />
           )}
           {purchase?.status === "draft" && (
-            <form action={deletePurchaseAction}>
-              <input type="hidden" name="id" value={purchase.id} />
-              <button
-                type="submit"
-                className="h-9 px-2 text-sm font-semibold text-red-700"
-              >
-                {copy.deleteAction}
-              </button>
-            </form>
+            <NamedConfirm
+              title={copy.deleteDraftTitle}
+              body={fill(copy.deleteDraftBody, { number: purchase.number })}
+              confirm={copy.deleteAction}
+              pendingLabel={copy.deleting}
+              cancelLabel={copy.keepDraft}
+              action={deletePurchaseAction}
+              fields={{ id: purchase.id }}
+              trigger={copy.deleteAction}
+              triggerClassName={adminButtonDangerClass}
+            />
           )}
         </div>
-        <PurchaseStatusPill status={purchase?.status ?? "draft"} />
+        <div className="flex items-center gap-3">
+          <span
+            aria-live="polite"
+            className="font-plex text-xs tabular-nums text-[var(--desk-muted)]"
+          >
+            {copy.total} · {formatMoney(totals.amount, locale)}
+          </span>
+          <PurchaseStatusPill status={purchase?.status ?? "draft"} />
+        </div>
       </div>
 
-      <form id="purchase-form" action={savePurchaseAction} onSubmit={onSubmit} className="grid gap-4 p-4">
+      <form
+        id="purchase-form"
+        action={savePurchaseAction}
+        onSubmit={onSubmit}
+        className="grid gap-5 p-4 sm:p-5"
+      >
         {purchase && <input type="hidden" name="id" value={purchase.id} />}
         {formError && (
-          <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p
+            role="alert"
+            className="rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
+          >
             {formError}
           </p>
         )}
 
-        <label className="grid max-w-md gap-1 text-xs font-semibold text-[#334155]">
-          {copy.hotel}
+        <AdminField label={copy.hotel} className="max-w-md">
           {locked ? (
-            <span className="flex h-9 items-center text-sm font-medium text-[#172033]">
+            <span className="flex min-h-10 items-center text-sm font-medium text-[var(--desk-text)]">
               {purchase?.hotelName}
               {purchase ? ` — ${cityName(copy, purchase.hotelCity)}` : ""}
             </span>
@@ -255,17 +291,20 @@ export function PurchaseForm({
               ))}
             </select>
           )}
-        </label>
+        </AdminField>
 
-        <p className="text-xs text-[#5c6776]">
-          {purchase ? `${purchase.number} · ` : "Number is assigned when you save. "}
-          Each room has its own dates. One room per line.
-          {purchase ? ` Ordered ${purchase.createdAt.slice(0, 10)}.` : ""}
+        <p className="text-xs leading-5 text-[var(--desk-muted)]">
+          {purchase
+            ? `${purchase.number} · ${fill(copy.orderedOn, {
+                date: formatDate(purchase.createdAt, locale),
+              })}. `
+            : `${copy.numberAssigned} `}
+          {copy.purchaseLineHelp}
         </p>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-            <thead className="bg-[#f4f7fa] text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
+        <div>
+          <table className="block w-full border-collapse text-start text-sm lg:table">
+            <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
               <tr>
                 <th className="px-2 py-2">{copy.rooms}</th>
                 <th className="px-2 py-2">{copy.details}</th>
@@ -277,19 +316,26 @@ export function PurchaseForm({
                 {!locked && <th className="w-8 px-2 py-2" />}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="grid gap-3 lg:table-row-group">
               {lines.map((line) => {
                 const nights = nightsBetween(line.checkIn, line.checkOut);
                 const price = lineHalalas(line.price);
-                const amount = nights > 0 && price !== null ? price * nights : 0;
+                const amount =
+                  nights > 0 && price !== null ? price * nights : 0;
                 return (
-                  <tr key={line.key} data-search-item className="border-t border-[#e6ebf0]">
-                    <td className="px-2 py-2">
+                  <tr
+                    key={line.key}
+                    className="block rounded-xl border border-[var(--desk-line)] p-3 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
+                  >
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.roomType}
+                      </span>
                       {locked ? (
                         line.roomId ? (
                           <Link
                             href={`/admin/rooms/${line.roomId}`}
-                            className="font-medium text-[#0e4d8c] hover:underline"
+                            className="font-medium text-[var(--desk-primary)] hover:underline"
                           >
                             {line.name}
                           </Link>
@@ -300,7 +346,7 @@ export function PurchaseForm({
                         <input
                           name="lineName"
                           value={line.name}
-                          placeholder="Quad"
+                          placeholder={copy.roomNameExample}
                           onChange={(event) =>
                             updateLine(line.key, { name: event.target.value })
                           }
@@ -308,22 +354,32 @@ export function PurchaseForm({
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.details}
+                      </span>
                       {locked ? (
-                        <span className="text-[#334155]">{line.description}</span>
+                        <span className="text-[var(--desk-text-soft)]">
+                          {line.description}
+                        </span>
                       ) : (
                         <input
                           name="lineDescription"
                           value={line.description}
-                          placeholder="Haram view, breakfast"
+                          placeholder={copy.roomDetailsExample}
                           onChange={(event) =>
-                            updateLine(line.key, { description: event.target.value })
+                            updateLine(line.key, {
+                              description: event.target.value,
+                            })
                           }
                           className={adminFieldClass}
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2 text-end">
+                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.sleeps}
+                      </span>
                       {locked ? (
                         <span className="tabular-nums">{line.capacity}</span>
                       ) : (
@@ -334,46 +390,65 @@ export function PurchaseForm({
                           max={20}
                           value={line.capacity}
                           onChange={(event) =>
-                            updateLine(line.key, { capacity: event.target.value })
+                            updateLine(line.key, {
+                              capacity: event.target.value,
+                            })
                           }
-                          className={`${adminFieldClass} w-16 text-end`}
+                          className={`${adminFieldClass} w-full text-end lg:w-16`}
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.from}
+                      </span>
                       {locked ? (
-                        <span className="tabular-nums">{line.checkIn}</span>
+                        <span className="tabular-nums">
+                          {formatDate(line.checkIn, locale)}
+                        </span>
                       ) : (
                         <input
                           name="lineCheckIn"
                           type="date"
                           value={line.checkIn}
                           onChange={(event) =>
-                            updateLine(line.key, { checkIn: event.target.value })
+                            updateLine(line.key, {
+                              checkIn: event.target.value,
+                            })
                           }
                           className={adminFieldClass}
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.to}
+                      </span>
                       {locked ? (
-                        <span className="tabular-nums">{line.checkOut}</span>
+                        <span className="tabular-nums">
+                          {formatDate(line.checkOut, locale)}
+                        </span>
                       ) : (
                         <input
                           name="lineCheckOut"
                           type="date"
                           value={line.checkOut}
                           onChange={(event) =>
-                            updateLine(line.key, { checkOut: event.target.value })
+                            updateLine(line.key, {
+                              checkOut: event.target.value,
+                            })
                           }
                           className={adminFieldClass}
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2 text-end">
+                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.pricePerNight}
+                      </span>
                       {locked ? (
                         <span className="tabular-nums">
-                          {formatMoney(lineHalalas(line.price) ?? 0, "en")}
+                          {formatMoney(lineHalalas(line.price) ?? 0, locale)}
                         </span>
                       ) : (
                         <input
@@ -384,12 +459,15 @@ export function PurchaseForm({
                           onChange={(event) =>
                             updateLine(line.key, { price: event.target.value })
                           }
-                          className={`${adminFieldClass} w-28 text-end`}
+                          className={`${adminFieldClass} w-full text-end lg:w-28`}
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2 text-end tabular-nums">
-                      {nights > 0 ? formatMoney(amount, "en") : "—"}
+                    <td className="block px-0 py-2 text-end font-plex lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.amount}
+                      </span>
+                      {nights > 0 ? formatMoney(amount, locale) : "—"}
                     </td>
                     {!locked && (
                       <td className="px-2 py-2 text-end">
@@ -400,9 +478,9 @@ export function PurchaseForm({
                               current.filter((item) => item.key !== line.key),
                             )
                           }
-                          className="text-xs font-semibold text-[#5c6776]"
+                          className="desk-focus rounded text-xs font-semibold text-[var(--desk-danger)]"
                         >
-                          {copy.remove}
+                          {copy.removeLine}
                         </button>
                       </td>
                     )}
@@ -417,38 +495,35 @@ export function PurchaseForm({
           <button
             type="button"
             onClick={() => setLines((current) => [...current, emptyLine()])}
-            className="w-fit text-sm font-semibold text-[#0e4d8c]"
+            className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
           >
-            Add a line
+            {copy.addLine}
           </button>
         )}
 
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          {copy.notes}
+        <AdminField label={copy.notes}>
           {locked ? (
-            <p className="text-sm font-normal text-[#172033]">
+            <p className="text-sm font-normal text-[var(--desk-text)]">
               {purchase?.notes || "—"}
             </p>
           ) : (
             <textarea
               name="notes"
               defaultValue={purchase?.notes ?? ""}
-              placeholder="Contract reference, payment terms"
+              placeholder={copy.notesExample}
               className={`${adminFieldClass} !h-auto min-h-20 py-2`}
             />
           )}
-        </label>
+        </AdminField>
 
-        <dl className="ms-auto grid w-full max-w-xs gap-1 text-sm">
+        <dl className="ms-auto grid w-full max-w-xs gap-2 rounded-xl bg-[var(--desk-canvas)] p-4 text-sm">
           <div className="flex justify-between gap-6">
-            <dt className="text-[#5c6776]">{copy.rooms}</dt>
-            <dd className="tabular-nums">{totals.rooms}</dd>
+            <dt className="text-[var(--desk-muted)]">{copy.rooms}</dt>
+            <dd className="font-plex">{totals.rooms}</dd>
           </div>
-          <div className="flex justify-between gap-6 text-base font-semibold">
+          <div className="flex justify-between gap-6 border-t border-[var(--desk-line)] pt-2 text-base font-semibold">
             <dt>{copy.total}</dt>
-            <dd className="tabular-nums">
-              {formatMoney(totals.amount, "en")}
-            </dd>
+            <dd className="font-plex">{formatMoney(totals.amount, locale)}</dd>
           </div>
         </dl>
       </form>

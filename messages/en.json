@@ -29,6 +29,10 @@
     "heroAlt": "The Kaaba at Masjid al-Haram in Makkah, seen through an arch at sunset",
     "heroLocation": "Makkah, Saudi Arabia",
     "audience": "For travel agencies and group operators",
+    "audienceLabel": "Who is searching",
+    "agencyChoice": "I'm a travel agency",
+    "travellerChoice": "I'm travelling",
+    "travellerAudience": "Public prices for your own stay",
     "heroSecondary": "See how allotments work",
     "inventoryCta": "See open rooms",
     "agencyCta": "Request an allotment",
@@ -192,6 +196,41 @@
     "chooseHotel": "View available rooms",
     "requestRooms": "{count, plural, one {Request # room} other {Request # rooms}}"
   },
+  "Traveller": {
+    "eyebrow": "Individual stay",
+    "title": "Rooms with a public nightly price",
+    "description": "Search your dates. You will see hotels and rooms that have a public price and can cover the full stay. Agency quantities and agency rates stay private.",
+    "prompt": "Enter your check-in and check-out to see rooms you can book directly.",
+    "empty": "No publicly priced rooms are open for every night of this stay.",
+    "available": "Available",
+    "nightly": "{price} per night",
+    "total": "Stay total {price} for one room",
+    "book": "Book this room"
+  },
+  "Book": {
+    "eyebrow": "Guest checkout",
+    "name": "Full name",
+    "email": "Email",
+    "phone": "WhatsApp",
+    "country": "Country",
+    "rooms": "Rooms",
+    "travellers": "Travellers",
+    "nightly": "{price} per night",
+    "summary": "{nightly} per night · stay total {total}",
+    "capacity": "That many travellers do not fit in the rooms selected.",
+    "unavailable": "These rooms are no longer available for those dates.",
+    "payment": "Online payment is not available right now. Try again shortly.",
+    "cancelled": "Payment was cancelled. You can try again.",
+    "pay": "Continue to payment",
+    "paying": "Opening payment…",
+    "pendingTitle": "Waiting for payment confirmation",
+    "pendingCopy": "The booking is confirmed only after payment is received. This page refreshes automatically.",
+    "confirmedTitle": "Booking confirmed",
+    "confirmedCopy": "Your reference is {reference}. A confirmation email is on its way.",
+    "cancelledTitle": "Booking not completed",
+    "cancelledCopy": "The payment window closed or the booking was cancelled. Search again to choose new dates.",
+    "back": "Back to room search"
+  },
   "Footer": {
     "summary": "Date-specific Hajj and Umrah hotel inventory for travel agencies in Makkah, Madinah, and Jeddah.",
     "explore": "Explore",
@@ -206,6 +245,9 @@
     "servicesTitle": "Saudi Ground Services",
     "agenciesTitle": "Travel Agency Partnerships",
     "aboutTitle": "About Falco Services",
-    "contactTitle": "Contact and Quotations"
+    "contactTitle": "Contact and Quotations",
+    "stayTitle": "Book a room",
+    "stayDescription": "Public nightly prices for rooms available to individual travellers in Makkah, Madinah, and Jeddah.",
+    "bookTitle": "Checkout"
   }
 }

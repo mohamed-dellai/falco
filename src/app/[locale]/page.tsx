@@ -9,8 +9,9 @@ import {
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { AudienceSearch } from "@/components/audience-search";
 import { AvailableHotels } from "@/components/available-hotels";
-import { FocusResults, StaySearch } from "@/components/stay-search";
+import { FocusResults } from "@/components/stay-search";
 import { Link } from "@/i18n/navigation";
 import { localeAlternates, routing, type Locale } from "@/i18n/routing";
 import { listShowcase, parseStay } from "@/lib/inventory";
@@ -143,21 +144,11 @@ export default async function HomePage({ params, searchParams }: PageProps) {
             <p className="mt-5 max-w-2xl text-base leading-8 text-white/[0.82] md:text-lg">
               {t("subtitle")}
             </p>
-            <p className="mt-5 flex items-center gap-2 text-sm font-bold text-white">
-              <span className="size-2 rounded-full bg-gold" />
-              {t("audience")}
-            </p>
-
-            <div>
-              <StaySearch
-                key={`${query.checkIn ?? ""}:${query.checkOut ?? ""}`}
-                pathname="/"
-                minDate={minDate}
-                checkIn={query.checkIn}
-                checkOut={query.checkOut}
-                variant="bar"
-              />
-            </div>
+            <AudienceSearch
+              minDate={minDate}
+              checkIn={query.checkIn}
+              checkOut={query.checkOut}
+            />
 
             <a
               href="#how-it-works"

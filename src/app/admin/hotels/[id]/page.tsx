@@ -6,15 +6,22 @@ import {
   updateHotelAction,
 } from "@/app/admin/actions";
 import { HotelFields } from "@/app/admin/hotels/new/page";
+import { AdminError, AdminShell } from "@/components/admin-shell";
 import {
-  AdminError,
+  AdminEmptyState,
   AdminPanel,
-  AdminShell,
+  AdminSectionHeader,
+  AdminTableFrame,
   adminButtonClass,
-  adminFieldClass,
-} from "@/components/admin-shell";
+  adminButtonDangerClass,
+} from "@/components/admin-ui";
+import { AdminSubmitButton } from "@/components/admin-submit-button";
+import { NamedConfirm } from "@/components/named-confirm";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { PurchaseStatusPill } from "@/components/purchase-form";
 import { requireAdmin } from "@/lib/admin-auth";
+import { adminCopy, fill } from "@/lib/admin-copy";
+import { getAdminLocale } from "@/lib/admin-locale";
 import {
   getHotel,
   heldOn,
@@ -23,11 +30,21 @@ import {
   listRooms,
   openQuantity,
   purchaseAmount,
-  purchasePeriod,
+  purchaseSpan,
 } from "@/lib/inventory";
-import { formatMoney } from "@/lib/money";
+import { formatDateRange, formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
+
+function displayPeriod(
+  lines: Array<{ checkIn: string; checkOut: string }>,
+  locale: "en" | "fr",
+) {
+  const period = purchaseSpan(lines);
+  return period
+    ? formatDateRange(period.checkIn, period.checkOut, locale)
+    : "—";
+}
 
 export default async function HotelAdminPage({
   params,
@@ -37,6 +54,8 @@ export default async function HotelAdminPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   await requireAdmin();
+  const locale = await getAdminLocale();
+  const copy = adminCopy(locale);
   const { id } = await params;
   const query = await searchParams;
   const hotel = await getHotel(id);
@@ -58,167 +77,238 @@ export default async function HotelAdminPage({
   return (
     <AdminShell
       title={hotel.name}
-      crumbs={[{ href: "/admin/hotels", label: "Hotels" }]}
+      crumbs={[{ href: "/admin/hotels", label: copy.hotels }]}
       actions={
         <Link
           href={`/admin/purchases/new?hotel=${hotel.id}`}
           className={adminButtonClass}
         >
-          New purchase
+          {copy.newPurchase}
         </Link>
       }
     >
       <AdminError code={query.error} />
       <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <AdminPanel title="Hotel record">
+        <AdminPanel title={copy.hotelRecord}>
           <form action={updateHotelAction} className="grid gap-3">
             <input type="hidden" name="id" value={hotel.id} />
-            <HotelFields hotel={hotel} />
-            <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-              Add photos
-              <input
-                name="photos"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                className={adminFieldClass}
-              />
-            </label>
+            <HotelFields hotel={hotel} copy={copy} />
             <div className="flex items-center justify-between gap-3">
-              <button type="submit" className={adminButtonClass}>
-                Save hotel
-              </button>
+              <AdminSubmitButton
+                pendingLabel={copy.saving}
+                className={adminButtonClass}
+              >
+                {copy.saveHotel}
+              </AdminSubmitButton>
             </div>
           </form>
         </AdminPanel>
 
-        <AdminPanel title="Photos">
+        <AdminPanel title={copy.photos}>
           {photos.length ? (
             <div className="grid grid-cols-2 gap-2">
-              {photos.map((photo) => (
+              {photos.map((photo, index) => (
                 <figure
                   key={photo.id}
-                  className="overflow-hidden rounded border border-[#e6ebf0]"
+                  className="overflow-hidden rounded-xl border border-[var(--desk-line)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url}
-                    alt=""
+                    alt={fill(copy.photoAlt, {
+                      record: hotel.name,
+                      count: index + 1,
+                    })}
                     className="h-24 w-full object-cover"
                   />
-                  <form action={deleteHotelPhotoAction}>
-                    <input type="hidden" name="hotelId" value={hotel.id} />
-                    <input type="hidden" name="photoId" value={photo.id} />
-                    <button
-                      type="submit"
-                      className="w-full px-2 py-1.5 text-xs font-semibold text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </form>
+                  <div className="flex justify-center px-2 py-2">
+                    <NamedConfirm
+                      title={copy.removePhotoTitle}
+                      body={fill(copy.removePhotoBody, { record: hotel.name })}
+                      confirm={copy.removePhotoConfirm}
+                      pendingLabel={copy.removing}
+                      cancelLabel={copy.keepPhoto}
+                      action={deleteHotelPhotoAction}
+                      fields={{ hotelId: hotel.id, photoId: photo.id }}
+                      trigger={copy.remove}
+                    />
+                  </div>
                 </figure>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[#5c6776]">No photos yet.</p>
+            <p className="text-sm text-[var(--desk-muted)]">{copy.noPhotos}</p>
           )}
-          <form action={deleteHotelAction} className="mt-4 border-t border-[#e6ebf0] pt-3">
-            <input type="hidden" name="id" value={hotel.id} />
-            <button type="submit" className="text-xs font-semibold text-red-700">
-              Delete hotel and its rooms
-            </button>
-          </form>
+          <div className="mt-4">
+            <PhotoUploader hotelId={hotel.id} />
+          </div>
+          <div className="mt-4 border-t border-[var(--desk-line)] pt-4">
+            <NamedConfirm
+              title={copy.deleteHotelTitle}
+              body={fill(copy.deleteHotelBody, { hotel: hotel.name })}
+              confirm={copy.deleteHotel}
+              pendingLabel={copy.deleting}
+              cancelLabel={copy.keepHotel}
+              action={deleteHotelAction}
+              fields={{ id: hotel.id }}
+              trigger={copy.deleteHotel}
+              triggerClassName={adminButtonDangerClass}
+            />
+          </div>
         </AdminPanel>
       </div>
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold">Rooms</h2>
+      <div className="mt-6">
+        <AdminSectionHeader title={copy.roomsForHotel} />
+      </div>
       {roomCards.length ? (
-        <div className="overflow-x-auto rounded border border-[#d5dbe3] bg-white">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead className="bg-[#f4f7fa] text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-              <tr>
-                <th className="px-3 py-2">Room</th>
-                <th className="px-3 py-2 text-end">Sleeps</th>
-                <th className="px-3 py-2 text-end">Held today</th>
-                <th className="px-3 py-2 text-end">Open today</th>
-                <th className="px-3 py-2 text-end">Cost / night</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roomCards.map((room) => (
-                <tr key={room.id} data-search-item className="border-t border-[#e6ebf0]">
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/admin/rooms/${room.id}`}
-                      className="font-medium text-[#0e4d8c] hover:underline"
-                    >
-                      {room.name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2 text-end tabular-nums">
-                    {room.capacity}
-                  </td>
-                  <td className="px-3 py-2 text-end tabular-nums">
+        <>
+          <div className="grid gap-3 lg:hidden">
+            {roomCards.map((room) => (
+              <Link
+                key={room.id}
+                href={`/admin/rooms/${room.id}`}
+                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold">{room.name}</h3>
+                    <p className="mt-1 text-xs text-[var(--desk-muted)]">
+                      {copy.sleeps} {room.capacity}
+                    </p>
+                  </div>
+                  <strong className="font-plex text-sm">
+                    {formatMoney(room.costPerNight, locale)}
+                  </strong>
+                </div>
+                <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-xs text-[var(--desk-muted)]">
+                  {copy.heldToday}:{" "}
+                  <strong className="font-plex text-[var(--desk-ink)]">
                     {room.heldToday}
-                  </td>
-                  <td className="px-3 py-2 text-end tabular-nums">
+                  </strong>{" "}
+                  · {copy.openToday}:{" "}
+                  <strong className="font-plex text-[var(--desk-ink)]">
                     {room.openToday}
-                  </td>
-                  <td className="px-3 py-2 text-end tabular-nums">
-                    {formatMoney(room.costPerNight, "en")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </strong>
+                </p>
+              </Link>
+            ))}
+          </div>
+          <div className="hidden lg:block">
+            <AdminTableFrame>
+              <table className="desk-table w-full border-collapse text-start text-sm">
+                <thead className="bg-[var(--desk-canvas)]">
+                  <tr>
+                    <th className="px-4 py-3 text-start">{copy.roomType}</th>
+                    <th className="px-4 py-3 text-end">{copy.sleeps}</th>
+                    <th className="px-4 py-3 text-end">{copy.heldToday}</th>
+                    <th className="px-4 py-3 text-end">{copy.openToday}</th>
+                    <th className="px-4 py-3 text-end">{copy.costNight}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roomCards.map((room) => (
+                    <tr key={room.id}>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/rooms/${room.id}`}
+                          className="desk-focus rounded-sm font-medium text-[var(--desk-primary)] hover:underline"
+                        >
+                          {room.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {room.capacity}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {room.heldToday}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {room.openToday}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {formatMoney(room.costPerNight, locale)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AdminTableFrame>
+          </div>
+        </>
       ) : (
-        <p className="rounded border border-dashed border-[#c5ced8] bg-white px-4 py-6 text-sm text-[#5c6776]">
-          Rooms appear here after a purchase is confirmed.
-        </p>
+        <AdminEmptyState title={copy.roomsAfterPurchase} />
       )}
 
-      <h2 className="mt-6 mb-2 text-sm font-semibold">Purchases</h2>
+      <div className="mt-6">
+        <AdminSectionHeader title={copy.purchasesForHotel} />
+      </div>
       {purchases.length ? (
-        <div className="overflow-x-auto rounded border border-[#d5dbe3] bg-white">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead className="bg-[#f4f7fa] text-[11px] font-semibold uppercase tracking-wide text-[#5c6776]">
-              <tr>
-                <th className="px-3 py-2">Number</th>
-                <th className="px-3 py-2">Period</th>
-                <th className="px-3 py-2 text-end">Total</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {purchases.map((purchase) => (
-                <tr key={purchase.id} data-search-item className="border-t border-[#e6ebf0]">
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/admin/purchases/${purchase.id}`}
-                      className="font-medium text-[#0e4d8c] hover:underline"
-                    >
+        <>
+          <div className="grid gap-3 lg:hidden">
+            {purchases.map((purchase) => (
+              <Link
+                key={purchase.id}
+                href={`/admin/purchases/${purchase.id}`}
+                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-plex text-xs text-[var(--desk-muted)]">
                       {purchase.number}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {purchasePeriod(purchase.lines)}
-                  </td>
-                  <td className="px-3 py-2 text-end tabular-nums">
-                    {formatMoney(purchaseAmount(purchase), "en")}
-                  </td>
-                  <td className="px-3 py-2">
-                    <PurchaseStatusPill status={purchase.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </p>
+                    <p className="mt-2 font-plex text-xs">
+                      {displayPeriod(purchase.lines, locale)}
+                    </p>
+                  </div>
+                  <PurchaseStatusPill status={purchase.status} />
+                </div>
+                <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-end font-plex text-sm font-semibold">
+                  {formatMoney(purchaseAmount(purchase), locale)}
+                </p>
+              </Link>
+            ))}
+          </div>
+          <div className="hidden lg:block">
+            <AdminTableFrame>
+              <table className="desk-table w-full border-collapse text-start text-sm">
+                <thead className="bg-[var(--desk-canvas)]">
+                  <tr>
+                    <th className="px-4 py-3 text-start">{copy.number}</th>
+                    <th className="px-4 py-3 text-start">{copy.period}</th>
+                    <th className="px-4 py-3 text-end">{copy.total}</th>
+                    <th className="px-4 py-3 text-start">{copy.status}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {purchases.map((purchase) => (
+                    <tr key={purchase.id}>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/purchases/${purchase.id}`}
+                          className="desk-focus rounded-sm font-plex font-medium text-[var(--desk-primary)] hover:underline"
+                        >
+                          {purchase.number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-plex text-xs">
+                        {displayPeriod(purchase.lines, locale)}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
+                        {formatMoney(purchaseAmount(purchase), locale)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PurchaseStatusPill status={purchase.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </AdminTableFrame>
+          </div>
+        </>
       ) : (
-        <p className="rounded border border-dashed border-[#c5ced8] bg-white px-4 py-6 text-sm text-[#5c6776]">
-          No purchases for this hotel yet.
-        </p>
+        <AdminEmptyState title={copy.noPurchasesHotel} />
       )}
     </AdminShell>
   );

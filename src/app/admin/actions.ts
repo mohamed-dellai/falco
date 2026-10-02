@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cancelBooking } from "@/lib/bookings";
 import {
   clearAdminSession,
   createAdminSession,
@@ -32,6 +33,7 @@ import {
   roomHasPurchaseLines,
   saveAllotment,
   savePurchase,
+  updateActivePurchaseCosts,
   updateHotel,
   updateRoom,
   type AllotmentLineInput,
@@ -140,7 +142,15 @@ export async function deleteHotelPhotoAction(formData: FormData) {
   await requireAdmin();
   const hotelId = text(formData, "hotelId");
   await deleteHotelPhoto(text(formData, "photoId"));
-  redirect(`/admin/hotels?hotel=${hotelId}`);
+  redirect(`/admin/hotels/${hotelId}`);
+}
+
+function publicPriceInput(formData: FormData) {
+  const raw = text(formData, "publicPricePerNight");
+  if (!raw) return null;
+  const amount = parseMoney(raw);
+  if (amount === null || amount < 1) return undefined;
+  return amount;
 }
 
 function roomInput(formData: FormData) {
@@ -148,10 +158,12 @@ function roomInput(formData: FormData) {
   const capacity = integer(formData, "capacity");
   const quantity = integer(formData, "quantity");
   const costPerNight = parseMoney(formData.get("costPerNight"));
+  const publicPricePerNight = publicPriceInput(formData);
   if (name.length < 2 || capacity === null || quantity === null) return null;
   if (capacity < 1 || capacity > 20 || quantity < 1 || quantity > 5000)
     return null;
   if (costPerNight === null || costPerNight < 0) return null;
+  if (publicPricePerNight === undefined) return null;
 
   return {
     name,
@@ -159,6 +171,7 @@ function roomInput(formData: FormData) {
     capacity,
     quantity,
     costPerNight,
+    publicPricePerNight,
   };
 }
 
@@ -196,14 +209,27 @@ export async function updateRoomAction(formData: FormData) {
     redirect(`/admin/rooms/${id}?error=invalid`);
   }
 
+  const publicPricePerNight = publicPriceInput(formData);
+  if (publicPricePerNight === undefined) {
+    redirect(`/admin/rooms/${id}?error=invalid`);
+  }
+
   if (purchased) {
+    const costPerNight = parseMoney(formData.get("costPerNight"));
+    if (costPerNight === null || costPerNight < 0) {
+      redirect(`/admin/rooms/${id}?error=invalid`);
+    }
     await updateRoom(id, {
       name,
       description: text(formData, "description").slice(0, 2000),
       capacity,
       quantity: existing.quantity,
-      costPerNight: existing.costPerNight,
+      costPerNight,
+      publicPricePerNight,
     });
+    if (costPerNight !== existing.costPerNight) {
+      await updateActivePurchaseCosts(id, costPerNight);
+    }
   } else {
     const input = roomInput(formData);
     if (!input) redirect(`/admin/rooms/${id}?error=invalid`);
@@ -223,7 +249,7 @@ export async function deleteRoomAction(formData: FormData) {
   redirect(
     removed === true
       ? `/admin/hotels/${room.hotelId}`
-      : `/admin/rooms/${room.id}?error=${removed === "allotted" ? "allotted" : "purchased"}`,
+      : `/admin/rooms/${room.id}?error=${removed || "invalid"}`,
   );
 }
 
@@ -287,10 +313,12 @@ function dateValue(value: string) {
 }
 
 function purchaseLineInputs(formData: FormData) {
-  const names = formData.getAll("lineName").map((value) => String(value).trim());
-  const descriptions = formData.getAll("lineDescription").map((value) =>
-    String(value).trim(),
-  );
+  const names = formData
+    .getAll("lineName")
+    .map((value) => String(value).trim());
+  const descriptions = formData
+    .getAll("lineDescription")
+    .map((value) => String(value).trim());
   const capacities = formData.getAll("lineCapacity");
   const checkIns = formData.getAll("lineCheckIn");
   const checkOuts = formData.getAll("lineCheckOut");
@@ -375,7 +403,9 @@ export async function cancelPurchaseAction(formData: FormData) {
   const id = text(formData, "id");
   const result = await cancelPurchase(id);
   redirect(
-    result.ok ? `/admin/purchases/${id}` : `/admin/purchases/${id}?error=${result.error}`,
+    result.ok
+      ? `/admin/purchases/${id}`
+      : `/admin/purchases/${id}?error=${result.error}`,
   );
 }
 
@@ -392,7 +422,9 @@ export async function deletePurchaseAction(formData: FormData) {
 }
 
 function allotmentLineInputs(formData: FormData) {
-  const rooms = formData.getAll("lineRoom").map((value) => String(value).trim());
+  const rooms = formData
+    .getAll("lineRoom")
+    .map((value) => String(value).trim());
   const costs = formData.getAll("lineCost");
   const prices = formData.getAll("linePrice");
   const lines: AllotmentLineInput[] = [];
@@ -420,8 +452,12 @@ function allotmentLineInputs(formData: FormData) {
   return lines;
 }
 
-function allotmentRedirect(id: string | null, error?: string, remaining?: number) {
-  const base = id ? `/admin/assignments/${id}` : "/admin/assignments/new";
+function allotmentRedirect(
+  id: string | null,
+  error?: string,
+  remaining?: number,
+) {
+  const base = id ? `/admin/allotments/${id}` : "/admin/allotments/new";
   if (!error) return base;
   const extra =
     error === "quantity" && remaining !== undefined
@@ -462,7 +498,7 @@ export async function saveAllotmentAction(formData: FormData) {
       );
     }
   }
-  redirect(`/admin/assignments/${saved.id}`);
+  redirect(`/admin/allotments/${saved.id}`);
 }
 
 export async function cancelAllotmentAction(formData: FormData) {
@@ -471,8 +507,8 @@ export async function cancelAllotmentAction(formData: FormData) {
   const result = await cancelAllotment(id);
   redirect(
     result.ok
-      ? `/admin/assignments/${id}`
-      : `/admin/assignments/${id}?error=${result.error}`,
+      ? `/admin/allotments/${id}`
+      : `/admin/allotments/${id}?error=${result.error}`,
   );
 }
 
@@ -480,7 +516,9 @@ export async function deleteAllotmentAction(formData: FormData) {
   await requireAdmin();
   const id = text(formData, "id");
   const removed = await deleteAllotment(id);
-  redirect(removed ? "/admin/assignments" : `/admin/assignments/${id}?error=allotment`);
+  redirect(
+    removed ? "/admin/allotments" : `/admin/allotments/${id}?error=allotment`,
+  );
 }
 
 export async function setSubmissionStatusAction(id: string, status: string) {
@@ -493,7 +531,14 @@ export async function deleteAssignmentAction(formData: FormData) {
   await requireAdmin();
   await deleteAssignment(text(formData, "id"));
   const roomId = text(formData, "roomId");
-  redirect(roomId ? `/admin/rooms/${roomId}` : "/admin/assignments");
+  redirect(roomId ? `/admin/rooms/${roomId}` : "/admin/allotments");
+}
+
+export async function cancelBookingAction(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  await cancelBooking(id);
+  redirect(`/admin/bookings/${id}`);
 }
 
 export async function setAdminLocaleAction(locale: string) {

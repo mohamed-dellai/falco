@@ -25,6 +25,7 @@ export type Room = {
   capacity: number;
   quantity: number;
   costPerNight: number;
+  publicPricePerNight: number | null;
   createdAt: string;
   photos: string[];
 };
@@ -151,6 +152,7 @@ type RoomRow = {
   capacity: number;
   quantity: number;
   cost_per_night: number;
+  public_price_per_night: number | null;
   created_at: string;
 };
 
@@ -181,6 +183,10 @@ function mapRoom(row: RoomRow, photos: string[]): Room {
     capacity: Number(row.capacity),
     quantity: Number(row.quantity),
     costPerNight: Number(row.cost_per_night),
+    publicPricePerNight:
+      row.public_price_per_night == null
+        ? null
+        : Number(row.public_price_per_night),
     createdAt: row.created_at,
     photos,
   };
@@ -276,18 +282,35 @@ export async function reservedQuantity(
   ignoreAssignmentId?: string,
 ) {
   const rows = await query<{ reserved: number }>(
-    `SELECT COALESCE(SUM(quantity), 0) AS reserved
-     FROM assignments
-     WHERE room_id = ?
-       AND check_in < ?
-       AND check_out > ?
-       AND (?::text IS NULL OR id != ?::text)`,
+    `SELECT
+       COALESCE((
+         SELECT SUM(quantity)
+         FROM assignments
+         WHERE room_id = ?
+           AND check_in < ?
+           AND check_out > ?
+           AND (?::text IS NULL OR id != ?::text)
+       ), 0)
+       + COALESCE((
+         SELECT SUM(quantity)
+         FROM bookings
+         WHERE room_id = ?
+           AND check_in < ?
+           AND check_out > ?
+           AND (
+             status = 'confirmed'
+             OR (status = 'pending' AND hold_until::timestamptz > NOW())
+           )
+       ), 0) AS reserved`,
     [
       roomId,
       checkOut,
       checkIn,
       ignoreAssignmentId ?? null,
       ignoreAssignmentId ?? null,
+      roomId,
+      checkOut,
+      checkIn,
     ],
   );
   return Number(rows[0]?.reserved ?? 0);
@@ -359,16 +382,22 @@ export function parseStay(checkIn?: string, checkOut?: string) {
   return { checkIn, checkOut, nights };
 }
 
-export async function openForStay(room: Room, checkIn: string, checkOut: string) {
+export async function openForStay(
+  room: Room,
+  checkIn: string,
+  checkOut: string,
+  db: Pick<SqlClient, "query"> = { query },
+  excludeBookingId?: string,
+) {
   if (nightsBetween(checkIn, checkOut) < 1) return 0;
 
-  const linked = await query<{ count: number }>(
+  const linked = await db.query<{ count: number }>(
     "SELECT COUNT(*)::int AS count FROM purchase_lines WHERE room_id = ?",
     [room.id],
   );
   const fromPurchases = Number(linked[0]?.count ?? 0) > 0;
-  const rows = await query<{ open: number }>(
-    `SELECT COALESCE(MIN(GREATEST(day_held - day_reserved, 0)), 0)::int AS open
+  const rows = await db.query<{ open: number }>(
+    `SELECT COALESCE(MIN(GREATEST(day_held - day_reserved - day_booked, 0)), 0)::int AS open
      FROM (
        SELECT
          CASE
@@ -389,7 +418,19 @@ export async function openForStay(room: Room, checkIn: string, checkOut: string)
            WHERE a.room_id = ?
              AND a.check_in::date <= d.day::date
              AND a.check_out::date > d.day::date
-         ), 0) AS day_reserved
+         ), 0) AS day_reserved,
+         COALESCE((
+           SELECT SUM(b.quantity)::int
+           FROM bookings b
+           WHERE b.room_id = ?
+             AND (?::text IS NULL OR b.id <> ?::text)
+             AND b.check_in::date <= d.day::date
+             AND b.check_out::date > d.day::date
+             AND (
+               b.status = 'confirmed'
+               OR (b.status = 'pending' AND b.hold_until::timestamptz > NOW())
+             )
+         ), 0) AS day_booked
        FROM generate_series(
          ?::timestamp,
          (?::date - INTERVAL '1 day')::timestamp,
@@ -401,6 +442,9 @@ export async function openForStay(room: Room, checkIn: string, checkOut: string)
       room.id,
       room.quantity,
       room.id,
+      room.id,
+      excludeBookingId ?? null,
+      excludeBookingId ?? null,
       checkIn,
       checkOut,
     ],
@@ -434,6 +478,36 @@ export async function listShowcase(stay: { checkIn: string; checkOut: string }) 
           open: availability.get(room.id) ?? 0,
         }))
         .filter((room) => room.open > 0),
+    }))
+    .filter((hotel) => hotel.rooms.length > 0);
+}
+
+export async function listPublicStay(stay: { checkIn: string; checkOut: string }) {
+  const [hotels, rooms] = await Promise.all([listHotels(), listRooms()]);
+  const priced = rooms.filter((room) => room.publicPricePerNight != null);
+  const availability = new Map<string, number>();
+  await Promise.all(
+    priced.map(async (room) => {
+      availability.set(room.id, await openForStay(room, stay.checkIn, stay.checkOut));
+    }),
+  );
+
+  return hotels
+    .map((hotel) => ({
+      ...hotel,
+      rooms: priced
+        .filter(
+          (room) =>
+            room.hotelId === hotel.id && (availability.get(room.id) ?? 0) > 0,
+        )
+        .map((room) => ({
+          id: room.id,
+          name: room.name,
+          description: room.description,
+          capacity: room.capacity,
+          publicPricePerNight: room.publicPricePerNight ?? 0,
+          photos: room.photos,
+        })),
     }))
     .filter((hotel) => hotel.rooms.length > 0);
 }
@@ -656,8 +730,8 @@ export async function createRoom(
   const id = crypto.randomUUID();
   await execute(
     `INSERT INTO rooms
-      (id, hotel_id, name, description, capacity, quantity, cost_per_night, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, hotel_id, name, description, capacity, quantity, cost_per_night, public_price_per_night, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.hotelId,
@@ -666,10 +740,28 @@ export async function createRoom(
       input.capacity,
       input.quantity,
       input.costPerNight,
+      input.publicPricePerNight,
       new Date().toISOString(),
     ],
   );
   return id;
+}
+
+export async function updateActivePurchaseCosts(
+  roomId: string,
+  costPerNight: number,
+  day = todayInRiyadh(),
+) {
+  await execute(
+    `UPDATE purchase_lines AS line
+     SET cost_per_night = ?
+     FROM purchases AS purchase
+     WHERE line.purchase_id = purchase.id
+       AND line.room_id = ?
+       AND purchase.status = 'confirmed'
+       AND line.check_out > ?`,
+    [costPerNight, roomId, day],
+  );
 }
 
 export async function updateRoom(
@@ -678,7 +770,7 @@ export async function updateRoom(
 ) {
   await execute(
     `UPDATE rooms
-     SET name = ?, description = ?, capacity = ?, quantity = ?, cost_per_night = ?
+     SET name = ?, description = ?, capacity = ?, quantity = ?, cost_per_night = ?, public_price_per_night = ?
      WHERE id = ?`,
     [
       input.name,
@@ -686,6 +778,7 @@ export async function updateRoom(
       input.capacity,
       input.quantity,
       input.costPerNight,
+      input.publicPricePerNight,
       id,
     ],
   );
@@ -719,6 +812,11 @@ export async function deleteRoom(id: string) {
     [id],
   );
   if (Number(allotted[0]?.count ?? 0) > 0) return "allotted" as const;
+  const booked = await query<{ count: number }>(
+    "SELECT COUNT(*)::int AS count FROM bookings WHERE room_id = ?",
+    [id],
+  );
+  if (Number(booked[0]?.count ?? 0) > 0) return "booked" as const;
   await execute("UPDATE purchase_lines SET room_id = NULL WHERE room_id = ?", [
     id,
   ]);
@@ -1637,12 +1735,33 @@ export async function confirmAllotment(id: string) {
           allotment.checkOut,
         );
         const reservedRows = await sql.query<{ reserved: number }>(
-          `SELECT COALESCE(SUM(quantity), 0) AS reserved
-           FROM assignments
-           WHERE room_id = ?
-             AND check_in < ?
-             AND check_out > ?`,
-          [roomId, allotment.checkOut, allotment.checkIn],
+          `SELECT
+             COALESCE((
+               SELECT SUM(quantity)
+               FROM assignments
+               WHERE room_id = ?
+                 AND check_in < ?
+                 AND check_out > ?
+             ), 0)
+             + COALESCE((
+               SELECT SUM(quantity)
+               FROM bookings
+               WHERE room_id = ?
+                 AND check_in < ?
+                 AND check_out > ?
+                 AND (
+                   status = 'confirmed'
+                   OR (status = 'pending' AND hold_until::timestamptz > NOW())
+                 )
+             ), 0) AS reserved`,
+          [
+            roomId,
+            allotment.checkOut,
+            allotment.checkIn,
+            roomId,
+            allotment.checkOut,
+            allotment.checkIn,
+          ],
         );
         const reserved = Number(reservedRows[0]?.reserved ?? 0);
         const remaining = Math.max(0, held - reserved);

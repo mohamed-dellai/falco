@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useTransition } from "react";
 import { setAdminLocaleAction } from "@/app/admin/actions";
 import { adminCopy, type AdminCopy, type AdminLocale } from "@/lib/admin-copy";
 
@@ -15,7 +15,9 @@ export function AdminLocaleProvider({
   children: React.ReactNode;
 }) {
   return (
-    <AdminLocaleContext.Provider value={locale}>{children}</AdminLocaleContext.Provider>
+    <AdminLocaleContext.Provider value={locale}>
+      {children}
+    </AdminLocaleContext.Provider>
   );
 }
 
@@ -31,35 +33,58 @@ export function LanguageSwitch({ tone = "dark" }: { tone?: "dark" | "light" }) {
   const locale = useAdminLocale();
   const copy = useAdminCopy();
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
-  async function choose(next: AdminLocale) {
-    if (next === locale) return;
-    await setAdminLocaleAction(next);
-    router.refresh();
+  function choose(next: AdminLocale) {
+    if (next === locale || pending) return;
+    startTransition(async () => {
+      await setAdminLocaleAction(next);
+      router.refresh();
+    });
   }
 
   const idle =
     tone === "dark"
       ? "text-white/50 hover:text-white"
-      : "text-[#5c6470] hover:text-[#081c36]";
-  const active = tone === "dark" ? "text-[#ffdf98]" : "text-[#0e4d8c]";
+      : "text-[var(--desk-muted)] hover:text-[var(--desk-ink)]";
+  const active =
+    tone === "dark"
+      ? "text-[var(--desk-gold-soft)]"
+      : "text-[var(--desk-primary)]";
 
   return (
     <div className="flex items-center gap-2 px-3 text-xs font-semibold">
       <button
         type="button"
         onClick={() => choose("en")}
-        className={locale === "en" ? active : idle}
+        disabled={pending}
+        lang="en"
+        aria-label={copy.switchToEnglish}
         aria-pressed={locale === "en"}
+        className={`desk-focus min-h-10 rounded-md px-1 disabled:opacity-55 ${
+          locale === "en" ? active : idle
+        }`}
       >
         {copy.english}
       </button>
-      <span className={tone === "dark" ? "text-white/25" : "text-[#c5ced8]"}>/</span>
+      <span
+        aria-hidden="true"
+        className={
+          tone === "dark" ? "text-white/25" : "text-[var(--desk-line-strong)]"
+        }
+      >
+        /
+      </span>
       <button
         type="button"
         onClick={() => choose("fr")}
-        className={locale === "fr" ? active : idle}
+        disabled={pending}
+        lang="fr"
+        aria-label={copy.switchToFrench}
         aria-pressed={locale === "fr"}
+        className={`desk-focus min-h-10 rounded-md px-1 disabled:opacity-55 ${
+          locale === "fr" ? active : idle
+        }`}
       >
         {copy.french}
       </button>

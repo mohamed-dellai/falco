@@ -1,61 +1,73 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useState } from "react";
+import { BedDouble, Building2, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { setSubmissionStatusAction } from "@/app/admin/actions";
-import { useAdminCopy } from "@/components/admin-locale";
+import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
+import {
+  AdminEmptyState,
+  adminButtonClass,
+  adminButtonDangerClass,
+  adminButtonSecondaryClass,
+} from "@/components/admin-ui";
 import { fill } from "@/lib/admin-copy";
-import type { Submission, SubmissionKind, SubmissionStatus } from "@/lib/submissions";
-
-function relativeTime(value: string) {
-  const then = Date.parse(value);
-  if (!Number.isFinite(then)) return "";
-  const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.round(hours / 24);
-  return days === 1 ? "Yest." : `${days}d`;
-}
+import { formatDate, formatDateRange, formatDateTime } from "@/lib/money";
+import type {
+  Submission,
+  SubmissionKind,
+  SubmissionStatus,
+} from "@/lib/submissions";
 
 export function RequestsInbox({
   submissions,
+  selectedId: selectedFromUrl,
+  filterState,
+  emptyTitle,
 }: {
   submissions: Submission[];
+  selectedId?: string;
+  emptyTitle: string;
+  filterState: {
+    q?: string;
+    status?: SubmissionStatus;
+    kind?: SubmissionKind;
+  };
 }) {
   const router = useRouter();
   const copy = useAdminCopy();
+  const locale = useAdminLocale();
   const steps: Array<{ id: SubmissionStatus; label: string }> = [
     { id: "new", label: copy.stepNew },
     { id: "quoted", label: copy.stepQuoted },
     { id: "confirmed", label: copy.stepConfirmed },
     { id: "declined", label: copy.stepDeclined },
   ];
-  const [kind, setKind] = useState<"" | SubmissionKind>("");
-  const [selectedId, setSelectedId] = useState(submissions[0]?.id ?? "");
-  const [statuses, setStatuses] = useState<Record<string, SubmissionStatus>>({});
-  const [toast, setToast] = useState("");
-  const [undo, setUndo] = useState<{ id: string; status: SubmissionStatus } | null>(
-    null,
+  const [selectedId, setSelectedId] = useState(
+    selectedFromUrl ?? submissions[0]?.id ?? "",
   );
+  const [statuses, setStatuses] = useState<Record<string, SubmissionStatus>>(
+    {},
+  );
+  const [toast, setToast] = useState("");
+  const [undo, setUndo] = useState<{
+    id: string;
+    status: SubmissionStatus;
+  } | null>(null);
   const [pending, setPending] = useState("");
 
-  const rows = useMemo(
-    () =>
-      submissions.filter((submission) => !kind || submission.kind === kind),
-    [kind, submissions],
-  );
-
   const selected =
-    submissions.find((submission) => submission.id === selectedId) ?? rows[0];
-  const status = selected
-    ? (statuses[selected.id] ?? selected.status)
-    : "new";
+    submissions.find((submission) => submission.id === selectedId) ??
+    submissions[0];
+  const status = selected ? (statuses[selected.id] ?? selected.status) : "new";
 
   async function change(id: string, next: SubmissionStatus, label: string) {
     if (pending) return;
     const currentStatus =
-      statuses[id] ?? submissions.find((item) => item.id === id)?.status ?? "new";
+      statuses[id] ??
+      submissions.find((item) => item.id === id)?.status ??
+      "new";
     setPending(next);
     setStatuses((current) => ({ ...current, [id]: next }));
     try {
@@ -70,158 +82,179 @@ export function RequestsInbox({
     }
   }
 
-  const counts = {
-    all: submissions.length,
-    quote: submissions.filter((item) => item.kind === "quote").length,
-    agency: submissions.filter((item) => item.kind === "agency").length,
-  };
-  const freshToday = submissions.filter((item) => {
-    const created = Date.parse(item.createdAt);
-    return Number.isFinite(created) && Date.now() - created < 86_400_000 && item.status === "new";
-  }).length;
+  function select(id: string) {
+    setSelectedId(id);
+    const params = new URLSearchParams();
+    if (filterState.q) params.set("q", filterState.q);
+    if (filterState.status) params.set("status", filterState.status);
+    if (filterState.kind) params.set("kind", filterState.kind);
+    params.set("selected", id);
+    router.replace(`/admin/forms?${params}`);
+  }
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p data-search-count data-search-total={String(counts.all)} data-search-idle={`${fill(copy.requestsOpen, { count: counts.all })}${freshToday > 0 ? ` · ${fill(copy.newToday, { count: freshToday })}` : ""}`} className="text-sm text-[#5c6470]">
-          <span className="font-plex text-[#081c36]">{counts.all}</span> {copy.openLabel}
-          {freshToday > 0 ? ` · ${fill(copy.newToday, { count: freshToday })}` : ""}
-        </p>
-      </div>
-
       {submissions.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#c5ced8] bg-white px-4 py-8 text-sm text-[#5c6470]">
-          {copy.noRequests}
-        </p>
+        <AdminEmptyState title={emptyTitle} />
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[22rem_1fr]">
-          <section className="overflow-hidden rounded-xl border border-[#dfe5ec] bg-white">
-            <div className="flex gap-1 border-b border-[#eef0f3] p-2 text-sm">
-              {(
-                [
-                  ["", copy.all, counts.all],
-                  ["quote", copy.allotment, counts.quote],
-                  ["agency", copy.agency, counts.agency],
-                ] as const
-              ).map(([value, label, count]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setKind(value)}
-                  className={`rounded-lg px-2.5 py-1.5 font-semibold ${
-                    kind === value ? "bg-[#081c36] text-white" : "text-[#334155]"
-                  }`}
-                >
-                  {label}{" "}
-                  <span className="font-plex text-xs opacity-80">{count}</span>
-                </button>
-              ))}
-            </div>
+          <section className="overflow-hidden rounded-xl border border-[var(--desk-line)] bg-white">
             <ul>
-                {rows.map((submission) => {
-                  const active = submission.id === selected?.id;
-                  const rowStatus = statuses[submission.id] ?? submission.status;
-                  return (
-                    <li key={submission.id}>
-                      <button
-                        type="button"
-                        data-search-item
-                        onClick={() => setSelectedId(submission.id)}
-                        className={`flex w-full items-start gap-3 border-b border-[#eef0f3] px-4 py-3 text-start ${
-                          active ? "bg-[#fbf9f5]" : "hover:bg-[#fbf9f5]"
-                        }`}
-                      >
-                        <i
+              {submissions.map((submission) => {
+                const active = submission.id === selected?.id;
+                const rowStatus = statuses[submission.id] ?? submission.status;
+                return (
+                  <li key={submission.id}>
+                    <button
+                      type="button"
+                      onClick={() => select(submission.id)}
+                      className={`desk-focus flex w-full items-start gap-3 border-b border-[var(--desk-line)] px-4 py-3 text-start ${
+                        active
+                          ? "bg-[var(--desk-surface-muted)]"
+                          : "hover:bg-[var(--desk-canvas)]"
+                      }`}
+                    >
+                      {submission.kind === "quote" ? (
+                        <BedDouble
                           aria-hidden="true"
-                          className={`ti mt-0.5 text-[18px] text-[#0e4d8c] ${
-                            submission.kind === "quote" ? "ti-bed" : "ti-building-store"
-                          }`}
+                          size={18}
+                          className="mt-0.5 shrink-0 text-[var(--desk-primary)]"
                         />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">
-                            {submission.agencyName || submission.name}
-                          </span>
-                          <span className="mt-0.5 block truncate text-xs text-[#5c6470]">
-                            {submission.kind === "quote"
-                              ? `${copy.allotment} · ${submission.arrival || "—"} → ${submission.departure || "—"} · ${submission.roomCount ?? "—"} ${copy.rooms.toLowerCase()}`
-                              : `${copy.agencyApplication} · ${submission.country || "—"}`}
-                          </span>
+                      ) : (
+                        <Building2
+                          aria-hidden="true"
+                          size={18}
+                          className="mt-0.5 shrink-0 text-[var(--desk-primary)]"
+                        />
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">
+                          {submission.agencyName || submission.name}
                         </span>
-                        <span className="text-xs text-[#8b93a1]">
-                          {relativeTime(submission.createdAt)}
-                          {rowStatus === "new" && (
-                            <span className="ms-2 inline-block size-2 rounded-full bg-[#c59b27]" />
-                          )}
+                        <span className="mt-0.5 block truncate text-xs text-[var(--desk-muted)]">
+                          {submission.kind === "quote"
+                            ? `${copy.allotment} · ${formatDateRange(
+                                submission.arrival,
+                                submission.departure,
+                                locale,
+                              )} · ${submission.roomCount ?? "—"} ${copy.rooms.toLowerCase()}`
+                            : `${copy.agencyApplication} · ${submission.country || "—"}`}
                         </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                      </span>
+                      <span className="font-plex text-[10px] text-[var(--desk-muted-soft)]">
+                        {formatDate(submission.createdAt, locale)}
+                        {rowStatus === "new" && (
+                          <span className="ms-2 inline-block size-2 rounded-full bg-[var(--desk-gold)]" />
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
 
           {selected && (
-            <article className="rounded-xl border border-[#dfe5ec] bg-white p-5">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[#5c6470]">
-                <span className="rounded-full bg-[#f4efea] px-2 py-1 font-semibold text-[#081c36]">
-                  {selected.kind === "quote" ? copy.allotmentRequest : copy.agencyApplication}
+            <article className="rounded-2xl border border-[var(--desk-line)] bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--desk-muted)]">
+                <span className="rounded-full bg-[var(--desk-surface-muted)] px-2.5 py-1 font-semibold text-[var(--desk-ink)]">
+                  {selected.kind === "quote"
+                    ? copy.allotmentRequest
+                    : copy.agencyApplication}
                 </span>
                 <span className="font-plex">{selected.reference}</span>
-                <span>{selected.createdAt.slice(0, 16).replace("T", " ")}</span>
+                <span>{formatDateTime(selected.createdAt, locale)}</span>
               </div>
               <h2 className="font-news mt-3 text-[28px] font-medium tracking-tight">
                 {selected.agencyName || selected.name}
               </h2>
-              <ol className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                {steps.map((step, index) => (
-                  <li key={step.id} className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => change(selected.id, step.id, step.label)}
-                      className={`rounded-full px-2.5 py-1 ${
-                        status === step.id
-                          ? "bg-[#081c36] text-[#ffdf98]"
-                          : "bg-[#f4efea] text-[#5c6470]"
-                      }`}
-                    >
-                      {step.label}
-                    </button>
-                    {index < steps.length - 1 && (
-                      <span className="text-[#c5ced8]">→</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
+              <div className="mt-4 rounded-xl border border-[var(--desk-line)] bg-[var(--desk-canvas)] p-3">
+                <p className="text-xs font-semibold text-[var(--desk-ink)]">
+                  {copy.requestStatus}
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-[var(--desk-muted)]">
+                  {copy.requestStatusDescription}
+                </p>
+                <ol className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  {steps.map((step, index) => (
+                    <li key={step.id} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => change(selected.id, step.id, step.label)}
+                        aria-current={status === step.id ? "step" : undefined}
+                        disabled={pending !== ""}
+                        className={`rounded-full px-2.5 py-1 ${
+                          status === step.id
+                            ? "bg-[var(--desk-ink)] text-[var(--desk-gold-soft)]"
+                            : "bg-white text-[var(--desk-muted)]"
+                        }`}
+                      >
+                        {step.label}
+                      </button>
+                      {index < steps.length - 1 && (
+                        <span className="text-[var(--desk-line-strong)]">
+                          →
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
                   disabled={pending !== ""}
                   onClick={() =>
-                    change(selected.id, "quoted", fill(copy.markedQuoted, { email: selected.email }))
+                    change(
+                      selected.id,
+                      "quoted",
+                      fill(copy.markedQuoted, { email: selected.email }),
+                    )
                   }
-                  className="inline-flex h-9 min-w-36 items-center justify-center rounded-lg bg-[#0e4d8c] px-3 text-sm font-semibold text-white disabled:opacity-70"
+                  className={`${adminButtonClass} min-w-36`}
                 >
                   {pending === "quoted" ? copy.confirming : copy.markQuoted}
                 </button>
                 <button
                   type="button"
                   disabled={pending !== ""}
-                  onClick={() => change(selected.id, "declined", copy.declinedToast)}
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-[#e7b4b4] px-3 text-sm font-semibold text-[#9b1c1c]"
+                  onClick={() =>
+                    change(selected.id, "declined", copy.declinedToast)
+                  }
+                  className={adminButtonDangerClass}
                 >
                   {pending === "declined" ? copy.declining : copy.decline}
                 </button>
                 {selected.email && (
                   <a
                     href={`mailto:${selected.email}`}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#c5ced8] px-3 text-sm font-semibold"
+                    className={adminButtonSecondaryClass}
                   >
-                    <i aria-hidden="true" className="ti ti-mail text-[16px]" />
-                    {fill(copy.emailTo, { name: selected.agencyName || selected.name })}
+                    <Mail aria-hidden="true" size={16} />
+                    {fill(copy.emailTo, {
+                      name: selected.agencyName || selected.name,
+                    })}
                   </a>
                 )}
+                {selected.kind === "quote" && (
+                  <Link
+                    href={`/admin/allotments/new?${new URLSearchParams(
+                      Object.entries({
+                        agency: selected.agencyId ?? "",
+                        checkIn: selected.arrival,
+                        checkOut: selected.departure,
+                      }).filter((entry): entry is [string, string] =>
+                        Boolean(entry[1]),
+                      ),
+                    )}`}
+                    className={adminButtonSecondaryClass}
+                  >
+                    <BedDouble aria-hidden="true" size={16} />
+                    {copy.createAllotment}
+                  </Link>
+                )}
               </div>
-              <p className="mt-3 text-xs text-[#5c6470]">
+              <p className="mt-3 text-xs text-[var(--desk-muted)]">
                 {copy.statusSaved}
               </p>
               <div className="mt-5 grid gap-5 md:grid-cols-2">
@@ -229,17 +262,34 @@ export function RequestsInbox({
                   <section>
                     <h3 className="text-sm font-semibold">{copy.trip}</h3>
                     <dl className="mt-2 grid gap-2 text-sm">
-                      <Row label={copy.arrival} value={selected.arrival} />
-                      <Row label={copy.checkOut} value={selected.departure} />
+                      <Row
+                        label={copy.arrival}
+                        value={formatDate(selected.arrival, locale)}
+                      />
+                      <Row
+                        label={copy.checkOut}
+                        value={formatDate(selected.departure, locale)}
+                      />
                       <Row
                         label={copy.travellers}
-                        value={selected.travellers === null ? "" : String(selected.travellers)}
+                        value={
+                          selected.travellers === null
+                            ? ""
+                            : String(selected.travellers)
+                        }
                       />
                       <Row
                         label={copy.rooms}
-                        value={selected.roomCount === null ? "" : String(selected.roomCount)}
+                        value={
+                          selected.roomCount === null
+                            ? ""
+                            : String(selected.roomCount)
+                        }
                       />
-                      <Row label={copy.requestedRoom} value={selected.packageSlug} />
+                      <Row
+                        label={copy.requestedRoom}
+                        value={selected.packageSlug}
+                      />
                     </dl>
                   </section>
                 )}
@@ -253,7 +303,10 @@ export function RequestsInbox({
                     {selected.kind === "agency" && (
                       <>
                         <Row label={copy.role} value={selected.role} />
-                        <Row label={copy.website} value={selected.agencyWebsite} />
+                        <Row
+                          label={copy.website}
+                          value={selected.agencyWebsite}
+                        />
                         <Row label={copy.markets} value={selected.markets} />
                       </>
                     )}
@@ -263,7 +316,7 @@ export function RequestsInbox({
               {selected.requirements && (
                 <section className="mt-5">
                   <h3 className="text-sm font-semibold">{copy.requirements}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#334155]">
+                  <p className="mt-2 text-sm leading-6 text-[var(--desk-text-soft)]">
                     {selected.requirements}
                   </p>
                 </section>
@@ -276,14 +329,14 @@ export function RequestsInbox({
       {toast && (
         <div
           role="status"
-          className="fixed end-5 bottom-5 z-50 w-[min(100%-2rem,24rem)] rounded-xl border border-[#dfe5ec] bg-white px-4 py-3 text-sm shadow-[0_16px_40px_-20px_rgba(8,28,54,0.45)]"
+          className="fixed end-4 bottom-24 z-50 w-[min(100%-2rem,24rem)] rounded-2xl border border-[var(--desk-line)] bg-white px-4 py-3 text-sm shadow-[0_16px_40px_-20px_rgba(8,28,54,0.45)] lg:bottom-5"
         >
           <p>{toast}</p>
           <div className="mt-2 flex gap-3">
             {undo && (
               <button
                 type="button"
-                className="text-xs font-semibold text-[#0e4d8c]"
+                className="desk-focus rounded text-xs font-semibold text-[var(--desk-primary)]"
                 onClick={() => {
                   const snapshot = undo;
                   setUndo(null);
@@ -297,7 +350,7 @@ export function RequestsInbox({
             <button
               type="button"
               onClick={() => setToast("")}
-              className="text-xs font-semibold text-[#081c36]"
+              className="desk-focus rounded text-xs font-semibold text-[var(--desk-ink)]"
             >
               {copy.dismiss}
             </button>
@@ -310,8 +363,8 @@ export function RequestsInbox({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-[#eef0f3] py-1.5">
-      <dt className="text-[#5c6470]">{label}</dt>
+    <div className="flex justify-between gap-4 border-b border-[var(--desk-line)] py-1.5">
+      <dt className="text-[var(--desk-muted)]">{label}</dt>
       <dd className="text-end font-medium">{value || "—"}</dd>
     </div>
   );

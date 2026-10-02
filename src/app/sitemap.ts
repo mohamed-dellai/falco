@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const hotels = await listHotels().catch(() => []);
-  const pages = ["", "/hotels", "/about", "/contact"];
+  const pages = ["", "/hotels", "/stay", "/about", "/contact"];
   const hotelPages = hotels.map((hotel) => `/hotels/${hotel.id}`);
 
   return routing.locales.flatMap((locale) =>

@@ -8,21 +8,58 @@ export function parseMoney(value: FormDataEntryValue | null) {
   return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
+function localeTag(locale: string) {
+  return locale === "ar"
+    ? "ar-SA"
+    : locale === "fr"
+      ? "fr-FR"
+      : locale === "it"
+        ? "it-IT"
+        : "en-SA";
+}
+
 export function formatMoney(halalas: number, locale: string) {
-  const tag =
-    locale === "ar"
-      ? "ar-SA"
-      : locale === "fr"
-        ? "fr-FR"
-        : locale === "it"
-          ? "it-IT"
-          : "en-SA";
-  return new Intl.NumberFormat(tag, {
+  return new Intl.NumberFormat(localeTag(locale), {
     style: "currency",
     currency: "SAR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(halalas / 100);
+}
+
+export function formatDate(value: string | null | undefined, locale: string) {
+  if (!value) return "—";
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T12:00:00Z`)
+    : new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    dateStyle: "medium",
+    timeZone: "Asia/Riyadh",
+  }).format(date);
+}
+
+export function formatDateTime(
+  value: string | null | undefined,
+  locale: string,
+) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Riyadh",
+  }).format(date);
+}
+
+export function formatDateRange(
+  checkIn: string,
+  checkOut: string,
+  locale: string,
+) {
+  if (!checkIn && !checkOut) return "—";
+  return `${formatDate(checkIn, locale)} → ${formatDate(checkOut, locale)}`;
 }
 
 export function moneyInput(halalas: number) {

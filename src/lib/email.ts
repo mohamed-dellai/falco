@@ -64,3 +64,54 @@ export async function deliverSubmission(
     throw new Error(`FORM_DELIVERY_FAILED_${response.status}`);
   }
 }
+
+export async function deliverBooking(payload: {
+  reference: string;
+  name: string;
+  email: string;
+  phone: string;
+  country: string;
+  hotel: string;
+  room: string;
+  checkIn: string;
+  checkOut: string;
+  quantity: number;
+  travellers: number;
+  total: number;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.FORM_FROM_EMAIL;
+  const to = process.env.FORM_TO_EMAIL ?? "Falco.services2026@gmail.com";
+  if (!apiKey || !from) throw new Error("FORM_DELIVERY_NOT_CONFIGURED");
+
+  const amount = (payload.total / 100).toFixed(2);
+  const text = [
+    `Reference: ${payload.reference}`,
+    `Guest: ${payload.name}`,
+    `Email: ${payload.email}`,
+    `WhatsApp: ${payload.phone}`,
+    `Country: ${payload.country}`,
+    `Hotel: ${payload.hotel}`,
+    `Room: ${payload.room}`,
+    `Stay: ${payload.checkIn} → ${payload.checkOut}`,
+    `Rooms: ${payload.quantity}`,
+    `Travellers: ${payload.travellers}`,
+    `Total: SAR ${amount}`,
+  ].join("\n");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [payload.email, to],
+      reply_to: to,
+      subject: `Booking confirmed — ${payload.reference}`,
+      text,
+    }),
+  });
+  if (!response.ok) throw new Error(`FORM_DELIVERY_FAILED_${response.status}`);
+}

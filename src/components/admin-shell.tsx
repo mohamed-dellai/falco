@@ -3,28 +3,128 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState, type ComponentType } from "react";
+import {
+  BedDouble,
+  Building2,
+  DoorOpen,
+  CalendarCheck2,
+  ExternalLink,
+  Hotel,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  MoreHorizontal,
+  ReceiptText,
+  X,
+} from "lucide-react";
 import { logoutAction } from "@/app/admin/actions";
-import { LanguageSwitch, useAdminCopy } from "@/components/admin-locale";
+import {
+  LanguageSwitch,
+  useAdminCopy,
+  useAdminLocale,
+} from "@/components/admin-locale";
+import {
+  AdminPanel,
+  adminButtonClass,
+  adminButtonDangerClass,
+  adminButtonGhostClass,
+  adminButtonSecondaryClass,
+  adminFieldClass,
+} from "@/components/admin-ui";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 
-const links = [
-  { href: "/admin", label: "overview", icon: "ti-layout-dashboard", exact: true },
-  { href: "/admin/hotels", label: "hotels", icon: "ti-building-hotel", exact: false },
-  { href: "/admin/purchases", label: "purchases", icon: "ti-receipt", exact: false },
-  { href: "/admin/agencies", label: "agencies", icon: "ti-building-store", exact: false },
-  { href: "/admin/forms", label: "requests", icon: "ti-inbox", exact: false },
-  { href: "/admin/assignments", label: "allotments", icon: "ti-bed", exact: false },
+type NavItem = {
+  href: string;
+  label: keyof AdminCopy;
+  icon: ComponentType<{
+    size?: number;
+    className?: string;
+    "aria-hidden"?: boolean;
+  }>;
+  exact?: boolean;
+};
+
+const overviewLink: NavItem = {
+  href: "/admin",
+  label: "overview",
+  icon: LayoutDashboard,
+  exact: true,
+};
+const hotelLink: NavItem = {
+  href: "/admin/hotels",
+  label: "hotels",
+  icon: Hotel,
+};
+const requestLink: NavItem = {
+  href: "/admin/forms",
+  label: "requests",
+  icon: Inbox,
+};
+const allotmentLink: NavItem = {
+  href: "/admin/allotments",
+  label: "allotments",
+  icon: BedDouble,
+};
+const navigationGroups: Array<{
+  label: keyof AdminCopy;
+  items: NavItem[];
+}> = [
+  {
+    label: "deskGroup",
+    items: [
+      overviewLink,
+      requestLink,
+      {
+        href: "/admin/bookings",
+        label: "bookings",
+        icon: CalendarCheck2,
+      },
+    ],
+  },
+  {
+    label: "inventoryGroup",
+    items: [
+      hotelLink,
+      {
+        href: "/admin/rooms",
+        label: "rooms",
+        icon: DoorOpen,
+      },
+      {
+        href: "/admin/purchases",
+        label: "purchases",
+        icon: ReceiptText,
+      },
+      allotmentLink,
+    ],
+  },
+  {
+    label: "partnersGroup",
+    items: [
+      {
+        href: "/admin/agencies",
+        label: "agencies",
+        icon: Building2,
+      },
+    ],
+  },
+];
+const mobilePrimary = [
+  overviewLink,
+  hotelLink,
+  requestLink,
+  allotmentLink,
 ] as const;
 
-export const adminFieldClass =
-  "h-9 w-full rounded-lg border border-[#dfe5ec] bg-white px-2.5 text-sm text-[#081c36] outline-none focus:border-[#0e4d8c]";
-
-export const adminButtonClass =
-  "desk-press inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0e4d8c] px-3.5 text-sm font-semibold text-white hover:bg-[#0c4379] disabled:opacity-70";
-
-export const adminButtonSecondaryClass =
-  "desk-press inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#c5ced8] bg-white px-3.5 text-sm font-semibold text-[#172033] hover:border-[#0e4d8c]/45 hover:text-[#0e4d8c] disabled:opacity-70";
+export {
+  AdminPanel,
+  adminButtonClass,
+  adminButtonDangerClass,
+  adminButtonGhostClass,
+  adminButtonSecondaryClass,
+  adminFieldClass,
+};
 
 export function adminErrorMessage(
   code: string | undefined,
@@ -32,7 +132,8 @@ export function adminErrorMessage(
   remaining?: string,
 ) {
   if (code === "photo") return copy.photoError;
-  if (code === "quantity") return fill(copy.quantityError, { count: remaining ?? 0 });
+  if (code === "quantity")
+    return fill(copy.quantityError, { count: remaining ?? 0 });
   if (code === "dates") return copy.datesError;
   if (code === "span") return copy.spanError;
   if (code === "lines") return copy.linesError;
@@ -41,9 +142,17 @@ export function adminErrorMessage(
   if (code === "cancel") return copy.cancelError;
   if (code === "purchased") return copy.purchasedError;
   if (code === "allotted") return copy.allottedError;
+  if (code === "booked") return copy.bookedError;
   if (code === "missing-room") return copy.missingRoomError;
+  if (code === "purchase") return copy.purchaseError;
+  if (code === "allotment") return copy.allotmentError;
   if (code) return copy.invalidError;
   return "";
+}
+
+export function AdminLoadingStatus() {
+  const copy = useAdminCopy();
+  return <span className="sr-only">{copy.loading}</span>;
 }
 
 export function AdminShell({
@@ -51,22 +160,24 @@ export function AdminShell({
   crumbs,
   actions,
   note,
-  searchPlaceholder,
   children,
 }: {
   title: string;
   crumbs?: Array<{ href: string; label: string }>;
   actions?: React.ReactNode;
   note?: React.ReactNode;
-  searchPlaceholder?: string;
   children: React.ReactNode;
 }) {
   const copy = useAdminCopy();
+  const locale = useAdminLocale();
 
   return (
-    <div className="min-h-screen bg-[#fbf9f5] text-[#081c36] lg:ps-[260px]">
-      <aside className="fixed inset-y-0 start-0 z-30 hidden w-[260px] flex-col bg-[#081c36] text-white lg:flex">
-        <Link href="/admin" className="flex items-center gap-3 px-5 pt-6 pb-5">
+    <div className="admin-desk min-h-screen lg:ps-[var(--desk-sidebar-width)]">
+      <aside className="fixed inset-y-0 start-0 z-30 hidden w-[var(--desk-sidebar-width)] flex-col bg-[var(--desk-ink)] text-white lg:flex">
+        <Link
+          href="/admin"
+          className="desk-focus mx-3 mt-3 flex items-center gap-3 rounded-xl px-3 py-3"
+        >
           <Image
             src="/falco-logo.png"
             alt=""
@@ -83,139 +194,99 @@ export function AdminShell({
             </small>
           </span>
         </Link>
-        <AdminNav className="mt-1 grid gap-1 px-3" />
+        <AdminNav />
         <div className="mt-auto grid gap-0.5 border-t border-white/10 px-3 py-4">
           <LanguageSwitch />
           <Link
-            href="/en"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/50 hover:text-white"
+            href={`/${locale}`}
+            className="desk-focus flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/55 hover:bg-white/[0.06] hover:text-white"
           >
-            <i aria-hidden="true" className="ti ti-external-link text-[16px]" />
+            <ExternalLink aria-hidden="true" size={17} />
             {copy.publicSite}
           </Link>
           <form action={logoutAction}>
             <button
               type="submit"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-[13px] font-medium text-white/50 hover:text-white"
+              className="desk-focus flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-[13px] font-medium text-white/55 hover:bg-white/[0.06] hover:text-white"
             >
-              <i aria-hidden="true" className="ti ti-logout text-[16px]" />
+              <LogOut aria-hidden="true" size={17} />
               {copy.logOut}
             </button>
           </form>
         </div>
       </aside>
 
-      <div className="sticky top-0 z-20 flex items-center gap-2 overflow-x-auto border-b border-[#dfe5ec] bg-[#fbf9f5] px-3 py-2 lg:hidden">
-        <strong className="font-news shrink-0 text-sm">{copy.brand}</strong>
-        <LanguageSwitch tone="light" />
-        <AdminNav className="flex gap-1" compact />
-      </div>
-
-      <div>
-        <header className="sticky top-0 z-20 border-b border-[#dfe5ec] bg-[#fbf9f5]/90 backdrop-blur lg:top-0">
-          <div className="flex min-h-16 flex-wrap items-center gap-3 px-4 py-3 md:px-8">
-            <div className="min-w-0">
+      <div className="min-h-screen pb-24 lg:pb-0">
+        <header className="sticky top-0 z-20 border-b border-[var(--desk-line)] bg-[color:rgb(247_245_240_/_0.94)] backdrop-blur-md">
+          <div className="mx-auto flex min-h-[4.5rem] max-w-[1180px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <Link
+              href="/admin"
+              className="desk-focus me-1 flex items-center gap-2 rounded-lg lg:hidden"
+              aria-label={copy.overview}
+            >
+              <Image
+                src="/falco-logo.png"
+                alt=""
+                width={30}
+                height={30}
+                className="size-[30px] rounded-md bg-white object-cover"
+              />
+            </Link>
+            <div className="min-w-0 flex-1">
               {crumbs && crumbs.length > 0 && (
-                <p className="mb-0.5 text-xs text-[#5c6470]">
+                <p className="mb-0.5 truncate text-xs text-[var(--desk-muted)]">
                   {crumbs.map((crumb, index) => (
                     <span key={crumb.href}>
                       {index > 0 && <span className="px-1">/</span>}
-                      <Link href={crumb.href} className="hover:text-[#0e4d8c]">
+                      <Link
+                        href={crumb.href}
+                        className="desk-focus rounded-sm hover:text-[var(--desk-primary)]"
+                      >
                         {crumb.label}
                       </Link>
                     </span>
                   ))}
                 </p>
               )}
-              <h1 className="font-news text-[23px] font-medium tracking-tight">{title}</h1>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="font-news truncate text-[23px] font-medium tracking-tight sm:text-[25px]">
+                  {title}
+                </h1>
+                {note}
+              </div>
             </div>
-            {note}
-            <div className="ms-auto flex flex-wrap items-center gap-3">
-              <AdminSearch placeholder={searchPlaceholder ?? copy.search} />
-              {actions}
-            </div>
+            {actions && (
+              <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+                {actions}
+              </div>
+            )}
           </div>
         </header>
-        <div id="admin-page" className="px-4 py-6 md:px-8">
+        <main
+          id="admin-page"
+          className="mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
+        >
           {children}
-        </div>
+        </main>
       </div>
+      <MobileNavigation />
     </div>
   );
 }
 
-function AdminSearch({ placeholder }: { placeholder: string }) {
-  const copy = useAdminCopy();
-  const [query, setQuery] = useState("");
-  const [summary, setSummary] = useState("");
-
-  useEffect(() => {
-    const root = document.getElementById("admin-page");
-    if (!root) return;
-
-    const apply = () => {
-      const needle = query.trim().toLowerCase();
-      const items = root.querySelectorAll<HTMLElement>("[data-search-item]");
-      let visible = 0;
-      items.forEach((item) => {
-        const match =
-          needle.length === 0 ||
-          (item.textContent ?? "").toLowerCase().includes(needle);
-        if (item.hidden !== !match) item.hidden = !match;
-        if (match) visible += 1;
-      });
-      const nextSummary =
-        needle.length === 0
-          ? ""
-          : visible === 0
-            ? fill(copy.noMatches, { query: query.trim(), count: items.length })
-            : fill(copy.showing, { visible, total: items.length });
-      setSummary((current) => (current === nextSummary ? current : nextSummary));
-    };
-
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [query, copy]);
-
-  return (
-    <div className="w-full sm:w-64">
-      <label className="flex h-9 items-center gap-2 rounded-lg border border-[#dfe5ec] bg-white px-3 focus-within:border-[#0e4d8c]">
-        <i aria-hidden="true" className="ti ti-search text-[16px] text-[#5c6470]" />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={placeholder}
-          className="w-full bg-transparent text-sm outline-none placeholder:text-[#8b93a1]"
-        />
-      </label>
-      {summary && (
-        <p className="mt-1 text-xs text-[#5c6470]">
-          {summary}{" "}
-          <button
-            type="button"
-            onClick={() => setQuery("")}
-            className="font-semibold text-[#0e4d8c]"
-          >
-            {copy.clearSearch}
-          </button>
-        </p>
-      )}
-    </div>
-  );
+function isActive(pathname: string, item: NavItem) {
+  if (item.exact) return pathname === item.href;
+  if (
+    item.href === "/admin/allotments" &&
+    pathname.startsWith("/admin/assignments")
+  ) {
+    return true;
+  }
+  return pathname.startsWith(item.href);
 }
 
-function AdminNav({
-  className,
-  compact = false,
-}: {
-  className: string;
-  compact?: boolean;
-}) {
+function useFreshRequests() {
   const pathname = usePathname();
-  const copy = useAdminCopy();
   const [fresh, setFresh] = useState(0);
 
   useEffect(() => {
@@ -230,63 +301,205 @@ function AdminNav({
       ignore = true;
     };
   }, [pathname]);
+  return fresh;
+}
+
+function AdminNav() {
+  const pathname = usePathname();
+  const copy = useAdminCopy();
+  const fresh = useFreshRequests();
 
   return (
-    <nav className={className}>
-      {links.map((link) => {
-        const active = link.exact
-          ? pathname === link.href
-          : pathname.startsWith(link.href);
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={active ? "page" : undefined}
-            className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-              compact
-                ? active
-                  ? "bg-[#081c36] text-[#ffdf98]"
-                  : "text-[#5c6470]"
-                : active
-                  ? "bg-white/[0.08] text-[#ffdf98]"
-                  : "text-white/60 hover:bg-white/[0.06] hover:text-white"
-            }`}
-          >
-            <i aria-hidden="true" className={`ti ${link.icon} text-[18px]`} />
-            {copy[link.label]}
-            {link.href === "/admin/forms" && fresh > 0 && (
-              <span className="ms-auto rounded-full bg-[#c59b27]/25 px-2 py-0.5 text-xs font-semibold text-[#ffdf98]">
-                {fill(copy.newCount, { count: fresh })}
-              </span>
-            )}
-            {active && !compact && (
-              <span className="absolute end-0 top-2.5 bottom-2.5 w-[3px] rounded-s-full bg-[#c59b27]" />
-            )}
-          </Link>
-        );
-      })}
+    <nav aria-label={copy.mainNavigation} className="mt-2 grid gap-5 px-3">
+      {navigationGroups.map((group) => (
+        <section key={group.label}>
+          <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+            {copy[group.label]}
+          </h2>
+          <div className="mt-1 grid gap-1">
+            {group.items.map((item) => (
+              <DesktopNavLink
+                key={item.href}
+                item={item}
+                active={isActive(pathname, item)}
+                fresh={fresh}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
     </nav>
   );
 }
 
-export function AdminPanel({
-  title,
-  children,
-  className = "",
+function DesktopNavLink({
+  item,
+  active,
+  fresh,
 }: {
-  title?: string;
-  children: React.ReactNode;
-  className?: string;
+  item: NavItem;
+  active: boolean;
+  fresh: number;
 }) {
+  const copy = useAdminCopy();
+  const Icon = item.icon;
   return (
-    <section className={`rounded-xl border border-[#dfe5ec] bg-white ${className}`}>
-      {title && (
-        <header className="border-b border-[#eef0f3] px-4 py-2.5 text-sm font-semibold">
-          {title}
-        </header>
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={`desk-focus relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-white/[0.09] text-[var(--desk-gold-soft)]"
+          : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+      }`}
+    >
+      <Icon aria-hidden={true} size={18} />
+      <span>{copy[item.label]}</span>
+      {item.href === "/admin/forms" && fresh > 0 && (
+        <span className="ms-auto rounded-full bg-[var(--desk-gold)]/25 px-2 py-0.5 text-[11px] font-semibold text-[var(--desk-gold-soft)]">
+          {fill(copy.newCount, { count: fresh })}
+        </span>
       )}
-      <div className="p-4">{children}</div>
-    </section>
+      {active && (
+        <span className="absolute end-0 top-2.5 bottom-2.5 w-[3px] rounded-s-full bg-[var(--desk-gold)]" />
+      )}
+    </Link>
+  );
+}
+
+function MobileNavigation() {
+  const pathname = usePathname();
+  const copy = useAdminCopy();
+  const locale = useAdminLocale();
+  const fresh = useFreshRequests();
+  const [open, setOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogId = useId();
+  const titleId = useId();
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  const moreItems = navigationGroups
+    .flatMap((group) => group.items)
+    .filter(
+      (item) => !mobilePrimary.some((primary) => primary.href === item.href),
+    );
+
+  return (
+    <>
+      <nav
+        aria-label={copy.mobileNavigation}
+        className="desk-mobile-safe fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[var(--desk-line)] bg-white/95 px-2 pt-1.5 shadow-[0_-14px_30px_-24px_rgba(8,28,54,0.45)] backdrop-blur lg:hidden"
+      >
+        {mobilePrimary.map((item) => {
+          const active = isActive(pathname, item);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`desk-focus relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold ${
+                active
+                  ? "bg-[var(--desk-surface-muted)] text-[var(--desk-ink)]"
+                  : "text-[var(--desk-muted)]"
+              }`}
+            >
+              <Icon aria-hidden={true} size={19} />
+              <span className="max-w-full truncate">{copy[item.label]}</span>
+              {item.href === "/admin/forms" && fresh > 0 && (
+                <span className="absolute end-[20%] top-1.5 size-2 rounded-full bg-[var(--desk-gold)]" />
+              )}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={dialogId}
+          className="desk-focus flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold text-[var(--desk-muted)]"
+        >
+          <MoreHorizontal aria-hidden="true" size={19} />
+          {copy.more}
+        </button>
+      </nav>
+
+      <dialog
+        id={dialogId}
+        ref={dialogRef}
+        aria-labelledby={titleId}
+        className="desk-dialog mt-auto mb-0 w-full max-w-none rounded-t-2xl rounded-b-none lg:hidden"
+        onCancel={() => setOpen(false)}
+        onClose={() => setOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setOpen(false);
+        }}
+      >
+        <div className="desk-mobile-safe p-4">
+          <div className="flex items-center justify-between">
+            <h2 id={titleId} className="font-news text-xl font-medium">
+              {copy.more}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="desk-focus grid size-10 place-items-center rounded-lg text-[var(--desk-muted)]"
+              aria-label={copy.closeMenu}
+            >
+              <X aria-hidden="true" size={20} />
+            </button>
+          </div>
+          <nav className="mt-3 grid gap-1">
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(pathname, item);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  aria-current={active ? "page" : undefined}
+                  className={`desk-focus flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold ${
+                    active
+                      ? "bg-[var(--desk-surface-muted)] text-[var(--desk-ink)]"
+                      : "text-[var(--desk-muted)]"
+                  }`}
+                >
+                  <Icon aria-hidden={true} size={19} />
+                  {copy[item.label]}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="mt-4 border-t border-[var(--desk-line)] pt-4">
+            <LanguageSwitch tone="light" />
+            <Link
+              href={`/${locale}`}
+              className="desk-focus mt-2 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[var(--desk-muted)]"
+            >
+              <ExternalLink aria-hidden="true" size={18} />
+              {copy.publicSite}
+            </Link>
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="desk-focus flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-start text-sm font-semibold text-[var(--desk-danger)]"
+              >
+                <LogOut aria-hidden="true" size={18} />
+                {copy.logOut}
+              </button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }
 
@@ -299,23 +512,19 @@ export function AdminError({
 }) {
   const copy = useAdminCopy();
   const message = adminErrorMessage(code, copy, remaining);
-  const [open, setOpen] = useState(Boolean(message));
+  const [dismissed, setDismissed] = useState<string | null>(null);
 
-  useEffect(() => {
-    setOpen(Boolean(message));
-  }, [message]);
-
-  if (!message || !open) return null;
+  if (!message || dismissed === message) return null;
   return (
     <div
-      role="status"
-      className="fixed end-5 bottom-5 z-50 w-[min(100%-2rem,24rem)] rounded-xl border border-[#f3c7c7] bg-white px-4 py-3 text-sm text-[#9b1c1c] shadow-[0_16px_40px_-20px_rgba(8,28,54,0.45)]"
+      role="alert"
+      className="fixed end-4 bottom-24 z-50 w-[min(100%-2rem,24rem)] rounded-2xl border border-[var(--desk-danger-line)] bg-white px-4 py-3 text-sm text-[var(--desk-danger)] shadow-[0_18px_48px_-22px_rgba(8,28,54,0.55)] lg:bottom-5"
     >
       <p>{message}</p>
       <button
         type="button"
-        onClick={() => setOpen(false)}
-        className="mt-2 text-xs font-semibold text-[#081c36]"
+        onClick={() => setDismissed(message)}
+        className="desk-focus mt-2 rounded text-xs font-semibold text-[var(--desk-ink)]"
       >
         {copy.dismiss}
       </button>

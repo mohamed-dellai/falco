@@ -1,10 +1,24 @@
 import Link from "next/link";
+import {
+  ArrowRight,
+  CalendarDays,
+  CreditCard,
+  Inbox,
+  Plus,
+  ReceiptText,
+} from "lucide-react";
 import { AssignmentTable } from "@/components/assignment-table";
-import { AdminShell, adminButtonClass, adminButtonSecondaryClass } from "@/components/admin-shell";
-import { CountUp } from "@/components/count-up";
+import { AdminShell } from "@/components/admin-shell";
+import {
+  AdminSectionHeader,
+  AdminStatStrip,
+  adminButtonClass,
+  adminButtonSecondaryClass,
+} from "@/components/admin-ui";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
+import { listBookings } from "@/lib/bookings";
 import {
   cities,
   heldQuantity,
@@ -14,10 +28,9 @@ import {
   listPurchases,
   listRooms,
   openQuantity,
-  purchaseAmount,
   type City,
 } from "@/lib/inventory";
-import { formatMoney, todayInRiyadh } from "@/lib/money";
+import { todayInRiyadh } from "@/lib/money";
 import { listSubmissions } from "@/lib/submissions";
 
 export const dynamic = "force-dynamic";
@@ -34,13 +47,22 @@ export default async function AdminHomePage() {
   const copy = adminCopy(locale);
   const today = todayInRiyadh();
   const tomorrow = nextDay(today);
-  const [stats, assignments, submissions, hotels, rooms, drafts] = await Promise.all([
+  const [
+    stats,
+    assignments,
+    submissions,
+    hotels,
+    rooms,
+    drafts,
+    pendingBookings,
+  ] = await Promise.all([
     inventoryStats(),
     listAssignments(),
     listSubmissions(),
     listHotels(),
     listRooms(),
     listPurchases({ status: "draft" }),
+    listBookings("pending"),
   ]);
   const capacity = await Promise.all(
     rooms.map(async (room) => {
@@ -68,105 +90,121 @@ export default async function AdminHomePage() {
       share: cityUnits > 0 ? (cityHeld / cityUnits) * 100 : 0,
     };
   });
-  const upcoming = assignments.filter((assignment) => assignment.checkIn > today).length;
-  const fresh = submissions.filter((item) => {
-    const created = Date.parse(item.createdAt);
-    return item.status === "new" && Number.isFinite(created) && Date.now() - created < 86_400_000;
-  }).length;
-  const dateLabel = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
-    timeZone: "Asia/Riyadh",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date());
+  const activeAssignments = assignments.filter(
+    (assignment) => assignment.checkOut > today,
+  );
+  const upcoming = activeAssignments.filter(
+    (assignment) => assignment.checkIn > today,
+  ).length;
+  const newRequests = submissions.filter((item) => item.status === "new");
+  const fresh = newRequests.filter(
+    (item) => item.createdAt.slice(0, 10) === today,
+  ).length;
+  const dateLabel = new Intl.DateTimeFormat(
+    locale === "fr" ? "fr-FR" : "en-GB",
+    {
+      timeZone: "Asia/Riyadh",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    },
+  ).format(new Date());
 
   return (
     <AdminShell
       title={copy.overview}
-      searchPlaceholder={copy.searchAllotments}
       note={
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#dfe5ec] bg-white px-3 py-1 text-xs font-medium text-[#5c6470]">
-          <i aria-hidden="true" className="ti ti-calendar text-[14px]" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--desk-line)] bg-white px-3 py-1 text-xs font-medium text-[var(--desk-muted)]">
+          <CalendarDays aria-hidden="true" size={14} />
           {copy.today} · {dateLabel} · {copy.riyadh}
         </span>
       }
       actions={
-        <div className="flex gap-2">
+        <>
           <Link href="/admin/hotels/new" className={adminButtonSecondaryClass}>
-            <i aria-hidden="true" className="ti ti-plus text-[15px]" />
+            <Plus aria-hidden="true" size={16} />
             {copy.newHotel}
           </Link>
           <Link href="/admin/purchases/new" className={adminButtonClass}>
-            <i aria-hidden="true" className="ti ti-plus text-[15px]" />
+            <Plus aria-hidden="true" size={16} />
             {copy.newPurchase}
           </Link>
-        </div>
+        </>
       }
     >
-      <div className="mx-auto grid max-w-[1180px] gap-5">
-        <section className="desk-rise rounded-xl border border-[#dfe5ec] bg-white px-6 py-5">
-          <div className="flex flex-wrap items-start justify-between gap-8">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <h2 className="font-news text-[19px] font-medium tracking-tight">
-                  {copy.capacityToday}
-                </h2>
-                <p className="text-[13px] text-[#5c6470]">
-                  <span className="font-plex text-[#081c36]">
-                    <CountUp value={units} />
-                  </span>{" "}
-                  {fill(copy.unitsAcross, { count: "", hotels: stats.hotels }).trim()}
-                </p>
+      <div className="grid gap-6">
+        <section className="desk-rise overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-white">
+          <div className="grid gap-7 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <div>
+                  <h2 className="font-news text-xl font-medium tracking-tight">
+                    {copy.capacityToday}
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--desk-muted)]">
+                    {fill(copy.unitsAcross, {
+                      count: units,
+                      hotels: stats.hotels,
+                    })}
+                  </p>
+                </div>
+                <div className="flex items-baseline gap-5 text-sm">
+                  <p className="text-[var(--desk-primary)]">
+                    {copy.held}{" "}
+                    <strong className="font-news ms-1 text-2xl font-medium">
+                      {held}
+                    </strong>
+                    <span className="ms-1 text-xs text-[var(--desk-muted)]">
+                      {units ? Math.round(heldShare) : 0}%
+                    </span>
+                  </p>
+                  <p className="text-[var(--desk-warning)]">
+                    {copy.open}{" "}
+                    <strong className="font-news ms-1 text-2xl font-medium">
+                      {open}
+                    </strong>
+                    <span className="ms-1 text-xs text-[var(--desk-muted)]">
+                      {units ? Math.round(100 - heldShare) : 0}%
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div className="mt-5 flex text-[13px] font-medium">
-                <p className="text-[#0e4d8c]" style={{ width: `${Math.max(heldShare, 12)}%` }}>
-                  {copy.held}{" "}
-                  <span className="font-news text-2xl">
-                    <CountUp value={held} />
-                  </span>
-                  <span className="ms-1 text-xs text-[#5c6470]">
-                    ({units ? Math.round(heldShare) : 0}%)
-                  </span>
-                </p>
-                <p className="ms-auto text-[#9a7a1f]">
-                  {copy.open}{" "}
-                  <span className="font-news text-2xl">
-                    <CountUp value={open} />
-                  </span>
-                  <span className="ms-1 text-xs text-[#5c6470]">
-                    ({units ? Math.round(100 - heldShare) : 0}%)
-                  </span>
-                </p>
-              </div>
-              <div className="mt-1.5 flex h-3.5 overflow-hidden rounded-full bg-[#f4efea]">
+              <div
+                className="mt-5 flex h-4 overflow-hidden rounded-full bg-[var(--desk-gold-soft)]/70"
+                aria-label={`${copy.held} ${Math.round(heldShare)}%`}
+              >
                 <div
-                  className="cap-fill bg-[#0e4d8c]"
+                  className="cap-fill bg-[var(--desk-primary)]"
                   style={{ width: `${heldShare}%` }}
                 />
-                <div className="cap-fill min-w-0 flex-1 border border-l-0 border-[#c59b27] bg-[#ffdf98]" />
+                <div className="min-w-0 flex-1 border border-[var(--desk-gold)]" />
               </div>
-              <p className="mt-2.5 text-xs text-[#5c6470]">
+              <p className="mt-3 text-xs leading-5 text-[var(--desk-muted)]">
                 {copy.capacityNote}
               </p>
             </div>
-            <div className="w-full max-w-sm border-[#eef0f3] sm:border-s sm:ps-8">
-              <p className="text-[13px] font-semibold">{copy.heldByCity}</p>
-              <ul className="mt-3 grid gap-3">
+            <div className="border-t border-[var(--desk-line)] pt-5 lg:border-t-0 lg:border-s lg:pt-0 lg:ps-7">
+              <p className="text-sm font-semibold">{copy.heldByCity}</p>
+              <ul className="mt-4 grid gap-4">
                 {byCity.map((row) => (
                   <li
                     key={row.city}
-                    className="grid grid-cols-[72px_1fr_auto] items-center gap-3"
+                    className="grid grid-cols-[5rem_1fr_auto] items-center gap-3"
                   >
-                    <span className="text-[13px] font-medium">{copy[row.city]}</span>
-                    <span className="h-2 overflow-hidden rounded-full bg-[#ffdf98]/70">
+                    <span className="text-sm font-medium">
+                      {copy[row.city]}
+                    </span>
+                    <span className="h-2 overflow-hidden rounded-full bg-[var(--desk-gold-soft)]/70">
                       <span
-                        className="cap-fill block h-full rounded-full bg-[#0e4d8c]"
+                        className="cap-fill block h-full rounded-full bg-[var(--desk-primary)]"
                         style={{ width: `${row.share}%` }}
                       />
                     </span>
-                    <span className="font-plex text-xs text-[#5c6470]">
-                      <span className="font-medium text-[#081c36]">{row.held}</span> {copy.of}{" "}
-                      {row.units}
+                    <span className="font-plex text-xs text-[var(--desk-muted)]">
+                      <strong className="font-medium text-[var(--desk-ink)]">
+                        {row.held}
+                      </strong>{" "}
+                      {copy.of} {row.units}
                     </span>
                   </li>
                 ))}
@@ -175,89 +213,96 @@ export default async function AdminHomePage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <Link
-            href="/admin/forms"
-            className="block rounded-xl border border-[#dfe5ec] bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[#c59b27]/45"
-          >
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold">{copy.requests}</h3>
-              {fresh > 0 && (
-                <span className="text-xs font-semibold text-[#9a7a1f]">
-                  {fill(copy.newToday, { count: fresh })}
-                </span>
-              )}
-            </div>
-            <p className="font-news mt-1 text-[30px] leading-none font-medium">
-              <CountUp value={submissions.length} />
-              <span className="ms-2 font-sans text-[15px] font-medium text-[#5c6470]">{copy.openLabel}</span>
-            </p>
-            <ul className="mt-3 divide-y divide-[#eef0f3] border-t border-[#eef0f3]">
-              {submissions.slice(0, 3).map((submission) => (
-                <li key={submission.id} className="flex justify-between gap-3 py-2 text-[13px]">
-                  <span>
-                    <span className="font-semibold">
-                      {submission.agencyName || submission.name}
-                    </span>
-                    <span className="text-[#5c6470]">
-                      {" "}
-                      · {submission.kind === "quote" ? copy.allotmentRequest : copy.agencyApplication}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Link>
-          <Link
-            href="/admin/purchases?status=draft"
-            className="block rounded-xl border border-[#dfe5ec] bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[#c59b27]/45"
-          >
-            <h3 className="text-sm font-semibold">{copy.draftPurchases}</h3>
-            <p className="font-news mt-1 text-[30px] leading-none font-medium">
-              <CountUp value={drafts.length} />
-              <span className="ms-2 font-sans text-[15px] font-medium text-[#5c6470]">
-                {copy.unconfirmed}
-              </span>
-            </p>
-            <ul className="mt-3 divide-y divide-[#eef0f3] border-t border-[#eef0f3]">
-              {drafts.slice(0, 3).map((purchase) => (
-                <li key={purchase.id} className="flex justify-between gap-3 py-2 text-[13px]">
-                  <span className="font-semibold">{purchase.hotelName}</span>
-                  <span className="font-plex">{formatMoney(purchaseAmount(purchase), locale)}</span>
-                </li>
-              ))}
-            </ul>
-          </Link>
+        <section>
+          <AdminSectionHeader title={copy.attention} />
+          <div className="grid gap-3 md:grid-cols-3">
+            <AttentionCard
+              href="/admin/forms?status=new"
+              icon={<Inbox aria-hidden="true" size={18} />}
+              label={copy.newRequests}
+              value={newRequests.length}
+              detail={
+                fresh ? fill(copy.newToday, { count: fresh }) : copy.requests
+              }
+            />
+            <AttentionCard
+              href="/admin/purchases?status=draft"
+              icon={<ReceiptText aria-hidden="true" size={18} />}
+              label={copy.draftPurchases}
+              value={drafts.length}
+              detail={copy.unconfirmed}
+            />
+            <AttentionCard
+              href="/admin/bookings?status=pending"
+              icon={<CreditCard aria-hidden="true" size={18} />}
+              label={copy.pendingPayments}
+              value={pendingBookings.length}
+              detail={copy.bookings}
+            />
+          </div>
         </section>
 
-        <section className="grid gap-px overflow-hidden rounded-xl border border-[#dfe5ec] bg-[#dfe5ec] sm:grid-cols-4">
-          {[
-            [copy.hotels, stats.hotels],
-            [copy.roomTypes, stats.rooms],
-            [copy.inHouse, stats.activeAssignments],
-            [copy.upcomingStays, upcoming],
-          ].map(([label, value]) => (
-            <article key={label} className="bg-white px-4 py-3">
-              <span className="text-[11px] font-semibold tracking-wide text-[#5c6470] uppercase">
-                {label}
-              </span>
-              <strong className="font-news mt-1 block text-2xl font-medium">
-                <CountUp value={Number(value)} />
-              </strong>
-            </article>
-          ))}
-        </section>
+        <AdminStatStrip
+          items={[
+            { label: copy.hotels, value: stats.hotels },
+            { label: copy.roomTypes, value: stats.rooms },
+            { label: copy.inHouse, value: stats.activeAssignments },
+            { label: copy.upcomingStays, value: upcoming },
+          ]}
+        />
 
         <section>
-          <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="font-news text-[19px] font-medium">{copy.latestAllotments}</h2>
-            <Link href="/admin/assignments" className="text-sm font-semibold text-[#0e4d8c]">
-              {copy.viewAll}
-            </Link>
-          </div>
-          <AssignmentTable assignments={assignments.slice(0, 8)} />
+          <AdminSectionHeader
+            title={copy.activeRoomHolds}
+            description={copy.activeRoomHoldsDescription}
+            action={
+              <Link
+                href="/admin/allotments"
+                className="desk-focus inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
+              >
+                {copy.viewAll}
+                <ArrowRight aria-hidden="true" size={15} />
+              </Link>
+            }
+          />
+          <AssignmentTable assignments={activeAssignments.slice(0, 8)} />
         </section>
       </div>
     </AdminShell>
+  );
+}
+
+function AttentionCard({
+  href,
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="desk-focus group rounded-2xl border border-[var(--desk-line)] bg-white p-4 transition hover:border-[var(--desk-gold)]"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="grid size-9 place-items-center rounded-xl bg-[var(--desk-surface-muted)] text-[var(--desk-primary)]">
+          {icon}
+        </span>
+        <ArrowRight
+          aria-hidden="true"
+          size={16}
+          className="text-[var(--desk-muted)] transition-transform group-hover:translate-x-0.5"
+        />
+      </div>
+      <p className="mt-4 text-sm font-semibold">{label}</p>
+      <p className="font-news mt-1 text-3xl font-medium">{value}</p>
+      <p className="mt-1 text-xs text-[var(--desk-muted)]">{detail}</p>
+    </Link>
   );
 }

@@ -1,12 +1,15 @@
+import { AdminError, AdminShell } from "@/components/admin-shell";
 import {
-  AdminError,
+  AdminField,
   AdminPanel,
-  AdminShell,
   adminButtonClass,
   adminFieldClass,
-} from "@/components/admin-shell";
+} from "@/components/admin-ui";
+import { AdminSubmitButton } from "@/components/admin-submit-button";
 import { createHotelAction } from "@/app/admin/actions";
 import { requireAdmin } from "@/lib/admin-auth";
+import { adminCopy, type AdminCopy } from "@/lib/admin-copy";
+import { getAdminLocale } from "@/lib/admin-locale";
 import { cities } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
@@ -18,26 +21,32 @@ export default async function NewHotelPage({
 }) {
   await requireAdmin();
   const query = await searchParams;
+  const copy = adminCopy(await getAdminLocale());
 
   return (
-    <AdminShell title="Add hotel">
+    <AdminShell
+      title={copy.addHotel}
+      crumbs={[{ href: "/admin/hotels", label: copy.hotels }]}
+    >
       <AdminError code={query.error} />
-      <AdminPanel title="Hotel record" className="max-w-3xl">
+      <AdminPanel title={copy.hotelRecord} className="max-w-3xl">
         <form action={createHotelAction} className="grid gap-3">
-          <HotelFields />
-          <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-            Photos
+          <HotelFields copy={copy} />
+          <AdminField label={copy.photos} hint={copy.photoRule}>
             <input
               name="photos"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
-              className={adminFieldClass}
+              className="desk-focus block min-h-11 w-full rounded-xl border border-dashed border-[var(--desk-line-strong)] bg-[var(--desk-canvas)] px-3 py-2 text-sm file:me-3 file:rounded-lg file:border-0 file:bg-[var(--desk-ink)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
             />
-          </label>
-          <button type="submit" className={`${adminButtonClass} w-fit`}>
-            Save hotel
-          </button>
+          </AdminField>
+          <AdminSubmitButton
+            pendingLabel={copy.saving}
+            className={`${adminButtonClass} w-fit`}
+          >
+            {copy.saveHotel}
+          </AdminSubmitButton>
         </form>
       </AdminPanel>
     </AdminShell>
@@ -46,6 +55,7 @@ export default async function NewHotelPage({
 
 export function HotelFields({
   hotel,
+  copy,
 }: {
   hotel?: {
     name: string;
@@ -55,21 +65,20 @@ export function HotelFields({
     stars: number;
     distanceToHaram: string;
   };
+  copy: AdminCopy;
 }) {
   return (
     <>
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Hotel name
+      <AdminField label={copy.hotelName}>
         <input
           name="name"
           required
           defaultValue={hotel?.name}
           className={adminFieldClass}
         />
-      </label>
+      </AdminField>
       <div className="grid gap-4 sm:grid-cols-3">
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          City
+        <AdminField label={copy.city}>
           <select
             name="city"
             defaultValue={hotel?.city ?? "makkah"}
@@ -77,13 +86,12 @@ export function HotelFields({
           >
             {cities.map((city) => (
               <option key={city} value={city}>
-                {city[0]!.toUpperCase() + city.slice(1)}
+                {copy[city]}
               </option>
             ))}
           </select>
-        </label>
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Stars
+        </AdminField>
+        <AdminField label={copy.stars}>
           <input
             name="stars"
             type="number"
@@ -93,32 +101,29 @@ export function HotelFields({
             defaultValue={hotel?.stars ?? 4}
             className={adminFieldClass}
           />
-        </label>
-        <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-          Distance to the Haram
+        </AdminField>
+        <AdminField label={copy.distanceHaram}>
           <input
             name="distanceToHaram"
             defaultValue={hotel?.distanceToHaram}
             className={adminFieldClass}
           />
-        </label>
+        </AdminField>
       </div>
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Address
+      <AdminField label={copy.address}>
         <input
           name="address"
           defaultValue={hotel?.address}
           className={adminFieldClass}
         />
-      </label>
-      <label className="grid gap-1 text-xs font-semibold text-[#334155]">
-        Description
+      </AdminField>
+      <AdminField label={copy.description}>
         <textarea
           name="description"
           defaultValue={hotel?.description}
           className={`${adminFieldClass} !h-auto min-h-28 py-2`}
         />
-      </label>
+      </AdminField>
     </>
   );
 }

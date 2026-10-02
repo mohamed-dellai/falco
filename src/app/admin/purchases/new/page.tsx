@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminError, AdminShell } from "@/components/admin-shell";
+import { AdminEmptyState, adminButtonClass } from "@/components/admin-ui";
 import { PurchaseForm } from "@/components/purchase-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
@@ -27,12 +28,15 @@ export default async function NewPurchasePage({
       {hotels.length ? (
         <PurchaseForm hotels={hotels} hotelId={query.hotel} />
       ) : (
-        <p className="rounded border border-[#d5dbe3] bg-white px-4 py-6 text-sm text-[#5c6776]">
-          <Link href="/admin/hotels/new" className="font-semibold text-[#0e4d8c]">
-            {copy.newHotel}
-          </Link>{" "}
-          before purchasing rooms.
-        </p>
+        <AdminEmptyState
+          title={copy.noHotels}
+          description={copy.hotelBeforePurchase}
+          action={
+            <Link href="/admin/hotels/new" className={adminButtonClass}>
+              {copy.newHotel}
+            </Link>
+          }
+        />
       )}
     </AdminShell>
   );

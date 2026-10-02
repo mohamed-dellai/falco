@@ -73,6 +73,7 @@ async function migrate() {
       capacity INTEGER NOT NULL,
       quantity INTEGER NOT NULL,
       cost_per_night INTEGER NOT NULL,
+      public_price_per_night INTEGER,
       created_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS room_photos (
@@ -162,6 +163,27 @@ async function migrate() {
       created_at TEXT NOT NULL,
       confirmed_at TEXT
     )`,
+    `CREATE TABLE IF NOT EXISTS bookings (
+      id TEXT PRIMARY KEY,
+      number TEXT NOT NULL UNIQUE,
+      room_id TEXT NOT NULL REFERENCES rooms (id),
+      status TEXT NOT NULL,
+      check_in TEXT NOT NULL,
+      check_out TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      travellers INTEGER NOT NULL,
+      public_price_per_night INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      locale TEXT NOT NULL DEFAULT 'en',
+      stripe_session_id TEXT,
+      stripe_payment_intent TEXT,
+      hold_until TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      confirmed_at TEXT
+    )`,
     `CREATE TABLE IF NOT EXISTS allotment_lines (
       id TEXT PRIMARY KEY,
       allotment_id TEXT NOT NULL REFERENCES allotments (id),
@@ -183,6 +205,7 @@ async function migrate() {
   await ensureSubmissionStayColumns();
   await ensureSubmissionStatus();
   await ensureAssignmentAllotment();
+  await ensureRoomPublicPrice();
 }
 
 async function ensureSubmissionStatus() {
@@ -195,6 +218,20 @@ async function ensureSubmissionStatus() {
   if (!names.has("status")) {
     await pool().query(
       `ALTER TABLE submissions ADD COLUMN status TEXT NOT NULL DEFAULT 'new'`,
+    );
+  }
+}
+
+async function ensureRoomPublicPrice() {
+  const info = await pool().query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'rooms'`,
+  );
+  const names = new Set(info.rows.map((row) => row.column_name));
+  if (!names.has("public_price_per_night")) {
+    await pool().query(
+      `ALTER TABLE rooms ADD COLUMN public_price_per_night INTEGER`,
     );
   }
 }

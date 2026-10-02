@@ -6,10 +6,12 @@ export function CountUp({ value }: { value: number }) {
   const [shown, setShown] = useState(0);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (reduce || value === 0) {
-      setShown(value);
-      return;
+      const frame = requestAnimationFrame(() => setShown(value));
+      return () => cancelAnimationFrame(frame);
     }
     const start = performance.now();
     const duration = 700;

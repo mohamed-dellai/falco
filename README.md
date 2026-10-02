@@ -41,8 +41,10 @@ npm run build
 - `/{locale}/hotels` — open hotel inventory
 - `/{locale}/hotels/{id}` — hotel and room details
 - `/{locale}/about` — company content
+- `/{locale}/stay` — public nightly prices for individual travellers
+- `/{locale}/book` — guest checkout for a priced room
 - `/{locale}/contact` — agency allotment request
-- `/admin` — hotels, rooms, photos, costs, and agency assignments
+- `/admin` — hotels, rooms, photos, costs, agency assignments, and individual bookings
 
 The forms validate input, reject honeypots and implausibly fast submissions,
 apply a basic cooldown, send each accepted request to Falco through Resend, and
@@ -56,3 +58,7 @@ verified in the Resend account. Set `NEXT_PUBLIC_SITE_URL` to the production
 domain so canonical URLs and the sitemap use the public address.
 
 `FORM_TO_EMAIL` defaults to Falco’s official contact email when omitted.
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are required for individual
+checkout. Point the Stripe webhook at `/api/stripe/webhook` and listen for
+`checkout.session.completed` and `checkout.session.expired`. A booking is
+confirmed only by that signed webhook.
