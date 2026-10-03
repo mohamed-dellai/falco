@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { cancelBooking } from "@/lib/bookings";
+import { cancelBooking, deleteBooking } from "@/lib/bookings";
 import {
   clearAdminSession,
   createAdminSession,
@@ -45,6 +45,7 @@ import {
 } from "@/lib/inventory";
 import { parseMoney } from "@/lib/money";
 import {
+  deleteSubmission,
   setSubmissionStatus,
   submissionStatuses,
   type SubmissionStatus,
@@ -460,6 +461,19 @@ export async function cancelPurchaseAction(formData: FormData) {
       ? `/admin/purchases/${id}`
       : `/admin/purchases/${id}?error=${result.error}`,
   );
+}
+
+export async function deleteSubmissionAction(formData: FormData) {
+  await requireAdmin();
+  await deleteSubmission(text(formData, "id"));
+  redirect("/admin/forms");
+}
+
+export async function deleteBookingAction(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const removed = await deleteBooking(id);
+  redirect(removed ? "/admin/bookings" : `/admin/bookings/${id}`);
 }
 
 export async function deletePurchaseAction(formData: FormData) {

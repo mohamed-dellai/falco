@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { localeAlternates, type Locale } from "@/i18n/routing";
 import { getHotel, getShowcaseHotel, parseStay } from "@/lib/inventory";
 import { todayInRiyadh } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -118,13 +119,13 @@ export default async function HotelPage({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={room.photos[0]}
-                    alt={room.name}
+                    alt={roomTypeLabel(room.name, (type) => t(type))}
                     className="h-56 w-full object-cover"
                   />
                 )}
                 <div className="p-5">
                   <h3 className="text-2xl font-bold text-primary">
-                    {room.name}
+                    {roomTypeLabel(room.name, (type) => t(type))}
                     {room.checkIn && room.checkOut && (
                       <span className="mt-1 block text-sm font-medium text-muted">
                         {room.checkIn} → {room.checkOut}

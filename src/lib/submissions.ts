@@ -199,6 +199,14 @@ export async function listSubmissions(kind?: SubmissionKind) {
   return rows.map(mapSubmission);
 }
 
+export async function deleteSubmission(id: string) {
+  const rows = await query<{ id: string }>(
+    "DELETE FROM submissions WHERE id = ? RETURNING id",
+    [id],
+  );
+  return Boolean(rows[0]);
+}
+
 export async function setSubmissionStatus(id: string, status: SubmissionStatus) {
   await execute(
     "UPDATE submissions SET status = ? WHERE id = ?",

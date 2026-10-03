@@ -79,10 +79,11 @@ export default async function RoomAdminPage({
     (assignment) => assignment.roomId === room.id,
   );
   const typeCode = roomTypeCode(room.name);
+  const typeName = typeCode ? copy[typeCode] : room.name;
 
   return (
     <AdminShell
-      title={typeCode ? copy[typeCode] : room.name}
+      title={typeName}
       note={
         room.checkIn && room.checkOut ? (
           <span className="font-plex text-sm text-[var(--desk-muted)]">
@@ -243,7 +244,7 @@ export default async function RoomAdminPage({
                     <img
                       src={photo.url}
                       alt={fill(copy.photoAlt, {
-                        record: room.name,
+                        record: typeName,
                         count: index + 1,
                       })}
                       className="h-24 w-full object-cover"
@@ -251,7 +252,7 @@ export default async function RoomAdminPage({
                     <div className="flex justify-center px-2 py-2">
                       <NamedConfirm
                         title={copy.removePhotoTitle}
-                        body={fill(copy.removePhotoBody, { record: room.name })}
+                        body={fill(copy.removePhotoBody, { record: typeName })}
                         confirm={copy.removePhotoConfirm}
                         pendingLabel={copy.removing}
                         cancelLabel={copy.keepPhoto}
@@ -351,7 +352,7 @@ export default async function RoomAdminPage({
       <div className="mt-5">
         <NamedConfirm
           title={copy.deleteRoomTitle}
-          body={fill(copy.deleteRoomBody, { room: room.name })}
+          body={fill(copy.deleteRoomBody, { room: typeName })}
           confirm={copy.deleteRoom}
           pendingLabel={copy.deleting}
           cancelLabel={copy.keepRoom}

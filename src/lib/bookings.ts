@@ -1,9 +1,11 @@
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { transaction, query, execute, type SqlClient } from "@/lib/db";
 import { deliverBooking } from "@/lib/email";
 import { getHotel, getRoom, openForStay, parseStay } from "@/lib/inventory";
 import { nightsBetween } from "@/lib/money";
 import { routing, type Locale } from "@/i18n/routing";
+import { roomTypeLabel } from "@/lib/room-types";
 import { maxDirectRooms } from "@/lib/booking-limits";
 import { createCheckoutSession } from "@/lib/stripe";
 const holdMinutes = 45;
@@ -78,6 +80,11 @@ function asStatus(value: string): BookingStatus {
   return bookingStatuses.includes(value as BookingStatus)
     ? (value as BookingStatus)
     : "pending";
+}
+
+async function labelledRoom(name: string, locale: string) {
+  const hotels = await getTranslations({ locale, namespace: "Hotels" });
+  return roomTypeLabel(name, (type) => hotels(type));
 }
 
 function asLocale(value: string): Locale {
@@ -206,7 +213,7 @@ export async function createBooking(input: BookingRequest) {
       roomId: room.id,
       checkIn: stay.checkIn,
       checkOut: stay.checkOut,
-      name: `${hotel.name} — ${room.name}`,
+      name: `${hotel.name} — ${await labelledRoom(room.name, input.locale)}`,
       unitAmount: room.publicPricePerNight,
       quantity: input.quantity * stay.nights,
     });
@@ -280,13 +287,21 @@ export async function confirmBookingPayment(
     phone: booking.phone,
     country: booking.country,
     hotel: booking.hotelName,
-    room: booking.roomName,
+    room: await labelledRoom(booking.roomName, booking.locale),
     checkIn: booking.checkIn,
     checkOut: booking.checkOut,
     quantity: booking.quantity,
     travellers: booking.travellers,
     total: booking.publicPricePerNight * nights * booking.quantity,
   }).catch(() => undefined);
+}
+
+export async function deleteBooking(id: string) {
+  const rows = await query<{ id: string }>(
+    "DELETE FROM bookings WHERE id = ? RETURNING id",
+    [id],
+  );
+  return Boolean(rows[0]);
 }
 
 export async function cancelPendingBooking(bookingId: string) {

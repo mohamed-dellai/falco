@@ -7,6 +7,7 @@ import type { Locale } from "@/i18n/routing";
 import { getBooking } from "@/lib/bookings";
 import { nightsBetween } from "@/lib/money";
 import { formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function BookingCompletePage({
   const booking = await getBooking(bookingId);
   if (!booking) notFound();
   const t = await getTranslations("Book");
+  const hotels = await getTranslations("Hotels");
   const nights = Math.max(0, nightsBetween(booking.checkIn, booking.checkOut));
   const pending = booking.status === "pending";
 
@@ -58,7 +60,9 @@ export default async function BookingCompletePage({
         </p>
         <div className="mt-8 rounded-2xl border border-line bg-white p-5 text-sm">
           <p className="font-bold text-ink">{booking.hotelName}</p>
-          <p className="mt-1 text-muted">{booking.roomName}</p>
+          <p className="mt-1 text-muted">
+            {roomTypeLabel(booking.roomName, (type) => hotels(type))}
+          </p>
           <p className="mt-3 text-muted">
             {booking.checkIn} → {booking.checkOut}
           </p>

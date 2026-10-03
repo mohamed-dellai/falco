@@ -21,7 +21,8 @@ import {
 } from "@/components/calendar-date-field";
 import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
-import { fill } from "@/lib/admin-copy";
+import { fill, type AdminCopy } from "@/lib/admin-copy";
+import { roomTypeLabel } from "@/lib/room-types";
 import type { Allotment, AllotmentStatus } from "@/lib/inventory";
 import {
   formatDate,
@@ -46,10 +47,11 @@ function roomChoiceLabel(
   checkIn: string | null | undefined,
   checkOut: string | null | undefined,
   locale: string,
+  copy: AdminCopy,
 ) {
   const period =
     checkIn && checkOut ? ` · ${formatDateRange(checkIn, checkOut, locale)}` : "";
-  return `${hotelName} — ${name}${period}`;
+  return `${hotelName} — ${roomTypeLabel(name, (type) => copy[type])}${period}`;
 }
 
 type DraftLine = {
@@ -95,7 +97,11 @@ function parsedQuantity(value: string) {
   return quantity;
 }
 
-function emptyLine(room: RoomOption | undefined, locale: string): DraftLine {
+function emptyLine(
+  room: RoomOption | undefined,
+  locale: string,
+  copy: AdminCopy,
+): DraftLine {
   return {
     key: crypto.randomUUID(),
     roomId: room?.id ?? "",
@@ -103,12 +109,23 @@ function emptyLine(room: RoomOption | undefined, locale: string): DraftLine {
     cost: room ? moneyInput(room.costPerNight) : "",
     price: "",
     label: room
-      ? roomChoiceLabel(room.hotelName, room.name, room.checkIn, room.checkOut, locale)
+      ? roomChoiceLabel(
+          room.hotelName,
+          room.name,
+          room.checkIn,
+          room.checkOut,
+          locale,
+          copy,
+        )
       : "",
   };
 }
 
-function lineFromAllotment(allotment: Allotment, locale: string): DraftLine[] {
+function lineFromAllotment(
+  allotment: Allotment,
+  locale: string,
+  copy: AdminCopy,
+): DraftLine[] {
   return allotment.lines.map((line) => ({
     key: line.id,
     roomId: line.roomId,
@@ -121,6 +138,7 @@ function lineFromAllotment(allotment: Allotment, locale: string): DraftLine[] {
       line.roomCheckIn,
       line.roomCheckOut,
       locale,
+      copy,
     ),
   }));
 }
@@ -167,8 +185,8 @@ export function AllotmentForm({
   );
   const [lines, setLines] = useState<DraftLine[]>(
     allotment?.lines.length
-      ? lineFromAllotment(allotment, locale)
-      : [emptyLine(preset, locale)],
+      ? lineFromAllotment(allotment, locale, copy)
+      : [emptyLine(preset, locale, copy)],
   );
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState("");
@@ -456,6 +474,7 @@ export function AllotmentForm({
                                     room.checkIn,
                                     room.checkOut,
                                     locale,
+                                    copy,
                                   )
                                 : "",
                               cost: room
@@ -477,6 +496,7 @@ export function AllotmentForm({
                                 room.checkIn,
                                 room.checkOut,
                                 locale,
+                                copy,
                               )}
                             </option>
                           ))}
@@ -558,7 +578,7 @@ export function AllotmentForm({
                           onClick={() =>
                             setLines((current) =>
                               current.length === 1
-                                ? [emptyLine(undefined, locale)]
+                                ? [emptyLine(undefined, locale, copy)]
                                 : current.filter(
                                     (item) => item.key !== line.key,
                                   ),
@@ -580,7 +600,7 @@ export function AllotmentForm({
         {!locked && (
           <button
             type="button"
-            onClick={() => setLines((current) => [...current, emptyLine(undefined, locale)])}
+            onClick={() => setLines((current) => [...current, emptyLine(undefined, locale, copy)])}
             className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
           >
             {copy.addRoom}

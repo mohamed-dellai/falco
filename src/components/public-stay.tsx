@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import type { listPublicStay } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 type Offers = Awaited<ReturnType<typeof listPublicStay>>;
 
@@ -59,7 +60,9 @@ export async function PublicStay({
                 <h2 className="font-display mt-2 text-2xl font-bold text-primary">
                   {hotel.name}
                 </h2>
-                <p className="mt-1 text-sm font-bold text-ink">{room.name}</p>
+                <p className="mt-1 text-sm font-bold text-ink">
+                  {roomTypeLabel(room.name, (type) => hotelsCopy(type))}
+                </p>
                 {room.checkIn && room.checkOut && (
                   <p className="mt-1 text-sm text-muted">
                     {formatDateRange(room.checkIn, room.checkOut, locale)}

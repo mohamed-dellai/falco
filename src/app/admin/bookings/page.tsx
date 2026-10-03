@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { deleteBookingAction } from "@/app/admin/actions";
 import { AdminShell } from "@/components/admin-shell";
 import {
   AdminEmptyState,
@@ -7,6 +8,7 @@ import {
   AdminStatusPill,
   AdminTableFrame,
 } from "@/components/admin-ui";
+import { NamedConfirm } from "@/components/named-confirm";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
@@ -16,6 +18,7 @@ import {
   type BookingStatus,
 } from "@/lib/bookings";
 import { formatDateRange, formatMoney, nightsBetween } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,29 @@ function filterHref(status: string, query: string) {
   if (query) params.set("q", query);
   const suffix = params.toString();
   return `/admin/bookings${suffix ? `?${suffix}` : ""}`;
+}
+
+function DeleteBooking({
+  id,
+  number,
+  copy,
+}: {
+  id: string;
+  number: string;
+  copy: ReturnType<typeof adminCopy>;
+}) {
+  return (
+    <NamedConfirm
+      title={copy.deleteBookingTitle}
+      body={fill(copy.deleteBookingBody, { number })}
+      confirm={copy.deleteAction}
+      pendingLabel={copy.deleting}
+      cancelLabel={copy.keepBooking}
+      action={deleteBookingAction}
+      fields={{ id }}
+      trigger={copy.deleteAction}
+    />
+  );
 }
 
 function BookingStatus({
@@ -83,6 +109,7 @@ export default async function BookingsPage({
           booking.phone,
           booking.hotelName,
           booking.roomName,
+          roomTypeLabel(booking.roomName, (type) => copy[type]),
           booking.checkIn,
           booking.checkOut,
         ]
@@ -148,40 +175,59 @@ export default async function BookingsPage({
                 nightsBetween(booking.checkIn, booking.checkOut),
               );
               return (
-                <Link
+                <article
                   key={booking.id}
-                  href={`/admin/bookings/${booking.id}`}
-                  className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+                  className="rounded-2xl border border-[var(--desk-line)] bg-white"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-plex text-xs text-[var(--desk-muted)]">
-                        {booking.number}
-                      </p>
-                      <h2 className="mt-1 font-semibold">{booking.name}</h2>
+                  <Link
+                    href={`/admin/bookings/${booking.id}`}
+                    className="desk-focus block p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-plex text-xs text-[var(--desk-muted)]">
+                          {booking.number}
+                        </p>
+                        <h2 className="mt-1 font-semibold">{booking.name}</h2>
+                      </div>
+                      <BookingStatus status={booking.status} copy={copy} />
                     </div>
-                    <BookingStatus status={booking.status} copy={copy} />
-                  </div>
-                  <p className="mt-3 text-sm">
-                    {booking.hotelName} · {booking.roomName}
-                  </p>
-                  <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
-                    {formatDateRange(booking.checkIn, booking.checkOut, locale)}
-                  </p>
-                  <div className="mt-3 flex items-end justify-between border-t border-[var(--desk-line)] pt-3">
-                    <span className="text-xs text-[var(--desk-muted)]">
-                      {booking.quantity} {copy.rooms.toLocaleLowerCase(locale)}{" "}
-                      · {booking.travellers}{" "}
-                      {copy.travellers.toLocaleLowerCase(locale)}
-                    </span>
-                    <strong className="font-plex text-sm">
-                      {formatMoney(
-                        booking.publicPricePerNight * nights * booking.quantity,
+                    <p className="mt-3 text-sm">
+                      {booking.hotelName} ·{" "}
+                      {roomTypeLabel(booking.roomName, (type) => copy[type])}
+                    </p>
+                    <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
+                      {formatDateRange(
+                        booking.checkIn,
+                        booking.checkOut,
                         locale,
                       )}
-                    </strong>
+                    </p>
+                    <div className="mt-3 flex items-end justify-between border-t border-[var(--desk-line)] pt-3">
+                      <span className="text-xs text-[var(--desk-muted)]">
+                        {booking.quantity}{" "}
+                        {copy.rooms.toLocaleLowerCase(locale)} ·{" "}
+                        {booking.travellers}{" "}
+                        {copy.travellers.toLocaleLowerCase(locale)}
+                      </span>
+                      <strong className="font-plex text-sm">
+                        {formatMoney(
+                          booking.publicPricePerNight *
+                            nights *
+                            booking.quantity,
+                          locale,
+                        )}
+                      </strong>
+                    </div>
+                  </Link>
+                  <div className="border-t border-[var(--desk-line)] px-4 py-3">
+                    <DeleteBooking
+                      id={booking.id}
+                      number={booking.number}
+                      copy={copy}
+                    />
                   </div>
-                </Link>
+                </article>
               );
             })}
           </div>
@@ -225,7 +271,7 @@ export default async function BookingsPage({
                         <td className="px-4 py-3">
                           {booking.hotelName}
                           <span className="block text-xs text-[var(--desk-muted)]">
-                            {booking.roomName}
+                            {roomTypeLabel(booking.roomName, (type) => copy[type])}
                           </span>
                         </td>
                         <td className="px-4 py-3 font-plex text-xs">
@@ -247,7 +293,14 @@ export default async function BookingsPage({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <BookingStatus status={booking.status} copy={copy} />
+                          <div className="flex items-center gap-3">
+                            <BookingStatus status={booking.status} copy={copy} />
+                            <DeleteBooking
+                              id={booking.id}
+                              number={booking.number}
+                              copy={copy}
+                            />
+                          </div>
                         </td>
                       </tr>
                     );

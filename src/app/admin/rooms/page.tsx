@@ -11,6 +11,7 @@ import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import { heldOn, listHotels, listRooms, roomHasPeriod } from "@/lib/inventory";
 import { formatDateRange, formatMoney, todayInRiyadh } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,7 @@ export default async function RoomsPage({
     .filter((room) =>
       search
         ? [
+            roomTypeLabel(room.name, (type) => copy[type]),
             room.name,
             room.hotelName,
             room.city,
@@ -140,7 +142,9 @@ export default async function RoomsPage({
                   {room.hotelName}
                   {room.city ? ` · ${room.city}` : ""}
                 </p>
-                <h2 className="mt-1 font-semibold">{room.name}</h2>
+                <h2 className="mt-1 font-semibold">
+                  {roomTypeLabel(room.name, (type) => copy[type])}
+                </h2>
                 <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
                   {formatDateRange(room.checkIn, room.checkOut, locale)}
                 </p>
@@ -195,7 +199,7 @@ export default async function RoomsPage({
                           href={`/admin/rooms/${room.id}`}
                           className="desk-focus rounded-sm font-semibold text-[var(--desk-primary)] hover:underline"
                         >
-                          {room.name}
+                          {roomTypeLabel(room.name, (type) => copy[type])}
                         </Link>
                       </td>
                       <td className="px-4 py-3 font-plex text-xs">

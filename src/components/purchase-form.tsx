@@ -24,7 +24,7 @@ import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 import type { Purchase, PurchaseStatus } from "@/lib/inventory";
-import { roomTypeCode, roomTypes } from "@/lib/room-types";
+import { roomTypeCode, roomTypeLabel, roomTypes } from "@/lib/room-types";
 import {
   formatDate,
   formatMoney,
@@ -45,8 +45,7 @@ type DraftLine = {
 };
 
 function roomLabel(copy: AdminCopy, name: string) {
-  const code = roomTypeCode(name);
-  return code ? copy[code] : name;
+  return roomTypeLabel(name, (type) => copy[type]);
 }
 
 function cityName(copy: AdminCopy, city: string) {

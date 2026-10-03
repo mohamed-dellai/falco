@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { BedDouble, Building2, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { setSubmissionStatusAction } from "@/app/admin/actions";
+import {
+  deleteSubmissionAction,
+  setSubmissionStatusAction,
+} from "@/app/admin/actions";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
+import { NamedConfirm } from "@/components/named-confirm";
 import {
   AdminEmptyState,
   adminButtonClass,
@@ -236,6 +240,18 @@ export function RequestsInbox({
                     })}
                   </a>
                 )}
+                <NamedConfirm
+                  title={copy.deleteRequestTitle}
+                  body={fill(copy.deleteRequestBody, {
+                    number: selected.reference,
+                  })}
+                  confirm={copy.deleteAction}
+                  pendingLabel={copy.deleting}
+                  cancelLabel={copy.keepCancelled}
+                  action={deleteSubmissionAction}
+                  fields={{ id: selected.id }}
+                  trigger={copy.deleteAction}
+                />
                 {selected.kind === "quote" && (
                   <Link
                     href={`/admin/allotments/new?${new URLSearchParams(

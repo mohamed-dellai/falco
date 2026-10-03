@@ -5,6 +5,7 @@ import { CheckoutForm } from "@/components/checkout-form";
 import { localeAlternates, type Locale } from "@/i18n/routing";
 import { getHotel, getRoom, parseStay } from "@/lib/inventory";
 import { formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function BookPage({
   if (!stay || !room || !hotel || room.publicPricePerNight == null) notFound();
 
   const t = await getTranslations("Book");
+  const hotels = await getTranslations("Hotels");
   const nightly = room.publicPricePerNight;
 
   return (
@@ -55,7 +57,9 @@ export default async function BookPage({
           <h1 className="font-display mt-3 text-4xl font-bold text-primary md:text-5xl">
             {hotel.name}
           </h1>
-          <p className="mt-3 text-lg font-bold text-ink">{room.name}</p>
+          <p className="mt-3 text-lg font-bold text-ink">
+            {roomTypeLabel(room.name, (type) => hotels(type))}
+          </p>
           {room.checkIn && room.checkOut && (
             <p className="mt-1 text-sm text-muted">
               {room.checkIn} → {room.checkOut}

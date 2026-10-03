@@ -36,6 +36,7 @@ import {
   purchaseSpan,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -157,7 +158,9 @@ export default async function HotelAdminPage({
                 href={`/admin/rooms/${room.id}`}
                 className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
               >
-                <h2 className="font-semibold">{room.name}</h2>
+                <h2 className="font-semibold">
+                  {roomTypeLabel(room.name, (type) => copy[type])}
+                </h2>
                 <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
                   {formatDateRange(room.checkIn, room.checkOut, locale)}
                 </p>
@@ -209,7 +212,7 @@ export default async function HotelAdminPage({
                           href={`/admin/rooms/${room.id}`}
                           className="desk-focus rounded-sm font-semibold text-[var(--desk-primary)] hover:underline"
                         >
-                          {room.name}
+                          {roomTypeLabel(room.name, (type) => copy[type])}
                         </Link>
                       </td>
                       <td className="px-4 py-3 font-plex text-xs">

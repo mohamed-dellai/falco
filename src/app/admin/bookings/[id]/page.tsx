@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { cancelBookingAction } from "@/app/admin/actions";
+import { cancelBookingAction, deleteBookingAction } from "@/app/admin/actions";
 import { AdminShell } from "@/components/admin-shell";
 import {
   AdminNotice,
@@ -19,6 +19,7 @@ import {
   formatMoney,
   nightsBetween,
 } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -58,19 +59,31 @@ export default async function BookingDetailPage({
         </AdminStatusPill>
       }
       actions={
-        booking.status !== "cancelled" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {booking.status !== "cancelled" && (
+            <NamedConfirm
+              title={copy.cancelBookingTitle}
+              body={fill(copy.cancelBookingBody, { number: booking.number })}
+              confirm={copy.cancelAction}
+              pendingLabel={copy.cancelling}
+              cancelLabel={copy.keepBooking}
+              action={cancelBookingAction}
+              fields={{ id: booking.id }}
+              trigger={copy.cancelAction}
+              triggerClassName={adminButtonDangerClass}
+            />
+          )}
           <NamedConfirm
-            title={copy.cancelBookingTitle}
-            body={fill(copy.cancelBookingBody, { number: booking.number })}
-            confirm={copy.cancelAction}
-            pendingLabel={copy.cancelling}
+            title={copy.deleteBookingTitle}
+            body={fill(copy.deleteBookingBody, { number: booking.number })}
+            confirm={copy.deleteAction}
+            pendingLabel={copy.deleting}
             cancelLabel={copy.keepBooking}
-            action={cancelBookingAction}
+            action={deleteBookingAction}
             fields={{ id: booking.id }}
-            trigger={copy.cancelAction}
-            triggerClassName={adminButtonDangerClass}
+            trigger={copy.deleteAction}
           />
-        ) : undefined
+        </div>
       }
     >
       <div className="grid gap-5">
@@ -89,7 +102,10 @@ export default async function BookingDetailPage({
           <AdminPanel title={copy.bookingDetails}>
             <dl className="grid gap-3 text-sm">
               <DetailRow label={copy.hotel} value={booking.hotelName} />
-              <DetailRow label={copy.roomType} value={booking.roomName} />
+              <DetailRow
+                label={copy.roomType}
+                value={roomTypeLabel(booking.roomName, (type) => copy[type])}
+              />
               <DetailRow
                 label={copy.stay}
                 value={formatDateRange(

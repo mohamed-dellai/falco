@@ -22,6 +22,7 @@ import {
   type PurchaseStatus,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export default async function PurchasesPage({
           ...purchase.lines.flatMap((line) => [line.checkIn, line.checkOut]),
           ...purchase.lines.flatMap((line) => [
             line.roomName,
+            roomTypeLabel(line.roomName, (type) => copy[type]),
             line.description,
           ]),
         ]

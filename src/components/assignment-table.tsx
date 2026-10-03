@@ -15,6 +15,7 @@ import {
   formatMoney,
   todayInRiyadh,
 } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export async function AssignmentTable({
   assignments,
@@ -54,7 +55,8 @@ export async function AssignmentTable({
               <div>
                 <h3 className="font-semibold">{assignment.agencyName}</h3>
                 <p className="mt-1 text-sm">
-                  {assignment.hotelName} · {assignment.roomName}
+                  {assignment.hotelName} ·{" "}
+                  {roomTypeLabel(assignment.roomName, (type) => copy[type])}
                 </p>
               </div>
               <AdminStatusPill
@@ -148,7 +150,7 @@ export async function AssignmentTable({
                   <td className="px-4 py-3">
                     {assignment.hotelName}
                     <span className="block text-xs text-[var(--desk-muted)]">
-                      {assignment.roomName}
+                      {roomTypeLabel(assignment.roomName, (type) => copy[type])}
                     </span>
                     {assignment.allotmentId && (
                       <Link
@@ -221,7 +223,7 @@ function AssignmentAction({
       title={copy.releaseTitle}
       body={fill(copy.releaseBody, {
         agency: assignment.agencyName,
-        room: assignment.roomName,
+        room: roomTypeLabel(assignment.roomName, (type) => copy[type]),
         hotel: assignment.hotelName,
         checkIn: formatDate(assignment.checkIn, locale),
         checkOut: formatDate(assignment.checkOut, locale),

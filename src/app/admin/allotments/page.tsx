@@ -22,6 +22,7 @@ import {
   type AllotmentStatus,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
+import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,11 @@ export default async function AllotmentsPage({
           allotment.agencyName,
           allotment.checkIn,
           allotment.checkOut,
-          ...allotment.lines.flatMap((line) => [line.hotelName, line.roomName]),
+          ...allotment.lines.flatMap((line) => [
+            line.hotelName,
+            line.roomName,
+            roomTypeLabel(line.roomName, (type) => copy[type]),
+          ]),
         ]
           .join(" ")
           .toLocaleLowerCase(locale)

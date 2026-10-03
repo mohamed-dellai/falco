@@ -327,6 +327,12 @@ const en = {
   deleteCancelledTitle: "Delete this cancelled record?",
   deleteCancelledBody: "This permanently deletes {number}. It is already cancelled.",
   keepCancelled: "Keep it",
+  deleteRequestTitle: "Delete this request?",
+  deleteRequestBody:
+    "This permanently deletes {number}. The client record stays.",
+  deleteBookingTitle: "Delete this booking?",
+  deleteBookingBody:
+    "This permanently deletes {number} and releases its rooms. Payment refunds are handled separately.",
   removePhotoTitle: "Remove this photo?",
   removePhotoBody: "The photo will be permanently removed from {record}.",
   keepPhoto: "Keep photo",
@@ -702,6 +708,12 @@ const fr: Record<keyof typeof en, string> = {
   deleteCancelledBody:
     "Cette action supprime définitivement {number}. Il est déjà annulé.",
   keepCancelled: "Le garder",
+  deleteRequestTitle: "Supprimer cette demande ?",
+  deleteRequestBody:
+    "Cette action supprime définitivement {number}. La fiche client reste.",
+  deleteBookingTitle: "Supprimer cette réservation ?",
+  deleteBookingBody:
+    "Cette action supprime définitivement {number} et libère ses chambres. Les remboursements sont gérés séparément.",
   removePhotoTitle: "Retirer cette photo ?",
   removePhotoBody: "La photo sera définitivement retirée de {record}.",
   keepPhoto: "Garder la photo",
