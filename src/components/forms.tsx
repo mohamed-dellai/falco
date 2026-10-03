@@ -2,9 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Send } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
+import { CalendarSwitch, DateField } from "@/components/calendar-date-field";
 import {
   agencySchema,
   quoteSchema,
@@ -61,6 +62,8 @@ export function QuoteForm({
   roomCount?: number;
 }) {
   const t = useTranslations("Form");
+  const calendar = useTranslations("Calendar");
+  const locale = useLocale();
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [reference, setReference] = useState("");
   const [startedAt] = useState(() => Date.now());
@@ -161,18 +164,46 @@ export function QuoteForm({
             className={inputClass}
           />
         </Field>
+        <div className="sm:col-span-2">
+          <CalendarSwitch
+            label={calendar("label")}
+            normal={calendar("normal")}
+            arabic={calendar("arabic")}
+            variant="public"
+          />
+        </div>
         <Field label={t("arrival")} error={!!form.formState.errors.arrival}>
-          <input
-            {...form.register("arrival")}
-            type="date"
-            className={inputClass}
+          <Controller
+            name="arrival"
+            control={form.control}
+            render={({ field }) => (
+              <DateField
+                name={field.name}
+                label={t("arrival")}
+                locale={locale}
+                variant="public"
+                value={field.value}
+                onChange={field.onChange}
+                className={inputClass}
+              />
+            )}
           />
         </Field>
         <Field label={t("departure")} error={!!form.formState.errors.departure}>
-          <input
-            {...form.register("departure")}
-            type="date"
-            className={inputClass}
+          <Controller
+            name="departure"
+            control={form.control}
+            render={({ field }) => (
+              <DateField
+                name={field.name}
+                label={t("departure")}
+                locale={locale}
+                variant="public"
+                value={field.value}
+                onChange={field.onChange}
+                className={inputClass}
+              />
+            )}
           />
         </Field>
         <Field

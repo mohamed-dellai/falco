@@ -5,8 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ComponentType } from "react";
 import {
+  AlertCircle,
   BedDouble,
-  Building2,
+  Users,
   DoorOpen,
   CalendarCheck2,
   ExternalLink,
@@ -105,7 +106,7 @@ const navigationGroups: Array<{
       {
         href: "/admin/agencies",
         label: "agencies",
-        icon: Building2,
+        icon: Users,
       },
     ],
   },
@@ -135,6 +136,8 @@ export function adminErrorMessage(
   if (code === "quantity")
     return fill(copy.quantityError, { count: remaining ?? 0 });
   if (code === "dates") return copy.datesError;
+  if (code === "dates-sold") return copy.datesSoldError;
+  if (code === "duplicate") return copy.duplicateRoomError;
   if (code === "span") return copy.spanError;
   if (code === "lines") return copy.linesError;
   if (code === "allotment-lines") return copy.allotmentLinesError;
@@ -518,16 +521,25 @@ export function AdminError({
   return (
     <div
       role="alert"
-      className="fixed end-4 bottom-24 z-50 w-[min(100%-2rem,24rem)] rounded-2xl border border-[var(--desk-danger-line)] bg-white px-4 py-3 text-sm text-[var(--desk-danger)] shadow-[0_18px_48px_-22px_rgba(8,28,54,0.55)] lg:bottom-5"
+      className="desk-toast fixed end-4 bottom-24 z-50 w-[min(100%-2rem,24rem)] rounded-2xl border border-[var(--desk-danger-line)] bg-white px-4 py-3 text-sm text-[var(--desk-danger)] shadow-[0_18px_48px_-22px_rgba(8,28,54,0.55)] lg:bottom-5"
     >
-      <p>{message}</p>
-      <button
-        type="button"
-        onClick={() => setDismissed(message)}
-        className="desk-focus mt-2 rounded text-xs font-semibold text-[var(--desk-ink)]"
-      >
-        {copy.dismiss}
-      </button>
+      <div className="flex items-start gap-2.5">
+        <AlertCircle
+          aria-hidden="true"
+          size={17}
+          className="mt-0.5 shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p>{message}</p>
+          <button
+            type="button"
+            onClick={() => setDismissed(message)}
+            className="desk-focus mt-2 rounded text-xs font-semibold text-[var(--desk-ink)]"
+          >
+            {copy.dismiss}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

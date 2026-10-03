@@ -152,6 +152,11 @@
     "responseTwo": "Il team conferma la quantità disponibile e la tariffa agenzia per notte.",
     "responseThree": "Le camere vengono assegnate alla tua agenzia dopo la conferma dell’allotment."
   },
+  "Calendar": {
+    "label": "Calendario",
+    "normal": "Normale",
+    "arabic": "Arabo"
+  },
   "Form": {
     "name": "Nome completo",
     "email": "E-mail",

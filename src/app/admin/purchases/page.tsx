@@ -7,9 +7,12 @@ import {
   AdminTableFrame,
   adminButtonClass,
 } from "@/components/admin-ui";
-import { PurchaseStatusPill } from "@/components/purchase-form";
+import {
+  DeleteCancelledPurchase,
+  PurchaseStatusPill,
+} from "@/components/purchase-form";
 import { requireAdmin } from "@/lib/admin-auth";
-import { adminCopy, fill } from "@/lib/admin-copy";
+import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import {
   listPurchases,
@@ -89,7 +92,7 @@ export default async function PurchasesPage({
       title={copy.purchases}
       note={
         <span aria-live="polite" className="text-sm text-[var(--desk-muted)]">
-          {fill(copy.purchaseCount, { count: purchases.length })}
+          {countText(purchases.length, copy.purchaseCountOne, copy.purchaseCount)}
         </span>
       }
       actions={
@@ -124,33 +127,46 @@ export default async function PurchasesPage({
         <>
           <div className="grid gap-3 lg:hidden">
             {purchases.map((purchase) => (
-              <Link
+              <article
                 key={purchase.id}
-                href={`/admin/purchases/${purchase.id}`}
-                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+                className="rounded-2xl border border-[var(--desk-line)] bg-white"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-plex text-xs text-[var(--desk-muted)]">
-                      {purchase.number}
-                    </p>
-                    <h2 className="mt-1 font-semibold">{purchase.hotelName}</h2>
+                <Link
+                  href={`/admin/purchases/${purchase.id}`}
+                  className="desk-focus block p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-plex text-xs text-[var(--desk-muted)]">
+                        {purchase.number}
+                      </p>
+                      <h2 className="mt-1 font-semibold">{purchase.hotelName}</h2>
+                    </div>
+                    <PurchaseStatusPill status={purchase.status} />
                   </div>
-                  <PurchaseStatusPill status={purchase.status} />
-                </div>
-                <p className="mt-3 font-plex text-xs text-[var(--desk-muted)]">
-                  {displayPeriod(purchase.lines, locale)}
-                </p>
-                <div className="mt-3 flex items-end justify-between border-t border-[var(--desk-line)] pt-3">
-                  <span className="text-xs text-[var(--desk-muted)]">
-                    {purchase.lines.length}{" "}
-                    {copy.roomTypes.toLocaleLowerCase(locale)}
-                  </span>
-                  <strong className="font-plex text-sm">
-                    {formatMoney(purchaseAmount(purchase), locale)}
-                  </strong>
-                </div>
-              </Link>
+                  <p className="mt-3 font-plex text-xs text-[var(--desk-muted)]">
+                    {displayPeriod(purchase.lines, locale)}
+                  </p>
+                  <div className="mt-3 flex items-end justify-between border-t border-[var(--desk-line)] pt-3">
+                    <span className="text-xs text-[var(--desk-muted)]">
+                      {purchase.lines.length}{" "}
+                      {copy.roomTypes.toLocaleLowerCase(locale)}
+                    </span>
+                    <strong className="font-plex text-sm">
+                      {formatMoney(purchaseAmount(purchase), locale)}
+                    </strong>
+                  </div>
+                </Link>
+                {purchase.status === "cancelled" && (
+                  <div className="border-t border-[var(--desk-line)] px-4 py-3">
+                    <DeleteCancelledPurchase
+                      id={purchase.id}
+                      number={purchase.number}
+                      compact
+                    />
+                  </div>
+                )}
+              </article>
             ))}
           </div>
           <div className="hidden lg:block">
@@ -190,7 +206,16 @@ export default async function PurchasesPage({
                         {formatMoney(purchaseAmount(purchase), locale)}
                       </td>
                       <td className="px-4 py-3">
-                        <PurchaseStatusPill status={purchase.status} />
+                        <div className="flex items-center gap-3">
+                          <PurchaseStatusPill status={purchase.status} />
+                          {purchase.status === "cancelled" && (
+                            <DeleteCancelledPurchase
+                              id={purchase.id}
+                              number={purchase.number}
+                              compact
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

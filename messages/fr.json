@@ -152,6 +152,11 @@
     "responseTwo": "L’équipe confirme la quantité disponible et le tarif agence par nuit.",
     "responseThree": "Les chambres sont attribuées à votre agence une fois l’allotement convenu."
   },
+  "Calendar": {
+    "label": "Calendrier",
+    "normal": "Normal",
+    "arabic": "Arabe"
+  },
   "Form": {
     "name": "Nom complet",
     "email": "E-mail",

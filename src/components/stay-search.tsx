@@ -8,7 +8,8 @@ import {
   useTransition,
   type FormEvent,
 } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { CalendarSwitch, DateField } from "@/components/calendar-date-field";
 import { useRouter } from "@/i18n/navigation";
 import { nightsBetween } from "@/lib/money";
 
@@ -36,6 +37,8 @@ export function StaySearch({
   variant?: "panel" | "bar";
 }) {
   const t = useTranslations("Search");
+  const calendar = useTranslations("Calendar");
+  const locale = useLocale();
   const router = useRouter();
   const [error, setError] = useState("");
   const [from, setFrom] = useState(checkIn);
@@ -70,30 +73,34 @@ export function StaySearch({
     <>
       <label className="grid gap-1 text-xs font-bold text-primary">
         {t("checkIn")}
-        <input
+        <DateField
           name="checkIn"
-          type="date"
+          label={t("checkIn")}
+          locale={locale}
+          variant="public"
           required
           min={minDate}
           value={from}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          onChange={(event) => updateCheckIn(event.target.value)}
+          onChange={updateCheckIn}
           className="h-12 min-w-0 rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
         />
       </label>
       <label className="grid gap-1 text-xs font-bold text-primary">
         {t("checkOut")}
-        <input
+        <DateField
           name="checkOut"
-          type="date"
+          label={t("checkOut")}
+          locale={locale}
+          variant="public"
           required
           min={nextDate(from || minDate)}
           value={to}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          onChange={(event) => {
-            setTo(event.target.value);
+          onChange={(next) => {
+            setTo(next);
             setError("");
           }}
           className="h-12 min-w-0 rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
@@ -129,6 +136,13 @@ export function StaySearch({
             {t("formTitle")}
           </p>
           <p className="mt-0.5 text-xs leading-5 text-muted">{t("formHint")}</p>
+          <CalendarSwitch
+            label={calendar("label")}
+            normal={calendar("normal")}
+            arabic={calendar("arabic")}
+            variant="public"
+            className="mt-3"
+          />
         </div>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           {fields}

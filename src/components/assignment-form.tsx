@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { assignRoomAction } from "@/app/admin/actions";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { AdminSubmitButton } from "@/components/admin-submit-button";
+import { CalendarSwitch, DateField } from "@/components/calendar-date-field";
 import {
   AdminField,
   adminButtonClass,
@@ -19,7 +20,12 @@ export function AssignmentForm({
 }: {
   roomId: string;
   costPerNight: number;
-  agencies: Array<{ id: string; name: string; country: string }>;
+  agencies: Array<{
+    id: string;
+    name: string;
+    country: string;
+    kind?: string;
+  }>;
 }) {
   const copy = useAdminCopy();
   const locale = useAdminLocale();
@@ -46,13 +52,15 @@ export function AssignmentForm({
   return (
     <form action={assignRoomAction} className="grid gap-4">
       <input type="hidden" name="roomId" value={roomId} />
-      <AdminField label={copy.agency}>
+      <AdminField label={copy.client}>
         <select name="agencyId" required className={adminFieldClass}>
           <option value="">{copy.selectAgency}</option>
           {agencies.map((agency) => (
             <option key={agency.id} value={agency.id}>
               {agency.name}
               {agency.country ? ` — ${agency.country}` : ""}
+              {" · "}
+              {agency.kind === "individual" ? copy.individual : copy.agency}
             </option>
           ))}
         </select>
@@ -79,24 +87,31 @@ export function AssignmentForm({
             className={adminFieldClass}
           />
         </AdminField>
+        <div className="sm:col-span-2">
+          <CalendarSwitch
+            label={copy.calendar}
+            normal={copy.normalCalendar}
+            arabic={copy.arabicCalendar}
+          />
+        </div>
         <AdminField label={copy.checkIn}>
-          <input
+          <DateField
             name="checkIn"
-            type="date"
+            label={copy.checkIn}
+            locale={locale}
             required
             value={checkIn}
-            onChange={(event) => setCheckIn(event.target.value)}
-            className={adminFieldClass}
+            onChange={setCheckIn}
           />
         </AdminField>
         <AdminField label={copy.checkOut}>
-          <input
+          <DateField
             name="checkOut"
-            type="date"
+            label={copy.checkOut}
+            locale={locale}
             required
             value={checkOut}
-            onChange={(event) => setCheckOut(event.target.value)}
-            className={adminFieldClass}
+            onChange={setCheckOut}
           />
         </AdminField>
       </div>

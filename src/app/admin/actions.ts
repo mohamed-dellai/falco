@@ -13,6 +13,8 @@ import {
   addRoomPhoto,
   cities,
   createAgency,
+  getAgency,
+  updateAgency,
   createAssignment,
   createHotel,
   cancelPurchase,
@@ -35,6 +37,7 @@ import {
   savePurchase,
   updateActivePurchaseCosts,
   updateHotel,
+  saveRoomStay,
   updateRoom,
   type AllotmentLineInput,
   type City,
@@ -46,6 +49,7 @@ import {
   submissionStatuses,
   type SubmissionStatus,
 } from "@/lib/submissions";
+import { roomTypeCode } from "@/lib/room-types";
 import { selectedImages } from "@/lib/uploads";
 
 function text(formData: FormData, key: string) {
@@ -183,7 +187,12 @@ export async function createRoomAction(formData: FormData) {
     redirect(`/admin/hotels/${hotelId}?error=invalid`);
   }
 
-  const id = await createRoom({ ...input, hotelId });
+  const id = await createRoom({
+    ...input,
+    hotelId,
+    checkIn: null,
+    checkOut: null,
+  });
   const photoError = await savePhotosSafely(formData, (file) =>
     addRoomPhoto(id, file),
   );
@@ -197,11 +206,15 @@ export async function updateRoomAction(formData: FormData) {
   if (!existing) redirect("/admin/hotels?error=invalid");
 
   const purchased = await roomHasPurchaseLines(id);
-  const name = text(formData, "name");
+  const postedName = text(formData, "name");
+  const name =
+    roomTypeCode(postedName) ??
+    (postedName.toLowerCase() === existing.name.trim().toLowerCase()
+      ? existing.name
+      : "");
   const capacity = integer(formData, "capacity");
   if (
-    name.length < 2 ||
-    name.length > 140 ||
+    !name ||
     capacity === null ||
     capacity < 1 ||
     capacity > 20
@@ -214,11 +227,27 @@ export async function updateRoomAction(formData: FormData) {
     redirect(`/admin/rooms/${id}?error=invalid`);
   }
 
-  if (purchased) {
-    const costPerNight = parseMoney(formData.get("costPerNight"));
-    if (costPerNight === null || costPerNight < 0) {
-      redirect(`/admin/rooms/${id}?error=invalid`);
-    }
+  const postedIn = text(formData, "checkIn");
+  const postedOut = text(formData, "checkOut");
+  const checkIn = dateValue(postedIn);
+  const checkOut = dateValue(postedOut);
+  if ((postedIn || postedOut || purchased) && (!checkIn || !checkOut)) {
+    redirect(`/admin/rooms/${id}?error=dates`);
+  }
+  const costPerNight = purchased ? parseMoney(formData.get("costPerNight")) : null;
+  if (purchased && (costPerNight === null || costPerNight < 0)) {
+    redirect(`/admin/rooms/${id}?error=invalid`);
+  }
+  let stayIn = existing.checkIn;
+  let stayOut = existing.checkOut;
+  if (checkIn && checkOut) {
+    const stay = await saveRoomStay(id, name, checkIn, checkOut);
+    if (!stay.ok) redirect(`/admin/rooms/${id}?error=${stay.error}`);
+    stayIn = checkIn;
+    stayOut = checkOut;
+  }
+
+  if (purchased && costPerNight !== null) {
     await updateRoom(id, {
       name,
       description: text(formData, "description").slice(0, 2000),
@@ -226,6 +255,8 @@ export async function updateRoomAction(formData: FormData) {
       quantity: existing.quantity,
       costPerNight,
       publicPricePerNight,
+      checkIn: stayIn,
+      checkOut: stayOut,
     });
     if (costPerNight !== existing.costPerNight) {
       await updateActivePurchaseCosts(id, costPerNight);
@@ -233,7 +264,7 @@ export async function updateRoomAction(formData: FormData) {
   } else {
     const input = roomInput(formData);
     if (!input) redirect(`/admin/rooms/${id}?error=invalid`);
-    await updateRoom(id, input);
+    await updateRoom(id, { ...input, checkIn: stayIn, checkOut: stayOut });
   }
   const photoError = await savePhotosSafely(formData, (file) =>
     addRoomPhoto(id, file),
@@ -260,19 +291,37 @@ export async function deleteRoomPhotoAction(formData: FormData) {
   redirect(`/admin/rooms/${roomId}`);
 }
 
-export async function createAgencyAction(formData: FormData) {
-  await requireAdmin();
+function clientInput(formData: FormData) {
   const name = text(formData, "name");
-  if (name.length < 2) redirect("/admin/agencies?error=invalid");
-
-  await createAgency({
+  const kind = text(formData, "kind") === "individual" ? "individual" : "agency";
+  if (name.length < 2 || name.length > 160) return null;
+  return {
     name,
+    kind: kind as "agency" | "individual",
     country: text(formData, "country").slice(0, 80),
     contactName: text(formData, "contactName").slice(0, 120),
     email: text(formData, "email").slice(0, 160),
     phone: text(formData, "phone").slice(0, 40),
-  });
-  redirect("/admin/agencies");
+  };
+}
+
+export async function createAgencyAction(formData: FormData) {
+  await requireAdmin();
+  const input = clientInput(formData);
+  if (!input) redirect("/admin/agencies/new?error=invalid");
+  const id = await createAgency(input);
+  redirect(`/admin/agencies/${id}`);
+}
+
+export async function updateAgencyAction(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const input = clientInput(formData);
+  if (!input || !(await getAgency(id))) {
+    redirect(`/admin/agencies/${id}?error=invalid`);
+  }
+  await updateAgency(id, input);
+  redirect(`/admin/agencies/${id}`);
 }
 
 export async function assignRoomAction(formData: FormData) {

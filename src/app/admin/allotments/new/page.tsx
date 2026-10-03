@@ -40,7 +40,7 @@ export default async function NewAllotmentPage({
           title={copy.noAgencies}
           description={copy.agencyBeforeAllotment}
           action={
-            <Link href="/admin/agencies" className={adminButtonClass}>
+            <Link href="/admin/agencies/new" className={adminButtonClass}>
               {copy.newAgency}
             </Link>
           }

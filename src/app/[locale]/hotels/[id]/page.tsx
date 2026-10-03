@@ -125,6 +125,11 @@ export default async function HotelPage({
                 <div className="p-5">
                   <h3 className="text-2xl font-bold text-primary">
                     {room.name}
+                    {room.checkIn && room.checkOut && (
+                      <span className="mt-1 block text-sm font-medium text-muted">
+                        {room.checkIn} → {room.checkOut}
+                      </span>
+                    )}
                   </h3>
                   {room.description && (
                     <p className="mt-2 text-sm leading-7 text-muted">

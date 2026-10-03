@@ -14,12 +14,18 @@ import {
   adminButtonSecondaryClass,
   adminFieldClass,
 } from "@/components/admin-ui";
+import {
+  CalendarSwitch,
+  DateField,
+  DualDate,
+} from "@/components/calendar-date-field";
 import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill } from "@/lib/admin-copy";
 import type { Allotment, AllotmentStatus } from "@/lib/inventory";
 import {
   formatDate,
+  formatDateRange,
   formatMoney,
   moneyInput,
   nightsBetween,
@@ -30,7 +36,21 @@ type RoomOption = {
   name: string;
   hotelName: string;
   costPerNight: number;
+  checkIn: string | null;
+  checkOut: string | null;
 };
+
+function roomChoiceLabel(
+  hotelName: string,
+  name: string,
+  checkIn: string | null | undefined,
+  checkOut: string | null | undefined,
+  locale: string,
+) {
+  const period =
+    checkIn && checkOut ? ` · ${formatDateRange(checkIn, checkOut, locale)}` : "";
+  return `${hotelName} — ${name}${period}`;
+}
 
 type DraftLine = {
   key: string;
@@ -54,8 +74,8 @@ export function AllotmentStatusPill({ status }: { status: AllotmentStatus }) {
         status === "confirmed"
           ? "success"
           : status === "cancelled"
-            ? "danger"
-            : "neutral"
+            ? "neutral"
+            : "warning"
       }
     >
       {statusLabel[status]}
@@ -75,25 +95,33 @@ function parsedQuantity(value: string) {
   return quantity;
 }
 
-function emptyLine(room?: RoomOption): DraftLine {
+function emptyLine(room: RoomOption | undefined, locale: string): DraftLine {
   return {
     key: crypto.randomUUID(),
     roomId: room?.id ?? "",
     quantity: "1",
     cost: room ? moneyInput(room.costPerNight) : "",
     price: "",
-    label: room ? `${room.hotelName} — ${room.name}` : "",
+    label: room
+      ? roomChoiceLabel(room.hotelName, room.name, room.checkIn, room.checkOut, locale)
+      : "",
   };
 }
 
-function lineFromAllotment(allotment: Allotment): DraftLine[] {
+function lineFromAllotment(allotment: Allotment, locale: string): DraftLine[] {
   return allotment.lines.map((line) => ({
     key: line.id,
     roomId: line.roomId,
     quantity: String(line.quantity),
     cost: moneyInput(line.costPerNight),
     price: moneyInput(line.agencyPricePerNight),
-    label: `${line.hotelName} — ${line.roomName}`,
+    label: roomChoiceLabel(
+      line.hotelName,
+      line.roomName,
+      line.roomCheckIn,
+      line.roomCheckOut,
+      locale,
+    ),
   }));
 }
 
@@ -110,7 +138,12 @@ export function AllotmentForm({
   initialCheckIn,
   initialCheckOut,
 }: {
-  agencies: Array<{ id: string; name: string; country: string }>;
+  agencies: Array<{
+    id: string;
+    name: string;
+    country: string;
+    kind?: string;
+  }>;
   rooms: RoomOption[];
   allotment?: Allotment;
   roomId?: string;
@@ -134,8 +167,8 @@ export function AllotmentForm({
   );
   const [lines, setLines] = useState<DraftLine[]>(
     allotment?.lines.length
-      ? lineFromAllotment(allotment)
-      : [emptyLine(preset)],
+      ? lineFromAllotment(allotment, locale)
+      : [emptyLine(preset, locale)],
   );
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState("");
@@ -265,6 +298,12 @@ export function AllotmentForm({
               triggerClassName={adminButtonDangerClass}
             />
           )}
+          {allotment?.status === "cancelled" && (
+            <DeleteCancelledAllotment
+              id={allotment.id}
+              number={allotment.number}
+            />
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span
@@ -293,8 +332,15 @@ export function AllotmentForm({
           </p>
         )}
 
+        {!locked && (
+          <CalendarSwitch
+            label={copy.calendar}
+            normal={copy.normalCalendar}
+            arabic={copy.arabicCalendar}
+          />
+        )}
         <div className="grid gap-4 md:grid-cols-3">
-          <AdminField label={copy.agency}>
+          <AdminField label={copy.client}>
             {locked ? (
               <span className="flex min-h-10 items-center text-sm font-medium">
                 {allotment?.agencyName}
@@ -312,6 +358,10 @@ export function AllotmentForm({
                   <option key={agency.id} value={agency.id}>
                     {agency.name}
                     {agency.country ? ` — ${agency.country}` : ""}
+                    {" · "}
+                    {agency.kind === "individual"
+                      ? copy.individual
+                      : copy.agency}
                   </option>
                 ))}
               </select>
@@ -319,33 +369,29 @@ export function AllotmentForm({
           </AdminField>
           <AdminField label={copy.checkIn}>
             {locked ? (
-              <span className="flex min-h-10 items-center font-plex text-xs font-medium">
-                {formatDate(allotment?.checkIn, locale)}
-              </span>
+              <DualDate iso={allotment?.checkIn} locale={locale} />
             ) : (
-              <input
+              <DateField
                 name="checkIn"
-                type="date"
+                label={copy.checkIn}
+                locale={locale}
                 required
                 value={checkIn}
-                onChange={(event) => setCheckIn(event.target.value)}
-                className={adminFieldClass}
+                onChange={setCheckIn}
               />
             )}
           </AdminField>
           <AdminField label={copy.checkOut}>
             {locked ? (
-              <span className="flex min-h-10 items-center font-plex text-xs font-medium">
-                {formatDate(allotment?.checkOut, locale)}
-              </span>
+              <DualDate iso={allotment?.checkOut} locale={locale} />
             ) : (
-              <input
+              <DateField
                 name="checkOut"
-                type="date"
+                label={copy.checkOut}
+                locale={locale}
                 required
                 value={checkOut}
-                onChange={(event) => setCheckOut(event.target.value)}
-                className={adminFieldClass}
+                onChange={setCheckOut}
               />
             )}
           </AdminField>
@@ -404,7 +450,13 @@ export function AllotmentForm({
                             updateLine(line.key, {
                               roomId: event.target.value,
                               label: room
-                                ? `${room.hotelName} — ${room.name}`
+                                ? roomChoiceLabel(
+                                    room.hotelName,
+                                    room.name,
+                                    room.checkIn,
+                                    room.checkOut,
+                                    locale,
+                                  )
                                 : "",
                               cost: room
                                 ? moneyInput(room.costPerNight)
@@ -419,7 +471,13 @@ export function AllotmentForm({
                           )}
                           {rooms.map((room) => (
                             <option key={room.id} value={room.id}>
-                              {room.hotelName} — {room.name}
+                              {roomChoiceLabel(
+                                room.hotelName,
+                                room.name,
+                                room.checkIn,
+                                room.checkOut,
+                                locale,
+                              )}
                             </option>
                           ))}
                         </select>
@@ -500,7 +558,7 @@ export function AllotmentForm({
                           onClick={() =>
                             setLines((current) =>
                               current.length === 1
-                                ? [emptyLine()]
+                                ? [emptyLine(undefined, locale)]
                                 : current.filter(
                                     (item) => item.key !== line.key,
                                   ),
@@ -522,7 +580,7 @@ export function AllotmentForm({
         {!locked && (
           <button
             type="button"
-            onClick={() => setLines((current) => [...current, emptyLine()])}
+            onClick={() => setLines((current) => [...current, emptyLine(undefined, locale)])}
             className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
           >
             {copy.addRoom}
@@ -567,5 +625,30 @@ export function AllotmentForm({
         </dl>
       </form>
     </div>
+  );
+}
+
+export function DeleteCancelledAllotment({
+  id,
+  number,
+  compact = false,
+}: {
+  id: string;
+  number: string;
+  compact?: boolean;
+}) {
+  const copy = useAdminCopy();
+  return (
+    <NamedConfirm
+      title={copy.deleteCancelledTitle}
+      body={fill(copy.deleteCancelledBody, { number })}
+      confirm={copy.deleteAction}
+      pendingLabel={copy.deleting}
+      cancelLabel={copy.keepCancelled}
+      action={deleteAllotmentAction}
+      fields={{ id }}
+      trigger={copy.deleteAction}
+      triggerClassName={compact ? undefined : adminButtonDangerClass}
+    />
   );
 }

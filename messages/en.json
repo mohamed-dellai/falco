@@ -152,6 +152,11 @@
     "responseTwo": "The team confirms the available quantity and nightly agency price.",
     "responseThree": "The rooms are assigned to your agency once the allotment is agreed."
   },
+  "Calendar": {
+    "label": "Calendar",
+    "normal": "Normal",
+    "arabic": "Arabic"
+  },
   "Form": {
     "name": "Full name",
     "email": "Email",

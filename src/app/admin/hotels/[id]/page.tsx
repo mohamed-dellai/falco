@@ -18,7 +18,10 @@ import {
 import { AdminSubmitButton } from "@/components/admin-submit-button";
 import { NamedConfirm } from "@/components/named-confirm";
 import { PhotoUploader } from "@/components/photo-uploader";
-import { PurchaseStatusPill } from "@/components/purchase-form";
+import {
+  DeleteCancelledPurchase,
+  PurchaseStatusPill,
+} from "@/components/purchase-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
@@ -28,8 +31,8 @@ import {
   listHotelPhotos,
   listPurchases,
   listRooms,
-  openQuantity,
   purchaseAmount,
+  roomHasPeriod,
   purchaseSpan,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
@@ -67,10 +70,9 @@ export default async function HotelAdminPage({
     listPurchases({ hotelId: id }),
   ]);
   const roomCards = await Promise.all(
-    rooms.map(async (room) => ({
+    rooms.filter(roomHasPeriod).map(async (room) => ({
       ...room,
       heldToday: await heldOn(room),
-      openToday: await openQuantity(room),
     })),
   );
 
@@ -88,29 +90,28 @@ export default async function HotelAdminPage({
       }
     >
       <AdminError code={query.error} />
-      <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <AdminPanel title={copy.hotelRecord}>
           <form action={updateHotelAction} className="grid gap-3">
             <input type="hidden" name="id" value={hotel.id} />
             <HotelFields hotel={hotel} copy={copy} />
-            <div className="flex items-center justify-between gap-3">
-              <AdminSubmitButton
-                pendingLabel={copy.saving}
-                className={adminButtonClass}
-              >
-                {copy.saveHotel}
-              </AdminSubmitButton>
-            </div>
+            <AdminSubmitButton
+              pendingLabel={copy.saving}
+              className={`${adminButtonClass} w-fit`}
+            >
+              {copy.saveHotel}
+            </AdminSubmitButton>
           </form>
         </AdminPanel>
 
         <AdminPanel title={copy.photos}>
+          <PhotoUploader hotelId={hotel.id} />
           {photos.length ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {photos.map((photo, index) => (
                 <figure
                   key={photo.id}
-                  className="overflow-hidden rounded-xl border border-[var(--desk-line)]"
+                  className="overflow-hidden rounded-xl border border-[var(--desk-line)] bg-white"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -137,24 +138,10 @@ export default async function HotelAdminPage({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[var(--desk-muted)]">{copy.noPhotos}</p>
+            <p className="mt-3 text-sm text-[var(--desk-muted)]">
+              {copy.noPhotos}
+            </p>
           )}
-          <div className="mt-4">
-            <PhotoUploader hotelId={hotel.id} />
-          </div>
-          <div className="mt-4 border-t border-[var(--desk-line)] pt-4">
-            <NamedConfirm
-              title={copy.deleteHotelTitle}
-              body={fill(copy.deleteHotelBody, { hotel: hotel.name })}
-              confirm={copy.deleteHotel}
-              pendingLabel={copy.deleting}
-              cancelLabel={copy.keepHotel}
-              action={deleteHotelAction}
-              fields={{ id: hotel.id }}
-              trigger={copy.deleteHotel}
-              triggerClassName={adminButtonDangerClass}
-            />
-          </div>
         </AdminPanel>
       </div>
 
@@ -170,27 +157,32 @@ export default async function HotelAdminPage({
                 href={`/admin/rooms/${room.id}`}
                 className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold">{room.name}</h3>
-                    <p className="mt-1 text-xs text-[var(--desk-muted)]">
-                      {copy.sleeps} {room.capacity}
-                    </p>
-                  </div>
-                  <strong className="font-plex text-sm">
-                    {formatMoney(room.costPerNight, locale)}
-                  </strong>
-                </div>
-                <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-xs text-[var(--desk-muted)]">
-                  {copy.heldToday}:{" "}
-                  <strong className="font-plex text-[var(--desk-ink)]">
-                    {room.heldToday}
-                  </strong>{" "}
-                  · {copy.openToday}:{" "}
-                  <strong className="font-plex text-[var(--desk-ink)]">
-                    {room.openToday}
-                  </strong>
+                <h2 className="font-semibold">{room.name}</h2>
+                <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
+                  {formatDateRange(room.checkIn, room.checkOut, locale)}
                 </p>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--desk-line)] pt-3 text-xs">
+                  <span>
+                    <span className="block text-[var(--desk-muted)]">
+                      {copy.guests}
+                    </span>
+                    <strong className="font-plex">{room.capacity}</strong>
+                  </span>
+                  <span>
+                    <span className="block text-[var(--desk-muted)]">
+                      {copy.heldToday}
+                    </span>
+                    <strong className="font-plex">{room.heldToday}</strong>
+                  </span>
+                  <span className="text-end">
+                    <span className="block text-[var(--desk-muted)]">
+                      {copy.costNight}
+                    </span>
+                    <strong className="font-plex">
+                      {formatMoney(room.costPerNight, locale)}
+                    </strong>
+                  </span>
+                </div>
               </Link>
             ))}
           </div>
@@ -200,10 +192,13 @@ export default async function HotelAdminPage({
                 <thead className="bg-[var(--desk-canvas)]">
                   <tr>
                     <th className="px-4 py-3 text-start">{copy.roomType}</th>
-                    <th className="px-4 py-3 text-end">{copy.sleeps}</th>
+                    <th className="px-4 py-3 text-start">{copy.period}</th>
+                    <th className="px-4 py-3 text-end">{copy.guests}</th>
                     <th className="px-4 py-3 text-end">{copy.heldToday}</th>
-                    <th className="px-4 py-3 text-end">{copy.openToday}</th>
                     <th className="px-4 py-3 text-end">{copy.costNight}</th>
+                    <th className="px-4 py-3 text-end">
+                      {copy.publicPriceNight}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -212,10 +207,13 @@ export default async function HotelAdminPage({
                       <td className="px-4 py-3">
                         <Link
                           href={`/admin/rooms/${room.id}`}
-                          className="desk-focus rounded-sm font-medium text-[var(--desk-primary)] hover:underline"
+                          className="desk-focus rounded-sm font-semibold text-[var(--desk-primary)] hover:underline"
                         >
                           {room.name}
                         </Link>
+                      </td>
+                      <td className="px-4 py-3 font-plex text-xs">
+                        {formatDateRange(room.checkIn, room.checkOut, locale)}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
                         {room.capacity}
@@ -224,10 +222,12 @@ export default async function HotelAdminPage({
                         {room.heldToday}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
-                        {room.openToday}
+                        {formatMoney(room.costPerNight, locale)}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
-                        {formatMoney(room.costPerNight, locale)}
+                        {room.publicPricePerNight == null
+                          ? "—"
+                          : formatMoney(room.publicPricePerNight, locale)}
                       </td>
                     </tr>
                   ))}
@@ -247,26 +247,45 @@ export default async function HotelAdminPage({
         <>
           <div className="grid gap-3 lg:hidden">
             {purchases.map((purchase) => (
-              <Link
+              <article
                 key={purchase.id}
-                href={`/admin/purchases/${purchase.id}`}
-                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+                className="rounded-2xl border border-[var(--desk-line)] bg-white"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-plex text-xs text-[var(--desk-muted)]">
-                      {purchase.number}
-                    </p>
-                    <p className="mt-2 font-plex text-xs">
-                      {displayPeriod(purchase.lines, locale)}
-                    </p>
+                <Link
+                  href={`/admin/purchases/${purchase.id}`}
+                  className="desk-focus block p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-plex text-xs text-[var(--desk-muted)]">
+                        {purchase.number}
+                      </p>
+                      <p className="mt-2 font-plex text-xs">
+                        {displayPeriod(purchase.lines, locale)}
+                      </p>
+                    </div>
+                    <PurchaseStatusPill status={purchase.status} />
                   </div>
-                  <PurchaseStatusPill status={purchase.status} />
-                </div>
-                <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-end font-plex text-sm font-semibold">
-                  {formatMoney(purchaseAmount(purchase), locale)}
-                </p>
-              </Link>
+                  <div className="mt-3 flex items-end justify-between border-t border-[var(--desk-line)] pt-3">
+                    <span className="text-xs text-[var(--desk-muted)]">
+                      {purchase.lines.length}{" "}
+                      {copy.roomTypes.toLocaleLowerCase(locale)}
+                    </span>
+                    <strong className="font-plex text-sm">
+                      {formatMoney(purchaseAmount(purchase), locale)}
+                    </strong>
+                  </div>
+                </Link>
+                {purchase.status === "cancelled" && (
+                  <div className="border-t border-[var(--desk-line)] px-4 py-3">
+                    <DeleteCancelledPurchase
+                      id={purchase.id}
+                      number={purchase.number}
+                      compact
+                    />
+                  </div>
+                )}
+              </article>
             ))}
           </div>
           <div className="hidden lg:block">
@@ -276,6 +295,7 @@ export default async function HotelAdminPage({
                   <tr>
                     <th className="px-4 py-3 text-start">{copy.number}</th>
                     <th className="px-4 py-3 text-start">{copy.period}</th>
+                    <th className="px-4 py-3 text-end">{copy.rooms}</th>
                     <th className="px-4 py-3 text-end">{copy.total}</th>
                     <th className="px-4 py-3 text-start">{copy.status}</th>
                   </tr>
@@ -295,10 +315,22 @@ export default async function HotelAdminPage({
                         {displayPeriod(purchase.lines, locale)}
                       </td>
                       <td className="px-4 py-3 text-end font-plex">
+                        {purchase.lines.length}
+                      </td>
+                      <td className="px-4 py-3 text-end font-plex">
                         {formatMoney(purchaseAmount(purchase), locale)}
                       </td>
                       <td className="px-4 py-3">
-                        <PurchaseStatusPill status={purchase.status} />
+                        <div className="flex items-center gap-3">
+                          <PurchaseStatusPill status={purchase.status} />
+                          {purchase.status === "cancelled" && (
+                            <DeleteCancelledPurchase
+                              id={purchase.id}
+                              number={purchase.number}
+                              compact
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -310,6 +342,20 @@ export default async function HotelAdminPage({
       ) : (
         <AdminEmptyState title={copy.noPurchasesHotel} />
       )}
+
+      <div className="mt-5">
+        <NamedConfirm
+          title={copy.deleteHotelTitle}
+          body={fill(copy.deleteHotelBody, { hotel: hotel.name })}
+          confirm={copy.deleteHotel}
+          pendingLabel={copy.deleting}
+          cancelLabel={copy.keepHotel}
+          action={deleteHotelAction}
+          fields={{ id: hotel.id }}
+          trigger={copy.deleteHotel}
+          triggerClassName={adminButtonDangerClass}
+        />
+      </div>
     </AdminShell>
   );
 }

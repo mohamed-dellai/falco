@@ -196,20 +196,34 @@ export function AdminEmptyState({
   title,
   description,
   action,
+  compact = false,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <section className="rounded-2xl border border-dashed border-[var(--desk-line-strong)] bg-white px-5 py-10 text-center">
-      <h2 className="font-news text-xl font-medium">{title}</h2>
+    <section
+      className={`rounded-2xl border border-dashed border-[var(--desk-line-strong)] bg-white px-5 text-center ${
+        compact ? "py-5" : "py-10"
+      }`}
+    >
+      <h2
+        className={`font-news font-medium ${compact ? "text-base" : "text-xl"}`}
+      >
+        {title}
+      </h2>
       {description && (
         <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-[var(--desk-muted)]">
           {description}
         </p>
       )}
-      {action && <div className="mt-4 flex justify-center">{action}</div>}
+      {action && (
+        <div className={`flex justify-center ${compact ? "mt-3" : "mt-4"}`}>
+          {action}
+        </div>
+      )}
     </section>
   );
 }

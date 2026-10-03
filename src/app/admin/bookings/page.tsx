@@ -8,7 +8,7 @@ import {
   AdminTableFrame,
 } from "@/components/admin-ui";
 import { requireAdmin } from "@/lib/admin-auth";
-import { adminCopy, fill } from "@/lib/admin-copy";
+import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import {
   bookingStatuses,
@@ -103,7 +103,7 @@ export default async function BookingsPage({
       title={copy.bookings}
       note={
         <p aria-live="polite" className="text-sm text-[var(--desk-muted)]">
-          {fill(copy.bookingCount, { count: bookings.length })}
+          {countText(bookings.length, copy.bookingCountOne, copy.bookingCount)}
         </p>
       }
     >

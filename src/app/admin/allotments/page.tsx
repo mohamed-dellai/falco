@@ -8,9 +8,12 @@ import {
   adminButtonClass,
   adminButtonSecondaryClass,
 } from "@/components/admin-ui";
-import { AllotmentStatusPill } from "@/components/allotment-form";
+import {
+  AllotmentStatusPill,
+  DeleteCancelledAllotment,
+} from "@/components/allotment-form";
 import { requireAdmin } from "@/lib/admin-auth";
-import { adminCopy, fill } from "@/lib/admin-copy";
+import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import {
   allotmentStatuses,
@@ -77,7 +80,11 @@ export default async function AllotmentsPage({
       title={copy.allotments}
       note={
         <span aria-live="polite" className="text-sm text-[var(--desk-muted)]">
-          {fill(copy.allotmentCount, { count: allotments.length })}
+          {countText(
+            allotments.length,
+            copy.allotmentCountOne,
+            copy.allotmentCount,
+          )}
         </span>
       }
       actions={
@@ -122,38 +129,51 @@ export default async function AllotmentsPage({
             {allotments.map((allotment) => {
               const value = allotmentValue(allotment);
               return (
-                <Link
+                <article
                   key={allotment.id}
-                  href={`/admin/allotments/${allotment.id}`}
-                  className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+                  className="rounded-2xl border border-[var(--desk-line)] bg-white"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-plex text-xs text-[var(--desk-muted)]">
-                        {allotment.number}
-                      </p>
-                      <h2 className="mt-1 font-semibold">
-                        {allotment.agencyName}
-                      </h2>
+                  <Link
+                    href={`/admin/allotments/${allotment.id}`}
+                    className="desk-focus block p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-plex text-xs text-[var(--desk-muted)]">
+                          {allotment.number}
+                        </p>
+                        <h2 className="mt-1 font-semibold">
+                          {allotment.agencyName}
+                        </h2>
+                      </div>
+                      <AllotmentStatusPill status={allotment.status} />
                     </div>
-                    <AllotmentStatusPill status={allotment.status} />
-                  </div>
-                  <p className="mt-3 text-sm text-[var(--desk-muted)]">
-                    {formatDateRange(
-                      allotment.checkIn,
-                      allotment.checkOut,
-                      locale,
-                    )}
-                  </p>
-                  <div className="mt-3 flex items-end justify-between gap-3 border-t border-[var(--desk-line)] pt-3">
-                    <span className="text-xs text-[var(--desk-muted)]">
-                      {value.rooms} {copy.rooms.toLocaleLowerCase(locale)}
-                    </span>
-                    <strong className="font-plex text-sm">
-                      {formatMoney(value.revenue, locale)}
-                    </strong>
-                  </div>
-                </Link>
+                    <p className="mt-3 text-sm text-[var(--desk-muted)]">
+                      {formatDateRange(
+                        allotment.checkIn,
+                        allotment.checkOut,
+                        locale,
+                      )}
+                    </p>
+                    <div className="mt-3 flex items-end justify-between gap-3 border-t border-[var(--desk-line)] pt-3">
+                      <span className="text-xs text-[var(--desk-muted)]">
+                        {value.rooms} {copy.rooms.toLocaleLowerCase(locale)}
+                      </span>
+                      <strong className="font-plex text-sm">
+                        {formatMoney(value.revenue, locale)}
+                      </strong>
+                    </div>
+                  </Link>
+                  {allotment.status === "cancelled" && (
+                    <div className="border-t border-[var(--desk-line)] px-4 py-3">
+                      <DeleteCancelledAllotment
+                        id={allotment.id}
+                        number={allotment.number}
+                        compact
+                      />
+                    </div>
+                  )}
+                </article>
               );
             })}
           </div>
@@ -163,7 +183,7 @@ export default async function AllotmentsPage({
                 <thead className="bg-[var(--desk-canvas)]">
                   <tr>
                     <th className="px-4 py-3 text-start">{copy.number}</th>
-                    <th className="px-4 py-3 text-start">{copy.agency}</th>
+                    <th className="px-4 py-3 text-start">{copy.client}</th>
                     <th className="px-4 py-3 text-start">{copy.stay}</th>
                     <th className="px-4 py-3 text-end">{copy.rooms}</th>
                     <th className="px-4 py-3 text-end">{copy.sell}</th>
@@ -200,7 +220,16 @@ export default async function AllotmentsPage({
                           {formatMoney(value.revenue, locale)}
                         </td>
                         <td className="px-4 py-3">
-                          <AllotmentStatusPill status={allotment.status} />
+                          <div className="flex items-center gap-3">
+                            <AllotmentStatusPill status={allotment.status} />
+                            {allotment.status === "cancelled" && (
+                              <DeleteCancelledAllotment
+                                id={allotment.id}
+                                number={allotment.number}
+                                compact
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

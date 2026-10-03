@@ -2,14 +2,13 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
-  CreditCard,
-  Inbox,
-  Plus,
-  ReceiptText,
+  Check,
+  Circle,
 } from "lucide-react";
 import { AssignmentTable } from "@/components/assignment-table";
 import { AdminShell } from "@/components/admin-shell";
 import {
+  AdminEmptyState,
   AdminSectionHeader,
   AdminStatStrip,
   adminButtonClass,
@@ -28,6 +27,7 @@ import {
   listPurchases,
   listRooms,
   openQuantity,
+  roomHasPeriod,
   type City,
 } from "@/lib/inventory";
 import { todayInRiyadh } from "@/lib/money";
@@ -64,8 +64,9 @@ export default async function AdminHomePage() {
     listPurchases({ status: "draft" }),
     listBookings("pending"),
   ]);
+  const stockRooms = rooms.filter(roomHasPeriod);
   const capacity = await Promise.all(
-    rooms.map(async (room) => {
+    stockRooms.map(async (room) => {
       const hotel = hotels.find((item) => item.id === room.hotelId);
       const [held, open] = await Promise.all([
         heldQuantity(room, today, tomorrow),
@@ -78,6 +79,7 @@ export default async function AdminHomePage() {
   const open = capacity.reduce((sum, row) => sum + row.open, 0);
   const held = Math.max(0, units - open);
   const heldShare = units > 0 ? (held / units) * 100 : 0;
+  const hasInventory = units > 0;
   const byCity = cities.map((city) => {
     const rows = capacity.filter((row) => row.city === city);
     const cityUnits = rows.reduce((sum, row) => sum + row.held, 0);
@@ -90,6 +92,7 @@ export default async function AdminHomePage() {
       share: cityUnits > 0 ? (cityHeld / cityUnits) * 100 : 0,
     };
   });
+  const anyCityStock = byCity.some((row) => row.units > 0);
   const activeAssignments = assignments.filter(
     (assignment) => assignment.checkOut > today,
   );
@@ -100,6 +103,49 @@ export default async function AdminHomePage() {
   const fresh = newRequests.filter(
     (item) => item.createdAt.slice(0, 10) === today,
   ).length;
+  const attention = [
+    {
+      href: "/admin/forms?status=new",
+      label: copy.newRequests,
+      count: newRequests.length,
+      action: copy.queueReview,
+      detail: fresh ? fill(copy.newToday, { count: fresh }) : undefined,
+    },
+    {
+      href: "/admin/purchases?status=draft",
+      label: copy.draftPurchases,
+      count: drafts.length,
+      action: copy.queueConfirm,
+      detail: copy.unconfirmed,
+    },
+    {
+      href: "/admin/bookings?status=pending",
+      label: copy.pendingPayments,
+      count: pendingBookings.length,
+      action: copy.queueCollect,
+      detail: copy.bookings,
+    },
+  ].filter((item) => item.count > 0);
+  const setupSteps = [
+    {
+      done: stats.hotels > 0,
+      label: copy.setupStepHotel,
+      href: "/admin/hotels/new",
+      action: copy.newHotel,
+    },
+    {
+      done: stockRooms.length > 0,
+      label: copy.setupStepPurchase,
+      href: "/admin/purchases/new",
+      action: copy.newPurchase,
+    },
+    {
+      done: assignments.length > 0,
+      label: copy.setupStepSale,
+      href: "/admin/allotments/new",
+      action: copy.newAllotment,
+    },
+  ];
   const dateLabel = new Intl.DateTimeFormat(
     locale === "fr" ? "fr-FR" : "en-GB",
     {
@@ -122,136 +168,216 @@ export default async function AdminHomePage() {
       actions={
         <>
           <Link href="/admin/hotels/new" className={adminButtonSecondaryClass}>
-            <Plus aria-hidden="true" size={16} />
             {copy.newHotel}
           </Link>
           <Link href="/admin/purchases/new" className={adminButtonClass}>
-            <Plus aria-hidden="true" size={16} />
             {copy.newPurchase}
           </Link>
         </>
       }
     >
       <div className="grid gap-6">
-        <section className="desk-rise overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-white">
-          <div className="grid gap-7 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <div>
-                  <h2 className="font-news text-xl font-medium tracking-tight">
-                    {copy.capacityToday}
-                  </h2>
-                  <p className="mt-1 text-sm text-[var(--desk-muted)]">
-                    {fill(copy.unitsAcross, {
-                      count: units,
-                      hotels: stats.hotels,
-                    })}
-                  </p>
+        {hasInventory ? (
+          <section className="desk-rise overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-white">
+            <div className="grid gap-7 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <div>
+                    <h2 className="font-news text-xl font-medium tracking-tight">
+                      {copy.capacityToday}
+                    </h2>
+                    <p className="mt-1 text-sm text-[var(--desk-muted)]">
+                      {fill(copy.unitsAcross, {
+                        count: units,
+                        hotels: stats.hotels,
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-baseline gap-5 text-sm">
+                    <p className="text-[var(--desk-primary)]">
+                      {copy.held}{" "}
+                      <strong className="font-news ms-1 text-2xl font-medium">
+                        {held}
+                      </strong>
+                      {heldShare > 0 && heldShare < 100 && (
+                        <span className="ms-1 text-xs text-[var(--desk-muted)]">
+                          {Math.round(heldShare)}%
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[var(--desk-warning)]">
+                      {copy.open}{" "}
+                      <strong className="font-news ms-1 text-2xl font-medium">
+                        {open}
+                      </strong>
+                      {heldShare > 0 && heldShare < 100 && (
+                        <span className="ms-1 text-xs text-[var(--desk-muted)]">
+                          {Math.round(100 - heldShare)}%
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-baseline gap-5 text-sm">
-                  <p className="text-[var(--desk-primary)]">
-                    {copy.held}{" "}
-                    <strong className="font-news ms-1 text-2xl font-medium">
-                      {held}
-                    </strong>
-                    <span className="ms-1 text-xs text-[var(--desk-muted)]">
-                      {units ? Math.round(heldShare) : 0}%
-                    </span>
-                  </p>
-                  <p className="text-[var(--desk-warning)]">
-                    {copy.open}{" "}
-                    <strong className="font-news ms-1 text-2xl font-medium">
-                      {open}
-                    </strong>
-                    <span className="ms-1 text-xs text-[var(--desk-muted)]">
-                      {units ? Math.round(100 - heldShare) : 0}%
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div
-                className="mt-5 flex h-4 overflow-hidden rounded-full bg-[var(--desk-gold-soft)]/70"
-                aria-label={`${copy.held} ${Math.round(heldShare)}%`}
-              >
                 <div
-                  className="cap-fill bg-[var(--desk-primary)]"
-                  style={{ width: `${heldShare}%` }}
-                />
-                <div className="min-w-0 flex-1 border border-[var(--desk-gold)]" />
+                  className="mt-5 flex h-4 overflow-hidden rounded-full bg-[var(--desk-neutral-soft)]"
+                  aria-label={`${copy.held} ${Math.round(heldShare)}%`}
+                >
+                  <div
+                    className="cap-fill bg-[var(--desk-primary)]"
+                    style={{ width: `${heldShare}%` }}
+                  />
+                  <div className="min-w-0 flex-1 bg-[var(--desk-gold-soft)]" />
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[var(--desk-muted)]">
+                  {copy.capacityNote}
+                </p>
               </div>
-              <p className="mt-3 text-xs leading-5 text-[var(--desk-muted)]">
-                {copy.capacityNote}
-              </p>
+              {anyCityStock && (
+                <div className="border-t border-[var(--desk-line)] pt-5 lg:border-t-0 lg:border-s lg:pt-0 lg:ps-7">
+                  <p className="text-sm font-semibold">{copy.heldByCity}</p>
+                  <ul className="mt-4 grid gap-4">
+                    {byCity
+                      .filter((row) => row.units > 0)
+                      .map((row) => (
+                        <li
+                          key={row.city}
+                          className="grid grid-cols-[5rem_1fr_auto] items-center gap-3"
+                        >
+                          <span className="text-sm font-medium">
+                            {copy[row.city]}
+                          </span>
+                          <span className="h-2 overflow-hidden rounded-full bg-[var(--desk-neutral-soft)]">
+                            <span
+                              className="cap-fill block h-full rounded-full bg-[var(--desk-primary)]"
+                              style={{ width: `${row.share}%` }}
+                            />
+                          </span>
+                          <span className="font-plex text-xs text-[var(--desk-muted)]">
+                            <strong className="font-medium text-[var(--desk-ink)]">
+                              {row.held}
+                            </strong>{" "}
+                            {copy.of} {row.units}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
             </div>
-            <div className="border-t border-[var(--desk-line)] pt-5 lg:border-t-0 lg:border-s lg:pt-0 lg:ps-7">
-              <p className="text-sm font-semibold">{copy.heldByCity}</p>
-              <ul className="mt-4 grid gap-4">
-                {byCity.map((row) => (
+          </section>
+        ) : (
+          <section className="desk-rise overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-white">
+            <div className="p-5 sm:p-6">
+              <h2 className="font-news text-xl font-medium tracking-tight">
+                {copy.setupTitle}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--desk-muted)]">
+                {copy.setupIntro}
+              </p>
+              <ol className="mt-5 grid gap-2.5">
+                {setupSteps.map((step) => (
                   <li
-                    key={row.city}
-                    className="grid grid-cols-[5rem_1fr_auto] items-center gap-3"
+                    key={step.href}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--desk-line)] px-4 py-3"
                   >
-                    <span className="text-sm font-medium">
-                      {copy[row.city]}
-                    </span>
-                    <span className="h-2 overflow-hidden rounded-full bg-[var(--desk-gold-soft)]/70">
-                      <span
-                        className="cap-fill block h-full rounded-full bg-[var(--desk-primary)]"
-                        style={{ width: `${row.share}%` }}
+                    {step.done ? (
+                      <Check
+                        aria-hidden="true"
+                        size={18}
+                        className="shrink-0 text-[var(--desk-success)]"
                       />
+                    ) : (
+                      <Circle
+                        aria-hidden="true"
+                        size={18}
+                        className="shrink-0 text-[var(--desk-muted-soft)]"
+                      />
+                    )}
+                    <span
+                      className={`min-w-0 flex-1 text-sm font-medium ${
+                        step.done
+                          ? "text-[var(--desk-muted)]"
+                          : "text-[var(--desk-ink)]"
+                      }`}
+                    >
+                      {step.label}
                     </span>
-                    <span className="font-plex text-xs text-[var(--desk-muted)]">
-                      <strong className="font-medium text-[var(--desk-ink)]">
-                        {row.held}
-                      </strong>{" "}
-                      {copy.of} {row.units}
-                    </span>
+                    {step.done ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--desk-success)]">
+                        {copy.setupDone}
+                      </span>
+                    ) : (
+                      <Link
+                        href={step.href}
+                        className="desk-focus inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-[var(--desk-primary)] hover:underline"
+                      >
+                        {step.action}
+                        <ArrowRight aria-hidden="true" size={15} />
+                      </Link>
+                    )}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section>
+        <section className="desk-rise desk-rise-1">
           <AdminSectionHeader title={copy.attention} />
-          <div className="grid gap-3 md:grid-cols-3">
-            <AttentionCard
-              href="/admin/forms?status=new"
-              icon={<Inbox aria-hidden="true" size={18} />}
-              label={copy.newRequests}
-              value={newRequests.length}
-              detail={
-                fresh ? fill(copy.newToday, { count: fresh }) : copy.requests
-              }
-            />
-            <AttentionCard
-              href="/admin/purchases?status=draft"
-              icon={<ReceiptText aria-hidden="true" size={18} />}
-              label={copy.draftPurchases}
-              value={drafts.length}
-              detail={copy.unconfirmed}
-            />
-            <AttentionCard
-              href="/admin/bookings?status=pending"
-              icon={<CreditCard aria-hidden="true" size={18} />}
-              label={copy.pendingPayments}
-              value={pendingBookings.length}
-              detail={copy.bookings}
-            />
+          <div className="divide-y divide-[var(--desk-line)] overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-white">
+            {attention.length === 0 ? (
+              <div className="flex items-center gap-3 px-5 py-4 text-sm text-[var(--desk-muted)]">
+                <Check
+                  aria-hidden="true"
+                  size={17}
+                  className="shrink-0 text-[var(--desk-success)]"
+                />
+                {copy.actionQueueEmpty}
+              </div>
+            ) : (
+              attention.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="desk-focus group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[var(--desk-surface-muted)]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{item.label}</p>
+                    {item.detail && (
+                      <p className="mt-0.5 text-xs text-[var(--desk-muted)]">
+                        {item.detail}
+                      </p>
+                    )}
+                  </div>
+                  <strong className="font-news text-2xl font-medium tabular-nums">
+                    {item.count}
+                  </strong>
+                  <span className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--desk-primary)]">
+                    {item.action}
+                    <ArrowRight
+                      aria-hidden="true"
+                      size={15}
+                      className="transition-transform group-hover:translate-x-0.5"
+                    />
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </section>
 
-        <AdminStatStrip
-          items={[
-            { label: copy.hotels, value: stats.hotels },
-            { label: copy.roomTypes, value: stats.rooms },
-            { label: copy.inHouse, value: stats.activeAssignments },
-            { label: copy.upcomingStays, value: upcoming },
-          ]}
-        />
+        <div className="desk-rise desk-rise-2">
+          <AdminStatStrip
+            items={[
+              { label: copy.hotels, value: stats.hotels },
+              { label: copy.roomTypes, value: stats.rooms },
+              { label: copy.inHouse, value: stats.activeAssignments },
+              { label: copy.upcomingStays, value: upcoming },
+            ]}
+          />
+        </div>
 
-        <section>
+        <section className="desk-rise desk-rise-3">
           <AdminSectionHeader
             title={copy.activeRoomHolds}
             description={copy.activeRoomHoldsDescription}
@@ -265,44 +391,24 @@ export default async function AdminHomePage() {
               </Link>
             }
           />
-          <AssignmentTable assignments={activeAssignments.slice(0, 8)} />
+          {activeAssignments.length ? (
+            <AssignmentTable assignments={activeAssignments.slice(0, 8)} />
+          ) : (
+            <AdminEmptyState
+              compact
+              title={copy.noAllotmentRows}
+              action={
+                <Link
+                  href="/admin/allotments/new"
+                  className={adminButtonClass}
+                >
+                  {copy.newAllotment}
+                </Link>
+              }
+            />
+          )}
         </section>
       </div>
     </AdminShell>
-  );
-}
-
-function AttentionCard({
-  href,
-  icon,
-  label,
-  value,
-  detail,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  detail: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="desk-focus group rounded-2xl border border-[var(--desk-line)] bg-white p-4 transition hover:border-[var(--desk-gold)]"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="grid size-9 place-items-center rounded-xl bg-[var(--desk-surface-muted)] text-[var(--desk-primary)]">
-          {icon}
-        </span>
-        <ArrowRight
-          aria-hidden="true"
-          size={16}
-          className="text-[var(--desk-muted)] transition-transform group-hover:translate-x-0.5"
-        />
-      </div>
-      <p className="mt-4 text-sm font-semibold">{label}</p>
-      <p className="font-news mt-1 text-3xl font-medium">{value}</p>
-      <p className="mt-1 text-xs text-[var(--desk-muted)]">{detail}</p>
-    </Link>
   );
 }

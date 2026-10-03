@@ -2,7 +2,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import type { listPublicStay } from "@/lib/inventory";
-import { formatMoney } from "@/lib/money";
+import { formatDateRange, formatMoney } from "@/lib/money";
 
 type Offers = Awaited<ReturnType<typeof listPublicStay>>;
 
@@ -60,6 +60,11 @@ export async function PublicStay({
                   {hotel.name}
                 </h2>
                 <p className="mt-1 text-sm font-bold text-ink">{room.name}</p>
+                {room.checkIn && room.checkOut && (
+                  <p className="mt-1 text-sm text-muted">
+                    {formatDateRange(room.checkIn, room.checkOut, locale)}
+                  </p>
+                )}
                 <p className="mt-2 text-sm text-muted">
                   {hotelsCopy("sleeps", { count: room.capacity })}
                 </p>

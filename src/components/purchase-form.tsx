@@ -15,6 +15,11 @@ import {
   adminButtonSecondaryClass,
   adminFieldClass,
 } from "@/components/admin-ui";
+import {
+  CalendarSwitch,
+  DateField,
+  DualDate,
+} from "@/components/calendar-date-field";
 import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
@@ -57,8 +62,8 @@ export function PurchaseStatusPill({ status }: { status: PurchaseStatus }) {
         status === "confirmed"
           ? "success"
           : status === "cancelled"
-            ? "danger"
-            : "neutral"
+            ? "neutral"
+            : "warning"
       }
     >
       {statusLabel[status]}
@@ -252,6 +257,9 @@ export function PurchaseForm({
               triggerClassName={adminButtonDangerClass}
             />
           )}
+          {purchase?.status === "cancelled" && (
+            <DeleteCancelledPurchase id={purchase.id} number={purchase.number} />
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span
@@ -313,6 +321,13 @@ export function PurchaseForm({
             : `${copy.numberAssigned} `}
           {copy.purchaseLineHelp}
         </p>
+        {!locked && (
+          <CalendarSwitch
+            label={copy.calendar}
+            normal={copy.normalCalendar}
+            arabic={copy.arabicCalendar}
+          />
+        )}
 
         <div className="min-w-0 overflow-x-auto">
           <table className="block w-full border-collapse text-start text-sm lg:table">
@@ -441,20 +456,16 @@ export function PurchaseForm({
                         {copy.from}
                       </span>
                       {locked ? (
-                        <span className="tabular-nums">
-                          {formatDate(line.checkIn, locale)}
-                        </span>
+                        <DualDate iso={line.checkIn} locale={locale} />
                       ) : (
-                        <input
+                        <DateField
                           name="lineCheckIn"
-                          type="date"
+                          label={copy.from}
+                          locale={locale}
                           value={line.checkIn}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              checkIn: event.target.value,
-                            })
+                          onChange={(checkIn) =>
+                            updateLine(line.key, { checkIn })
                           }
-                          className={adminFieldClass}
                         />
                       )}
                     </td>
@@ -463,20 +474,16 @@ export function PurchaseForm({
                         {copy.to}
                       </span>
                       {locked ? (
-                        <span className="tabular-nums">
-                          {formatDate(line.checkOut, locale)}
-                        </span>
+                        <DualDate iso={line.checkOut} locale={locale} />
                       ) : (
-                        <input
+                        <DateField
                           name="lineCheckOut"
-                          type="date"
+                          label={copy.to}
+                          locale={locale}
                           value={line.checkOut}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              checkOut: event.target.value,
-                            })
+                          onChange={(checkOut) =>
+                            updateLine(line.key, { checkOut })
                           }
-                          className={adminFieldClass}
                         />
                       )}
                     </td>
@@ -566,5 +573,30 @@ export function PurchaseForm({
         </dl>
       </form>
     </div>
+  );
+}
+
+export function DeleteCancelledPurchase({
+  id,
+  number,
+  compact = false,
+}: {
+  id: string;
+  number: string;
+  compact?: boolean;
+}) {
+  const copy = useAdminCopy();
+  return (
+    <NamedConfirm
+      title={copy.deleteCancelledTitle}
+      body={fill(copy.deleteCancelledBody, { number })}
+      confirm={copy.deleteAction}
+      pendingLabel={copy.deleting}
+      cancelLabel={copy.keepCancelled}
+      action={deletePurchaseAction}
+      fields={{ id }}
+      trigger={copy.deleteAction}
+      triggerClassName={compact ? undefined : adminButtonDangerClass}
+    />
   );
 }

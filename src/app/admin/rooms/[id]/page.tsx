@@ -6,6 +6,7 @@ import {
   updateRoomAction,
 } from "@/app/admin/actions";
 import { AssignmentTable } from "@/components/assignment-table";
+import { CalendarSwitch, DateField } from "@/components/calendar-date-field";
 import { AdminError, AdminShell } from "@/components/admin-shell";
 import {
   AdminField,
@@ -35,6 +36,7 @@ import {
   roomHasPurchaseLines,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney, moneyInput } from "@/lib/money";
+import { roomTypeCode, roomTypes } from "@/lib/room-types";
 import { PurchaseStatusPill } from "@/components/purchase-form";
 
 export const dynamic = "force-dynamic";
@@ -76,10 +78,18 @@ export default async function RoomAdminPage({
   const roomAssignments = assignments.filter(
     (assignment) => assignment.roomId === room.id,
   );
+  const typeCode = roomTypeCode(room.name);
 
   return (
     <AdminShell
-      title={room.name}
+      title={typeCode ? copy[typeCode] : room.name}
+      note={
+        room.checkIn && room.checkOut ? (
+          <span className="font-plex text-sm text-[var(--desk-muted)]">
+            {formatDateRange(room.checkIn, room.checkOut, locale)}
+          </span>
+        ) : undefined
+      }
       crumbs={[
         { href: "/admin/rooms", label: copy.rooms },
         { href: `/admin/hotels/${hotel.id}`, label: hotel.name },
@@ -88,8 +98,12 @@ export default async function RoomAdminPage({
       <div className="mb-5">
         <AdminStatStrip
           items={[
+            { label: copy.roomsHeld, value: heldToday },
             { label: copy.openToday, value: openToday },
-            { label: copy.heldToday, value: heldToday },
+            {
+              label: copy.soldToday,
+              value: Math.max(0, heldToday - openToday),
+            },
             {
               label: copy.costNight,
               value: formatMoney(stayCost, locale),
@@ -103,14 +117,47 @@ export default async function RoomAdminPage({
         <AdminPanel title={copy.roomRecord}>
           <form action={updateRoomAction} className="grid gap-3">
             <input type="hidden" name="id" value={room.id} />
-            <AdminField label={copy.roomName}>
-              <input
+            <AdminField label={copy.roomType}>
+              <select
                 name="name"
                 required
-                defaultValue={room.name}
+                defaultValue={typeCode ?? room.name}
                 className={adminFieldClass}
-              />
+              >
+                {roomTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {copy[type]}
+                  </option>
+                ))}
+                {!typeCode && <option value={room.name}>{room.name}</option>}
+              </select>
             </AdminField>
+            <CalendarSwitch
+              label={copy.calendar}
+              normal={copy.normalCalendar}
+              arabic={copy.arabicCalendar}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AdminField label={copy.from}>
+                <DateField
+                  name="checkIn"
+                  label={copy.from}
+                  locale={locale}
+                  required={purchased}
+                  defaultValue={room.checkIn ?? ""}
+                />
+              </AdminField>
+              <AdminField label={copy.to}>
+                <DateField
+                  name="checkOut"
+                  label={copy.to}
+                  locale={locale}
+                  required={purchased}
+                  defaultValue={room.checkOut ?? ""}
+                />
+              </AdminField>
+            </div>
+            <p className="text-xs text-[var(--desk-muted)]">{copy.roomStayHint}</p>
             <div className="grid gap-3 sm:grid-cols-3">
               <AdminField label={copy.guests}>
                 <input
@@ -122,7 +169,7 @@ export default async function RoomAdminPage({
                   className={adminFieldClass}
                 />
               </AdminField>
-              <AdminField label={purchased ? copy.heldToday : copy.roomsHeld}>
+              <AdminField label={copy.roomsHeld}>
                 {purchased ? (
                   <span className="flex min-h-11 items-center font-plex text-sm lg:min-h-10">
                     {heldToday}
@@ -183,18 +230,6 @@ export default async function RoomAdminPage({
         </AdminPanel>
 
         <div className="grid gap-4">
-          <AdminPanel
-            title={copy.allotRoom}
-            description={copy.allotRoomDescription}
-          >
-            <Link
-              href={`/admin/allotments/new?room=${room.id}`}
-              className={`${adminButtonClass} mt-3`}
-            >
-              {copy.newAllotment}
-            </Link>
-          </AdminPanel>
-
           <AdminPanel title={copy.photos}>
             <PhotoUploader roomId={room.id} />
             {photos.length ? (

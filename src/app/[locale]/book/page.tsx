@@ -56,6 +56,11 @@ export default async function BookPage({
             {hotel.name}
           </h1>
           <p className="mt-3 text-lg font-bold text-ink">{room.name}</p>
+          {room.checkIn && room.checkOut && (
+            <p className="mt-1 text-sm text-muted">
+              {room.checkIn} → {room.checkOut}
+            </p>
+          )}
           <p className="mt-4 text-sm font-bold text-muted">
             {stay.checkIn} → {stay.checkOut}
           </p>

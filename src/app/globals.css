@@ -203,6 +203,23 @@ html[dir="rtl"] .hero-scrim {
   }
 }
 
+.mcd-picker {
+  --mcd-primary: #0e4d8c;
+  --mcd-primary-text: #ffffff;
+  --mcd-hover-bg: #eef6fd;
+  --mcd-hover-text: #0e4d8c;
+  --mcd-text: #081c36;
+  --mcd-border: #dfe5ec;
+  --mcd-muted: #5c6470;
+  --mcd-radius: 16px;
+  --mcd-today-ring: #c59b27;
+  --mcd-day-focus-ring: #c59b27;
+  --mcd-weekend-text: #8a6814;
+  --mcd-width: 328px;
+  --mcd-font: inherit;
+  --mcd-shadow: 0 16px 40px rgb(8 28 54 / 0.16);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

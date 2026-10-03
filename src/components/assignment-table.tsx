@@ -115,7 +115,7 @@ export async function AssignmentTable({
             <thead className="bg-[var(--desk-canvas)]">
               <tr>
                 <th className="px-4 py-3 text-start">{copy.status}</th>
-                <th className="px-4 py-3 text-start">{copy.agency}</th>
+                <th className="px-4 py-3 text-start">{copy.client}</th>
                 <th className="px-4 py-3 text-start">{copy.hotelRoom}</th>
                 <th className="px-4 py-3 text-end">{copy.qty}</th>
                 <th className="px-4 py-3 text-start">{copy.stay}</th>

@@ -1,167 +1,235 @@
-import { createAgencyAction } from "@/app/admin/actions";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { AdminError, AdminShell } from "@/components/admin-shell";
 import {
   AdminEmptyState,
-  AdminField,
-  AdminPanel,
+  AdminFilterBar,
   AdminSearchForm,
+  AdminStatusPill,
   AdminTableFrame,
   adminButtonClass,
-  adminFieldClass,
 } from "@/components/admin-ui";
-import { AdminSubmitButton } from "@/components/admin-submit-button";
 import { requireAdmin } from "@/lib/admin-auth";
-import { adminCopy, fill } from "@/lib/admin-copy";
+import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { listAgencies } from "@/lib/inventory";
+import { listAgencies, type ClientKind } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
+
+const clientFilters = ["", "agency", "individual"] as const;
+
+function asClientFilter(value: string | undefined) {
+  return clientFilters.includes(value as (typeof clientFilters)[number])
+    ? (value as (typeof clientFilters)[number])
+    : "";
+}
+
+function filterHref(kind: string, query: string) {
+  const params = new URLSearchParams();
+  if (kind) params.set("kind", kind);
+  if (query) params.set("q", query);
+  const suffix = params.toString();
+  return `/admin/agencies${suffix ? `?${suffix}` : ""}`;
+}
+
+function kindLabel(kind: ClientKind, copy: ReturnType<typeof adminCopy>) {
+  return kind === "individual" ? copy.individual : copy.agency;
+}
 
 export default async function AgenciesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; q?: string }>;
+  searchParams: Promise<{ error?: string; q?: string; kind?: string }>;
 }) {
   await requireAdmin();
   const locale = await getAdminLocale();
   const copy = adminCopy(locale);
   const query = await searchParams;
-  const allAgencies = await listAgencies();
+  const kind = asClientFilter(query.kind);
+  const allClients = await listAgencies();
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
-  const agencies = search
-    ? allAgencies.filter((agency) =>
+  const inFilter = kind
+    ? allClients.filter((client) => client.kind === kind)
+    : allClients;
+  const clients = search
+    ? inFilter.filter((client) =>
         [
-          agency.name,
-          agency.country,
-          agency.contactName,
-          agency.email,
-          agency.phone,
+          client.name,
+          kindLabel(client.kind, copy),
+          client.country,
+          client.contactName,
+          client.email,
+          client.phone,
         ]
           .join(" ")
           .toLocaleLowerCase(locale)
           .includes(search),
       )
-    : allAgencies;
+    : inFilter;
 
   return (
     <AdminShell
       title={copy.agencies}
       note={
         <span aria-live="polite" className="text-sm text-[var(--desk-muted)]">
-          {fill(copy.agencyCount, { count: agencies.length })}
+          {countText(clients.length, copy.agencyCountOne, copy.agencyCount)}
         </span>
+      }
+      actions={
+        <Link href="/admin/agencies/new" className={adminButtonClass}>
+          <Plus aria-hidden="true" size={16} />
+          {copy.newAgency}
+        </Link>
       }
     >
       <AdminError code={query.error} />
-      <div className="mb-5">
+      <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
         <AdminSearchForm
           action="/admin/agencies"
           label={copy.searchAgencies}
           placeholder={copy.searchAgencies}
           value={query.q}
+          hidden={{ kind }}
+        />
+        <AdminFilterBar
+          label={copy.filterClients}
+          items={[
+            ["", copy.all, allClients.length],
+            [
+              "agency",
+              copy.agency,
+              allClients.filter((client) => client.kind === "agency").length,
+            ],
+            [
+              "individual",
+              copy.individual,
+              allClients.filter((client) => client.kind === "individual")
+                .length,
+            ],
+          ].map(([value, label, count]) => ({
+            href: filterHref(String(value), query.q ?? ""),
+            label: String(label),
+            active: kind === value,
+            count: Number(count),
+          }))}
         />
       </div>
-      <div className="grid items-start gap-4 xl:grid-cols-[18rem_1fr]">
-        <AdminPanel title={copy.newAgency}>
-          <form action={createAgencyAction} className="grid gap-3">
-            <AdminField label={copy.agencyName}>
-              <input name="name" required className={adminFieldClass} />
-            </AdminField>
-            <AdminField label={copy.country}>
-              <input name="country" className={adminFieldClass} />
-            </AdminField>
-            <AdminField label={copy.contact}>
-              <input name="contactName" className={adminFieldClass} />
-            </AdminField>
-            <AdminField label={copy.email}>
-              <input name="email" type="email" className={adminFieldClass} />
-            </AdminField>
-            <AdminField label={copy.phone}>
-              <input name="phone" className={adminFieldClass} />
-            </AdminField>
-            <AdminSubmitButton
-              pendingLabel={copy.saving}
-              className={adminButtonClass}
-            >
-              {copy.saveAgency}
-            </AdminSubmitButton>
-          </form>
-        </AdminPanel>
-        {agencies.length ? (
-          <>
-            <div className="grid gap-3 lg:hidden">
-              {agencies.map((agency) => (
-                <article
-                  key={agency.id}
-                  className="rounded-2xl border border-[var(--desk-line)] bg-white p-4"
-                >
-                  <h2 className="font-semibold">{agency.name}</h2>
-                  <p className="mt-1 text-sm text-[var(--desk-muted)]">
-                    {agency.country || "—"}
-                  </p>
-                  <dl className="mt-3 grid gap-2 border-t border-[var(--desk-line)] pt-3 text-sm">
+      {clients.length ? (
+        <>
+          <div className="grid gap-3 lg:hidden">
+            {clients.map((client) => (
+              <Link
+                key={client.id}
+                href={`/admin/agencies/${client.id}`}
+                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-semibold">{client.name}</h2>
+                  <AdminStatusPill
+                    tone={client.kind === "individual" ? "neutral" : "info"}
+                  >
+                    {kindLabel(client.kind, copy)}
+                  </AdminStatusPill>
+                </div>
+                <p className="mt-1 text-sm text-[var(--desk-muted)]">
+                  {client.country || "—"}
+                </p>
+                <dl className="mt-3 grid gap-2 border-t border-[var(--desk-line)] pt-3 text-sm">
+                  {client.kind === "agency" && (
                     <div className="flex justify-between gap-3">
                       <dt className="text-[var(--desk-muted)]">
                         {copy.contact}
                       </dt>
                       <dd className="text-end font-medium">
-                        {agency.contactName || "—"}
+                        {client.contactName || "—"}
                       </dd>
                     </div>
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-[var(--desk-muted)]">{copy.email}</dt>
-                      <dd className="truncate text-end font-medium">
-                        {agency.email || "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
-              ))}
-            </div>
-            <div className="hidden lg:block">
-              <AdminTableFrame>
-                <table className="desk-table w-full border-collapse text-start text-sm">
-                  <thead className="bg-[var(--desk-canvas)]">
-                    <tr>
-                      <th className="px-4 py-3 text-start">{copy.agency}</th>
-                      <th className="px-4 py-3 text-start">{copy.country}</th>
-                      <th className="px-4 py-3 text-start">{copy.contact}</th>
-                      <th className="px-4 py-3 text-start">{copy.email}</th>
-                      <th className="px-4 py-3 text-start">{copy.phone}</th>
+                  )}
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-[var(--desk-muted)]">{copy.email}</dt>
+                    <dd className="truncate text-end font-medium">
+                      {client.email || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-[var(--desk-muted)]">{copy.phone}</dt>
+                    <dd className="text-end font-medium font-plex text-xs">
+                      {client.phone || "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </Link>
+            ))}
+          </div>
+          <div className="hidden lg:block">
+            <AdminTableFrame>
+              <table className="desk-table w-full border-collapse text-start text-sm">
+                <thead className="bg-[var(--desk-canvas)]">
+                  <tr>
+                    <th className="px-4 py-3 text-start">{copy.clientName}</th>
+                    <th className="px-4 py-3 text-start">{copy.clientKind}</th>
+                    <th className="px-4 py-3 text-start">{copy.country}</th>
+                    <th className="px-4 py-3 text-start">{copy.contact}</th>
+                    <th className="px-4 py-3 text-start">{copy.email}</th>
+                    <th className="px-4 py-3 text-start">{copy.phone}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((client) => (
+                    <tr key={client.id}>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/agencies/${client.id}`}
+                          className="desk-focus rounded-sm font-semibold text-[var(--desk-primary)] hover:underline"
+                        >
+                          {client.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <AdminStatusPill
+                          tone={client.kind === "individual" ? "neutral" : "info"}
+                        >
+                          {kindLabel(client.kind, copy)}
+                        </AdminStatusPill>
+                      </td>
+                      <td className="px-4 py-3">{client.country || "—"}</td>
+                      <td className="px-4 py-3">
+                        {client.kind === "individual"
+                          ? "—"
+                          : client.contactName || "—"}
+                      </td>
+                      <td className="px-4 py-3">{client.email || "—"}</td>
+                      <td className="px-4 py-3 font-plex text-xs">
+                        {client.phone || "—"}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {agencies.map((agency) => (
-                      <tr key={agency.id}>
-                        <td className="px-4 py-3 font-medium">{agency.name}</td>
-                        <td className="px-4 py-3">{agency.country || "—"}</td>
-                        <td className="px-4 py-3">
-                          {agency.contactName || "—"}
-                        </td>
-                        <td className="px-4 py-3">{agency.email || "—"}</td>
-                        <td className="px-4 py-3 font-plex text-xs">
-                          {agency.phone || "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </AdminTableFrame>
-            </div>
-          </>
-        ) : (
-          <AdminEmptyState
-            title={
-              search
-                ? fill(copy.noMatches, {
-                    query: query.q ?? "",
-                    count: allAgencies.length,
-                  })
+                  ))}
+                </tbody>
+              </table>
+            </AdminTableFrame>
+          </div>
+        </>
+      ) : (
+        <AdminEmptyState
+          title={
+            search
+              ? fill(copy.noMatches, {
+                  query: query.q ?? "",
+                  count: allClients.length,
+                })
+              : kind
+                ? copy.noFilteredClients
                 : copy.noAgencies
-            }
-          />
-        )}
-      </div>
+          }
+          action={
+            !search && !kind ? (
+              <Link href="/admin/agencies/new" className={adminButtonClass}>
+                {copy.newAgency}
+              </Link>
+            ) : undefined
+          }
+        />
+      )}
     </AdminShell>
   );
 }

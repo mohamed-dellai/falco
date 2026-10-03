@@ -2,7 +2,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { AdminFilterBar, AdminSearchForm } from "@/components/admin-ui";
 import { RequestsInbox } from "@/components/requests-inbox";
 import { requireAdmin } from "@/lib/admin-auth";
-import { adminCopy, fill } from "@/lib/admin-copy";
+import { adminCopy, countText, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import {
   listSubmissions,
@@ -90,7 +90,7 @@ export default async function FormsPage({
       title={copy.requests}
       note={
         <span aria-live="polite" className="text-sm text-[var(--desk-muted)]">
-          {fill(copy.requestCount, { count: submissions.length })}
+          {countText(submissions.length, copy.requestCountOne, copy.requestCount)}
         </span>
       }
     >
