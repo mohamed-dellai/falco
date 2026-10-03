@@ -24,6 +24,7 @@ import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 import type { Purchase, PurchaseStatus } from "@/lib/inventory";
+import { roomTypeCode, roomTypes } from "@/lib/room-types";
 import {
   formatDate,
   formatMoney,
@@ -42,6 +43,11 @@ type DraftLine = {
   price: string;
   roomId?: string | null;
 };
+
+function roomLabel(copy: AdminCopy, name: string) {
+  const code = roomTypeCode(name);
+  return code ? copy[code] : name;
+}
 
 function cityName(copy: AdminCopy, city: string) {
   if (city === "makkah" || city === "madinah" || city === "jeddah")
@@ -175,7 +181,7 @@ export function PurchaseForm({
       const capacity = Number(line.capacity);
       const nights = nightsBetween(line.checkIn, line.checkOut);
       return (
-        line.name.trim().length < 2 ||
+        !roomTypeCode(line.name) ||
         parsedQuantity(line.quantity) === null ||
         !Number.isInteger(capacity) ||
         capacity < 1 ||
@@ -368,21 +374,27 @@ export function PurchaseForm({
                             href={`/admin/rooms/${line.roomId}`}
                             className="font-medium text-[var(--desk-primary)] hover:underline"
                           >
-                            {line.name}
+                            {roomLabel(copy, line.name)}
                           </Link>
                         ) : (
-                          line.name
+                          roomLabel(copy, line.name)
                         )
                       ) : (
-                        <input
+                        <select
                           name="lineName"
-                          value={line.name}
-                          placeholder={copy.roomNameExample}
+                          value={roomTypeCode(line.name) ?? ""}
                           onChange={(event) =>
                             updateLine(line.key, { name: event.target.value })
                           }
                           className={adminFieldClass}
-                        />
+                        >
+                          <option value="">{copy.selectRoom}</option>
+                          {roomTypes.map((type) => (
+                            <option key={type} value={type}>
+                              {copy[type]}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     </td>
                     <td className="block px-0 py-2 lg:table-cell lg:px-2">

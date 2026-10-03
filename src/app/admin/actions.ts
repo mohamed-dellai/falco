@@ -376,7 +376,7 @@ function purchaseLineInputs(formData: FormData) {
   const lines: PurchaseLineInput[] = [];
 
   for (let index = 0; index < names.length; index += 1) {
-    const name = names[index] ?? "";
+    const name = roomTypeCode(names[index] ?? "") ?? "";
     const price = String(prices[index] ?? "").trim();
     const checkIn = dateValue(String(checkIns[index] ?? ""));
     const checkOut = dateValue(String(checkOuts[index] ?? ""));
@@ -386,8 +386,7 @@ function purchaseLineInputs(formData: FormData) {
     const capacity = Number(capacities[index]);
     const costPerNight = parseMoney(prices[index] ?? null);
     if (
-      name.length < 2 ||
-      name.length > 140 ||
+      !name ||
       !Number.isInteger(quantity) ||
       quantity < 1 ||
       quantity > 5000 ||
