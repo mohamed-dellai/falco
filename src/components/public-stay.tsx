@@ -3,7 +3,7 @@ import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import type { listPublicStay } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
-import { roomTypeLabel } from "@/lib/room-types";
+import { mealPlanMessageKey, roomTypeLabel } from "@/lib/room-types";
 
 type Offers = Awaited<ReturnType<typeof listPublicStay>>;
 
@@ -69,8 +69,15 @@ export async function PublicStay({
                   </p>
                 )}
                 <p className="mt-2 text-sm text-muted">
-                  {hotelsCopy("sleeps", { count: room.capacity })}
+                  {hotelsCopy("sleeps", { count: room.capacity })} ·{" "}
+                  {hotelsCopy(mealPlanMessageKey(room.board))}
+                  {room.view.trim() ? ` · ${room.view.trim()}` : ""}
                 </p>
+                {room.typeDescription ? (
+                  <p className="mt-2 text-sm leading-7 text-muted">
+                    {room.typeDescription}
+                  </p>
+                ) : null}
                 <p className="mt-4 text-sm font-bold text-emerald-800">
                   {t("available")}
                 </p>

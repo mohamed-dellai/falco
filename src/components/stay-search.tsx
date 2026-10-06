@@ -29,12 +29,16 @@ export function StaySearch({
   checkIn = "",
   checkOut = "",
   variant = "panel",
+  title,
+  hint,
 }: {
   pathname: string;
   minDate: string;
   checkIn?: string;
   checkOut?: string;
   variant?: "panel" | "bar";
+  title?: string;
+  hint?: string;
 }) {
   const t = useTranslations("Search");
   const calendar = useTranslations("Calendar");
@@ -65,7 +69,11 @@ export function StaySearch({
     }
     setError("");
     startTransition(() => {
-      router.push(`${pathname}?checkIn=${from}&checkOut=${to}#availability`);
+      const current = new URLSearchParams(window.location.search);
+      current.set("checkIn", from);
+      current.set("checkOut", to);
+      const query = current.toString();
+      router.push(query ? `${pathname}?${query}` : pathname);
     });
   }
 
@@ -133,9 +141,11 @@ export function StaySearch({
       >
         <div className="px-1 pb-3">
           <p className="text-sm font-extrabold text-primary">
-            {t("formTitle")}
+            {title ?? t("formTitle")}
           </p>
-          <p className="mt-0.5 text-xs leading-5 text-muted">{t("formHint")}</p>
+          <p className="mt-0.5 text-xs leading-5 text-muted">
+            {hint ?? t("formHint")}
+          </p>
           <CalendarSwitch
             label={calendar("label")}
             normal={calendar("normal")}

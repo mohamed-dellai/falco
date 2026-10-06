@@ -30,5 +30,6 @@ export async function POST(request: Request) {
     ok: true,
     url: result.url,
     reference: result.number,
+    requested: "requested" in result ? result.requested : false,
   });
 }

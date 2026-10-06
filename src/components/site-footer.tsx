@@ -1,15 +1,15 @@
 import Image from "next/image";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { SiteExplore } from "@/components/public-section";
 import type { Locale } from "@/i18n/routing";
-import { getWhatsAppUrl, siteConfig } from "@/lib/site";
+import type { CompanyProfile } from "@/lib/company";
+import { whatsappUrl } from "@/lib/site";
 
-export async function SiteFooter() {
+export async function SiteFooter({ company }: { company: CompanyProfile }) {
   const locale = (await getLocale()) as Locale;
   const t = await getTranslations("Footer");
   const common = await getTranslations("Common");
-  const nav = await getTranslations("Nav");
 
   return (
     <footer className="bg-primary-dark text-white">
@@ -19,55 +19,41 @@ export async function SiteFooter() {
             src="/falco-logo.png"
             width={88}
             height={88}
-            alt={common("brand")}
+            alt={company.name}
             className="size-22 rounded-2xl bg-white object-cover"
           />
           <h2 className="font-display mt-4 text-xl font-bold">
-            {common("brand")}
+            {company.name}
           </h2>
           <p className="mt-2 max-w-sm text-sm leading-7 text-blue-100/80">
             {t("summary")}
           </p>
         </div>
 
-        <nav className="grid content-start gap-3 text-sm text-blue-100/80">
-          <strong className="text-white">{t("explore")}</strong>
-          <Link href="/" className="hover:text-gold">
-            {nav("home")}
-          </Link>
-          <Link href="/hotels" className="hover:text-gold">
-            {nav("hotels")}
-          </Link>
-          <Link href="/about" className="hover:text-gold">
-            {nav("about")}
-          </Link>
-          <Link href="/contact" className="hover:text-gold">
-            {nav("contact")}
-          </Link>
-        </nav>
+        <SiteExplore />
 
         <div className="space-y-4 text-sm">
           <strong className="block text-white">{t("coverage")}</strong>
           <p className="flex gap-2 text-blue-100/80">
             <MapPin className="mt-0.5 shrink-0 text-gold" size={17} />
-            {siteConfig.company.address[locale]}
+            {company.address[locale]}
           </p>
           <a
-            href={`mailto:${siteConfig.email}`}
+            href={`mailto:${company.email}`}
             className="flex gap-2 text-blue-100/80 hover:text-gold"
           >
             <Mail className="shrink-0 text-gold" size={17} />
-            {siteConfig.email}
+            {company.email}
           </a>
           <a
-            href={`tel:+${siteConfig.whatsapp}`}
+            href={`tel:+${company.whatsapp}`}
             className="flex gap-2 text-blue-100/80 hover:text-gold"
           >
             <Phone className="shrink-0 text-gold" size={17} />
-            {siteConfig.phoneDisplay}
+            {company.phoneDisplay}
           </a>
           <a
-            href={getWhatsAppUrl()}
+            href={whatsappUrl(company.whatsapp)}
             className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-3 font-bold text-ink"
           >
             <MessageCircle size={17} />

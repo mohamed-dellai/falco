@@ -1,9 +1,17 @@
 import { execute, query, transaction, type SqlClient } from "@/lib/db";
-import { nightsBetween, todayInRiyadh } from "@/lib/money";
+import { nightsBetween, stayInside, todayInRiyadh } from "@/lib/money";
+import { cities, type City } from "@/lib/places";
+import { mealPlanCode, saleModeCode, type MealPlan, type SaleMode } from "@/lib/room-types";
+import {
+  chartWindow,
+  contractLineFree,
+  offerChart,
+  offerFree,
+  releaseExpiredHolds,
+} from "@/lib/stock";
 import { removeImages, saveImage } from "@/lib/uploads";
 
-export const cities = ["makkah", "madinah", "jeddah"] as const;
-export type City = (typeof cities)[number];
+export { cities, type City } from "@/lib/places";
 
 export type Hotel = {
   id: string;
@@ -20,6 +28,7 @@ export type Hotel = {
 export type Room = {
   id: string;
   hotelId: string;
+  roomTypeId: string;
   name: string;
   description: string;
   capacity: number;
@@ -30,6 +39,10 @@ export type Room = {
   checkOut: string | null;
   createdAt: string;
   photos: string[];
+  board: MealPlan;
+  view: string;
+  typeDescription: string;
+  offerId: string | null;
 };
 
 export function roomHasPeriod<
@@ -41,6 +54,9 @@ export function roomHasPeriod<
 export const clientKinds = ["agency", "individual"] as const;
 export type ClientKind = (typeof clientKinds)[number];
 
+export const saleChannels = ["desk", "b2c", "b2b"] as const;
+export type SaleChannel = (typeof saleChannels)[number];
+
 export type Agency = {
   id: string;
   name: string;
@@ -49,6 +65,8 @@ export type Agency = {
   contactName: string;
   email: string;
   phone: string;
+  commercialRegistration: string;
+  vatNumber: string;
   createdAt: string;
 };
 
@@ -62,24 +80,37 @@ export type PurchaseStatus = (typeof purchaseStatuses)[number];
 export type PurchaseLine = {
   id: string;
   purchaseId: string;
+  roomTypeId: string | null;
   roomName: string;
   description: string;
   capacity: number;
   quantity: number;
   costPerNight: number;
+  publicPricePerNight: number | null;
   checkIn: string;
   checkOut: string;
   roomId: string | null;
+  offerId: string | null;
+  board: MealPlan;
+  view: string;
+  minNights: number;
+  saleMode: SaleMode;
 };
 
 export type PurchaseLineInput = {
+  roomTypeId: string;
   roomName: string;
   description: string;
   capacity: number;
   quantity: number;
   costPerNight: number;
+  publicPricePerNight: number | null;
   checkIn: string;
   checkOut: string;
+  board: MealPlan;
+  view: string;
+  minNights: number;
+  saleMode: SaleMode;
 };
 
 export type Purchase = {
@@ -114,13 +145,21 @@ export type Assignment = {
   allotmentId: string | null;
 };
 
-export const allotmentStatuses = ["draft", "confirmed", "cancelled"] as const;
+export const allotmentStatuses = [
+  "request",
+  "provisional",
+  "confirmed",
+  "cancelled",
+  "no_show",
+] as const;
 export type AllotmentStatus = (typeof allotmentStatuses)[number];
 
 export type AllotmentLine = {
   id: string;
   allotmentId: string;
   roomId: string;
+  offerId: string | null;
+  purchaseLineId: string | null;
   hotelName: string;
   roomName: string;
   roomCheckIn: string | null;
@@ -132,6 +171,8 @@ export type AllotmentLine = {
 
 export type AllotmentLineInput = {
   roomId: string;
+  offerId: string | null;
+  purchaseLineId: string | null;
   quantity: number;
   costPerNight: number;
   agencyPricePerNight: number;
@@ -143,6 +184,9 @@ export type Allotment = {
   agencyId: string;
   agencyName: string;
   status: AllotmentStatus;
+  channel: SaleChannel;
+  bookingId: string | null;
+  submissionId: string | null;
   checkIn: string;
   checkOut: string;
   notes: string;
@@ -165,6 +209,7 @@ type HotelRow = {
 type RoomRow = {
   id: string;
   hotel_id: string;
+  room_type_id: string | null;
   name: string;
   description: string;
   capacity: number;
@@ -174,6 +219,10 @@ type RoomRow = {
   check_in: string | null;
   check_out: string | null;
   created_at: string;
+  offer_id: string | null;
+  type_board: string | null;
+  type_view: string | null;
+  type_description: string | null;
 };
 
 function asCity(value: string): City {
@@ -194,11 +243,25 @@ function mapHotel(row: HotelRow, photos: string[]): Hotel {
   };
 }
 
+const roomSelect = `
+  SELECT r.id, r.hotel_id, r.room_type_id, r.name, r.description, r.capacity,
+         r.quantity, r.cost_per_night, r.public_price_per_night, r.check_in,
+         r.check_out, r.created_at, r.offer_id,
+         t.board AS type_board, t.view AS type_view,
+         t.description AS type_description
+  FROM rooms r
+  LEFT JOIN room_types t ON t.id = r.room_type_id
+`;
+
 function mapRoom(row: RoomRow, photos: string[]): Room {
   return {
     id: row.id,
     hotelId: row.hotel_id,
+    roomTypeId: row.room_type_id ?? "",
     name: row.name,
+    board: mealPlanCode(row.type_board ?? "") ?? "room_only",
+    view: row.type_view ?? "",
+    typeDescription: row.type_description ?? "",
     description: row.description,
     capacity: Number(row.capacity),
     quantity: Number(row.quantity),
@@ -211,6 +274,7 @@ function mapRoom(row: RoomRow, photos: string[]): Room {
     checkOut: row.check_out,
     createdAt: row.created_at,
     photos,
+    offerId: row.offer_id,
   };
 }
 
@@ -254,8 +318,8 @@ export async function listRooms(hotelId?: string) {
   await sweepRoomsWithoutPurchases();
   const rows = await query<RoomRow>(
     hotelId
-      ? "SELECT * FROM rooms WHERE hotel_id = ? ORDER BY lower(name), check_in NULLS LAST, created_at DESC"
-      : "SELECT * FROM rooms ORDER BY lower(name), check_in NULLS LAST, created_at DESC",
+      ? `${roomSelect} WHERE r.hotel_id = ? ORDER BY lower(r.name), r.check_in NULLS LAST, r.created_at DESC`
+      : `${roomSelect} ORDER BY lower(r.name), r.check_in NULLS LAST, r.created_at DESC`,
     hotelId ? [hotelId] : [],
   );
   const photos = await photosFor("room_photos", "room_id");
@@ -263,9 +327,9 @@ export async function listRooms(hotelId?: string) {
 }
 
 export async function getRoom(id: string) {
-  const rows = await query<RoomRow>("SELECT * FROM rooms WHERE id = ?", [id]);
+  const rows = await query<RoomRow>(`${roomSelect} WHERE r.id = ?`, [id]);
   const row = rows[0];
-  if (!row) return null;
+  if (!row) return getOfferRoom(id);
   const photos = await query<{ url: string }>(
     "SELECT url FROM room_photos WHERE room_id = ? ORDER BY sort_order, id",
     [id],
@@ -276,6 +340,106 @@ export async function getRoom(id: string) {
   );
 }
 
+export type CatalogRoomType = {
+  id: string;
+  name: string;
+  guests: number;
+  board: MealPlan;
+  view: string;
+  description: string;
+  createdAt: string;
+};
+
+type RoomTypeRow = {
+  id: string;
+  name: string;
+  guests: number;
+  board: string;
+  view: string;
+  description: string;
+  created_at: string;
+};
+
+function mapRoomType(row: RoomTypeRow): CatalogRoomType {
+  return {
+    id: row.id,
+    name: row.name,
+    guests: Number(row.guests),
+    board: mealPlanCode(row.board) ?? "room_only",
+    view: row.view ?? "",
+    description: row.description ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+export async function listRoomTypes() {
+  const rows = await query<RoomTypeRow>(
+    "SELECT * FROM room_types ORDER BY lower(name), guests, board, view",
+  );
+  return rows.map(mapRoomType);
+}
+
+export async function getRoomType(id: string) {
+  const rows = await query<RoomTypeRow>(
+    "SELECT * FROM room_types WHERE id = ?",
+    [id],
+  );
+  return rows[0] ? mapRoomType(rows[0]) : null;
+}
+
+export async function roomTypeInUse(id: string) {
+  const rows = await query<{ count: number }>(
+    `SELECT (
+       (SELECT COUNT(*) FROM rooms WHERE room_type_id = ?)
+       + (SELECT COUNT(*) FROM purchase_lines WHERE room_type_id = ?)
+     )::int AS count`,
+    [id, id],
+  );
+  return Number(rows[0]?.count ?? 0) > 0;
+}
+
+export async function saveRoomType(input: {
+  id?: string | null;
+  name: string;
+  guests: number;
+  description: string;
+}) {
+  const name = input.name.trim();
+  if (name.length < 2 || name.length > 80) return null;
+  if (!Number.isInteger(input.guests) || input.guests < 1 || input.guests > 20) {
+    return null;
+  }
+  const description = input.description.trim().slice(0, 2000);
+  if (input.id) {
+    const existing = await getRoomType(input.id);
+    if (!existing) return null;
+    await execute(
+      `UPDATE room_types
+       SET name = ?, guests = ?, description = ?
+       WHERE id = ?`,
+      [name, input.guests, description, input.id],
+    );
+    return input.id;
+  }
+  const id = crypto.randomUUID();
+  await execute(
+    `INSERT INTO room_types
+      (id, name, guests, board, view, description, created_at)
+     VALUES (?, ?, ?, 'room_only', '', ?, ?)`,
+    [id, name, input.guests, description, new Date().toISOString()],
+  );
+  return id;
+}
+
+export async function deleteRoomType(id: string) {
+  if (await roomTypeInUse(id)) return false;
+  const rows = await query<{ id: string }>(
+    "DELETE FROM room_types WHERE id = ? RETURNING id",
+    [id],
+  );
+  return Boolean(rows[0]);
+}
+
 type AgencyRow = {
   id: string;
   name: string;
@@ -284,6 +448,8 @@ type AgencyRow = {
   contact_name: string;
   email: string;
   phone: string;
+  commercial_registration: string | null;
+  vat_number: string | null;
   created_at: string;
 };
 
@@ -296,6 +462,8 @@ function mapAgency(row: AgencyRow): Agency {
     contactName: row.contact_name,
     email: row.email,
     phone: row.phone,
+    commercialRegistration: row.commercial_registration ?? "",
+    vatNumber: row.vat_number ?? "",
     createdAt: row.created_at,
   };
 }
@@ -429,6 +597,18 @@ export async function openForStay(
   excludeBookingId?: string,
 ) {
   if (nightsBetween(checkIn, checkOut) < 1) return 0;
+  if (room.offerId) {
+    await releaseExpiredHolds();
+    const ignore = excludeBookingId
+      ? (
+          await db.query<{ id: string }>(
+            "SELECT id FROM allotments WHERE booking_id = ?",
+            [excludeBookingId],
+          )
+        )[0]?.id
+      : undefined;
+    return offerFree(room.offerId, checkIn, checkOut, db, ignore);
+  }
   if (
     room.checkIn &&
     room.checkOut &&
@@ -504,79 +684,246 @@ function nextDay(day: string) {
   return date.toISOString().slice(0, 10);
 }
 
-export async function listShowcase(stay: { checkIn: string; checkOut: string }) {
-  const [hotels, listed] = await Promise.all([listHotels(), listRooms()]);
-  const rooms = listed.filter(roomHasPeriod);
-  const availability = new Map<string, number>();
+type ContractStock = {
+  id: string;
+  offerId: string;
+  checkIn: string;
+  checkOut: string;
+  costPerNight: number;
+  publicPricePerNight: number | null;
+  minNights: number;
+  saleMode: SaleMode;
+  description: string;
+};
 
-  await Promise.all(
-    rooms.map(async (room) => {
-      availability.set(room.id, await openForStay(room, stay.checkIn, stay.checkOut));
-    }),
+async function loadContractStock() {
+  const offers = await query<{
+    id: string;
+    hotel_id: string;
+    room_type_id: string;
+    board: string;
+    view: string;
+    created_at: string;
+    name: string;
+    guests: number;
+    description: string;
+  }>(
+    `SELECT offer.id, offer.hotel_id, offer.room_type_id, offer.board, offer.view,
+            offer.created_at, type.name, type.guests, type.description
+     FROM offers AS offer
+     JOIN room_types AS type ON type.id = offer.room_type_id
+     WHERE EXISTS (
+       SELECT 1
+       FROM purchase_lines AS line
+       JOIN purchases AS purchase ON purchase.id = line.purchase_id
+       WHERE line.offer_id = offer.id
+         AND purchase.status = 'confirmed'
+     )`,
   );
+  const lines = await query<{
+    id: string;
+    offer_id: string;
+    check_in: string;
+    check_out: string;
+    cost_per_night: number;
+    public_price_per_night: number | null;
+    min_nights: number | null;
+    sale_mode: string | null;
+    description: string;
+  }>(
+    `SELECT line.id, line.offer_id, line.check_in, line.check_out, line.cost_per_night,
+            line.public_price_per_night, line.min_nights, line.sale_mode, line.description
+     FROM purchase_lines AS line
+     JOIN purchases AS purchase ON purchase.id = line.purchase_id
+     WHERE purchase.status = 'confirmed'
+       AND line.offer_id IS NOT NULL`,
+  );
+  const photos = await query<{ offer_id: string; url: string }>(
+    `SELECT room.offer_id, photo.url
+     FROM room_photos AS photo
+     JOIN rooms AS room ON room.id = photo.room_id
+     WHERE room.offer_id IS NOT NULL
+     ORDER BY photo.sort_order, photo.id`,
+  );
+  const byOffer = new Map<string, ContractStock[]>();
+  for (const line of lines) {
+    const stock: ContractStock = {
+      id: line.id,
+      offerId: line.offer_id,
+      checkIn: line.check_in,
+      checkOut: line.check_out,
+      costPerNight: Number(line.cost_per_night),
+      publicPricePerNight:
+        line.public_price_per_night == null
+          ? null
+          : Number(line.public_price_per_night),
+      minNights: Number(line.min_nights ?? 1) || 1,
+      saleMode: saleModeCode(line.sale_mode ?? "") ?? "book",
+      description: line.description,
+    };
+    byOffer.set(line.offer_id, [...(byOffer.get(line.offer_id) ?? []), stock]);
+  }
+  const photoMap = new Map<string, string[]>();
+  for (const photo of photos) {
+    photoMap.set(photo.offer_id, [...(photoMap.get(photo.offer_id) ?? []), photo.url]);
+  }
+  return { offers, byOffer, photoMap };
+}
 
+async function getOfferRoom(id: string) {
+  const stock = await loadContractStock();
+  const offer = stock.offers.find((item) => item.id === id);
+  if (!offer) return null;
+  return offerRoom(
+    offer,
+    stock.byOffer.get(offer.id) ?? [],
+    stock.photoMap.get(offer.id) ?? [],
+    null,
+  );
+}
+
+function offerRoom(
+  offer: {
+    id: string;
+    hotel_id: string;
+    room_type_id: string;
+    board: string;
+    view: string;
+    created_at: string;
+    name: string;
+    guests: number;
+    description: string;
+  },
+  lines: ContractStock[],
+  photos: string[],
+  stay: { checkIn: string; checkOut: string } | null,
+) {
+  const covering = stay
+    ? lines.filter(
+        (line) => line.checkIn <= stay.checkIn && line.checkOut >= stay.checkOut,
+      )
+    : lines;
+  if (!covering.length) return null;
+  const nights = stay ? nightsBetween(stay.checkIn, stay.checkOut) : 0;
+  const eligible = stay
+    ? covering.filter((line) => nights >= line.minNights)
+    : covering;
+  if (!eligible.length) return null;
+  const priced = eligible.find(
+    (line) => line.saleMode === "book" && line.publicPricePerNight != null,
+  );
+  const chosen = priced ?? eligible.find((line) => line.publicPricePerNight != null) ?? eligible[0];
+  const span = purchaseSpan(lines);
+  return {
+    id: offer.id,
+    hotelId: offer.hotel_id,
+    roomTypeId: offer.room_type_id,
+    name: offer.name,
+    description: chosen.description || offer.description,
+    capacity: Number(offer.guests),
+    quantity: 0,
+    costPerNight: chosen.costPerNight,
+    publicPricePerNight: chosen.publicPricePerNight,
+    checkIn: span?.checkIn ?? chosen.checkIn,
+    checkOut: span?.checkOut ?? chosen.checkOut,
+    createdAt: offer.created_at,
+    photos,
+    board: mealPlanCode(offer.board) ?? "room_only",
+    view: offer.view,
+    typeDescription: offer.description,
+    offerId: offer.id,
+    saleMode: chosen.saleMode,
+    minNights: chosen.minNights,
+    purchaseLineId: chosen.id,
+    agencyPricePerNight: null as number | null,
+  };
+}
+
+async function hotelsWithOffers(
+  stay: { checkIn: string; checkOut: string } | null,
+  options?: { requirePrice?: boolean; hideWhenFull?: boolean; keepWhenFull?: boolean },
+) {
+  const [hotels, stock] = await Promise.all([listHotels(), loadContractStock()]);
+  const rooms = stock.offers
+    .map((offer) =>
+      offerRoom(
+        offer,
+        stock.byOffer.get(offer.id) ?? [],
+        stock.photoMap.get(offer.id) ?? [],
+        stay,
+      ),
+    )
+    .filter((room): room is NonNullable<typeof room> => Boolean(room));
+  const open = new Map<string, number>();
+  if (stay) {
+    await releaseExpiredHolds();
+    await Promise.all(
+      rooms.map(async (room) => {
+        open.set(room.id, await offerFree(room.id, stay.checkIn, stay.checkOut));
+      }),
+    );
+  }
   return hotels
     .map((hotel) => ({
       ...hotel,
       rooms: rooms
         .filter((room) => room.hotelId === hotel.id)
-        .map((room) => ({
-          ...room,
-          open: availability.get(room.id) ?? 0,
-        }))
-        .filter((room) => room.open > 0),
+        .map((room) => ({ ...room, open: stay ? (open.get(room.id) ?? 0) : null }))
+        .filter((room) => {
+          if (options?.requirePrice && room.publicPricePerNight == null) return false;
+          if (!stay || room.open == null) return true;
+          if (options?.keepWhenFull) return true;
+          if (room.open > 0) return true;
+          if (options?.hideWhenFull) return false;
+          return room.saleMode === "request";
+        }),
     }))
-    .filter((hotel) => hotel.rooms.length > 0);
+    .filter((hotel) => hotel.rooms.length > 0 || !stay);
+}
+
+export async function listShowcase(stay: { checkIn: string; checkOut: string }) {
+  const hotels = await hotelsWithOffers(stay);
+  return hotels.filter((hotel) => hotel.rooms.length > 0);
+}
+
+export async function listAgencyCatalog(
+  stay: { checkIn: string; checkOut: string } | null,
+) {
+  const hotels = await hotelsWithOffers(stay, { keepWhenFull: true });
+  if (!stay) return hotels;
+  return hotels.filter((hotel) => hotel.rooms.length > 0);
 }
 
 export async function listPublicStay(stay: { checkIn: string; checkOut: string }) {
-  const [hotels, listed] = await Promise.all([listHotels(), listRooms()]);
-  const priced = listed.filter(
-    (room) => roomHasPeriod(room) && room.publicPricePerNight != null,
-  );
-  const availability = new Map<string, number>();
-  await Promise.all(
-    priced.map(async (room) => {
-      availability.set(room.id, await openForStay(room, stay.checkIn, stay.checkOut));
-    }),
-  );
-
+  const hotels = await hotelsWithOffers(stay, { requirePrice: true });
   return hotels
+    .filter((hotel) => hotel.rooms.length > 0)
     .map((hotel) => ({
       ...hotel,
-      rooms: priced
-        .filter(
-          (room) =>
-            room.hotelId === hotel.id && (availability.get(room.id) ?? 0) > 0,
-        )
-        .map((room) => ({
-          id: room.id,
-          name: room.name,
-          description: room.description,
-          capacity: room.capacity,
-          checkIn: room.checkIn,
-          checkOut: room.checkOut,
-          publicPricePerNight: room.publicPricePerNight ?? 0,
-          photos: room.photos,
-        })),
-    }))
-    .filter((hotel) => hotel.rooms.length > 0);
+      rooms: hotel.rooms.map((room) => ({
+        id: room.id,
+        name: room.name,
+        description: room.description,
+        capacity: room.capacity,
+        board: room.board,
+        view: room.view,
+        typeDescription: room.typeDescription,
+        checkIn: room.checkIn,
+        checkOut: room.checkOut,
+        publicPricePerNight: room.publicPricePerNight ?? 0,
+        photos: room.photos,
+        saleMode: room.saleMode,
+        open: room.open,
+      })),
+    }));
 }
 
 export async function getShowcaseHotel(
   id: string,
   stay: { checkIn: string; checkOut: string },
 ) {
-  const hotel = await getHotel(id);
-  if (!hotel) return null;
-  const rooms = (await listRooms(id)).filter(roomHasPeriod);
-  const detailed = await Promise.all(
-    rooms.map(async (room) => ({
-      ...room,
-      open: await openForStay(room, stay.checkIn, stay.checkOut),
-    })),
-  );
-  return { ...hotel, rooms: detailed.filter((room) => room.open > 0) };
+  const hotels = await hotelsWithOffers(stay, { keepWhenFull: true });
+  return hotels.find((hotel) => hotel.id === id) ?? null;
 }
 
 export async function listAssignments() {
@@ -777,16 +1124,17 @@ export async function deleteHotelPhoto(photoId: string) {
 }
 
 export async function createRoom(
-  input: Omit<Room, "id" | "createdAt" | "photos">,
+  input: Omit<Room, "id" | "createdAt" | "photos" | "board" | "view" | "typeDescription">,
 ) {
   const id = crypto.randomUUID();
   await execute(
     `INSERT INTO rooms
-      (id, hotel_id, name, room_type, description, capacity, quantity, cost_per_night, public_price_per_night, created_at, check_in, check_out)
-     VALUES (?, ?, ?, lower(btrim(?)), ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, hotel_id, room_type_id, name, room_type, description, capacity, quantity, cost_per_night, public_price_per_night, created_at, check_in, check_out)
+     VALUES (?, ?, ?, ?, lower(btrim(?)), ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.hotelId,
+      input.roomTypeId,
       input.name,
       input.name,
       input.description,
@@ -821,12 +1169,13 @@ export async function updateActivePurchaseCosts(
 
 export async function saveRoomStay(
   roomId: string,
-  name: string,
+  roomTypeId: string,
   checkIn: string,
   checkOut: string,
 ) {
   const room = await getRoom(roomId);
-  if (!room) return { ok: false as const, error: "invalid" as const };
+  const type = await getRoomType(roomTypeId);
+  if (!room || !type) return { ok: false as const, error: "invalid" as const };
   const period = purchasePeriodError(checkIn, checkOut);
   if (period) return { ok: false as const, error: period };
 
@@ -834,11 +1183,11 @@ export async function saveRoomStay(
     `SELECT id FROM rooms
      WHERE hotel_id = ?
        AND id <> ?
-       AND room_type = lower(btrim(?))
+       AND room_type_id = ?
        AND check_in = ?
        AND check_out = ?
      LIMIT 1`,
-    [room.hotelId, roomId, name, checkIn, checkOut],
+    [room.hotelId, roomId, type.id, checkIn, checkOut],
   );
   if (clash[0]) return { ok: false as const, error: "duplicate" as const };
 
@@ -860,8 +1209,26 @@ export async function saveRoomStay(
              OR (status = 'pending' AND hold_until::timestamptz > NOW())
            )
        ), 0)
+       + COALESCE((
+         SELECT COUNT(*)
+         FROM allotment_lines l
+         JOIN allotments a ON a.id = l.allotment_id
+         WHERE l.room_id = ?
+           AND a.status = 'request'
+           AND (a.check_in < ? OR a.check_out > ?)
+       ), 0)
      )::int AS count`,
-    [roomId, checkIn, checkOut, roomId, checkIn, checkOut],
+    [
+      roomId,
+      checkIn,
+      checkOut,
+      roomId,
+      checkIn,
+      checkOut,
+      roomId,
+      checkIn,
+      checkOut,
+    ],
   );
   if (Number(outside[0]?.count ?? 0) > 0) {
     return { ok: false as const, error: "dates-sold" as const };
@@ -869,18 +1236,19 @@ export async function saveRoomStay(
 
   await execute(
     `UPDATE rooms
-     SET name = ?, room_type = lower(btrim(?)), check_in = ?, check_out = ?
+     SET name = ?, room_type = lower(btrim(?)), room_type_id = ?, capacity = ?,
+         check_in = ?, check_out = ?
      WHERE id = ?`,
-    [name, name, checkIn, checkOut, roomId],
+    [type.name, type.name, type.id, type.guests, checkIn, checkOut, roomId],
   );
   await execute(
     `UPDATE purchase_lines AS line
-     SET room_name = ?, check_in = ?, check_out = ?
+     SET room_name = ?, room_type_id = ?, check_in = ?, check_out = ?
      FROM purchases AS purchase
      WHERE line.purchase_id = purchase.id
        AND line.room_id = ?
        AND purchase.status = 'confirmed'`,
-    [name, checkIn, checkOut, roomId],
+    [type.name, type.id, checkIn, checkOut, roomId],
   );
   const purchases = await query<{ purchase_id: string }>(
     "SELECT DISTINCT purchase_id FROM purchase_lines WHERE room_id = ?",
@@ -900,13 +1268,14 @@ export async function saveRoomStay(
 
 export async function updateRoom(
   id: string,
-  input: Omit<Room, "id" | "hotelId" | "createdAt" | "photos">,
+  input: Omit<Room, "id" | "hotelId" | "createdAt" | "photos" | "board" | "view" | "typeDescription">,
 ) {
   await execute(
     `UPDATE rooms
-     SET name = ?, room_type = lower(btrim(?)), description = ?, capacity = ?, quantity = ?, cost_per_night = ?, public_price_per_night = ?, check_in = ?, check_out = ?
+     SET room_type_id = ?, name = ?, room_type = lower(btrim(?)), description = ?, capacity = ?, quantity = ?, cost_per_night = ?, public_price_per_night = ?, check_in = ?, check_out = ?
      WHERE id = ?`,
     [
+      input.roomTypeId,
       input.name,
       input.name,
       input.description,
@@ -1011,8 +1380,9 @@ export async function createAgency(input: Omit<Agency, "id" | "createdAt">) {
   const id = crypto.randomUUID();
   await execute(
     `INSERT INTO agencies
-      (id, name, kind, country, contact_name, email, phone, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, name, kind, country, contact_name, email, phone,
+       commercial_registration, vat_number, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name,
@@ -1021,6 +1391,8 @@ export async function createAgency(input: Omit<Agency, "id" | "createdAt">) {
       input.kind === "individual" ? "" : input.contactName,
       input.email,
       input.phone,
+      input.kind === "individual" ? "" : input.commercialRegistration,
+      input.kind === "individual" ? "" : input.vatNumber,
       new Date().toISOString(),
     ],
   );
@@ -1033,7 +1405,8 @@ export async function updateAgency(
 ) {
   await execute(
     `UPDATE agencies
-     SET name = ?, kind = ?, country = ?, contact_name = ?, email = ?, phone = ?
+     SET name = ?, kind = ?, country = ?, contact_name = ?, email = ?, phone = ?,
+         commercial_registration = ?, vat_number = ?
      WHERE id = ?`,
     [
       input.name,
@@ -1042,6 +1415,8 @@ export async function updateAgency(
       input.kind === "individual" ? "" : input.contactName,
       input.email,
       input.phone,
+      input.kind === "individual" ? "" : input.commercialRegistration,
+      input.kind === "individual" ? "" : input.vatNumber,
       id,
     ],
   );
@@ -1061,6 +1436,13 @@ export async function createAssignment(input: {
   if (!room) return { ok: false as const, error: "missing-room" };
   if (nightsBetween(input.checkIn, input.checkOut) < 1) {
     return { ok: false as const, error: "dates" };
+  }
+  if (
+    room.checkIn &&
+    room.checkOut &&
+    !stayInside(input.checkIn, input.checkOut, room.checkIn, room.checkOut)
+  ) {
+    return { ok: false as const, error: "window" };
   }
 
   const [reserved, held] = await Promise.all([
@@ -1118,14 +1500,21 @@ type PurchaseRow = {
 type PurchaseLineRow = {
   id: string;
   purchase_id: string;
+  room_type_id: string | null;
   room_name: string;
   description: string;
   capacity: number;
   quantity: number;
   cost_per_night: number;
+  public_price_per_night: number | null;
   check_in: string;
   check_out: string;
   room_id: string | null;
+  offer_id: string | null;
+  board: string | null;
+  view: string | null;
+  min_nights: number | null;
+  sale_mode: string | null;
 };
 
 function asStatus(value: string): PurchaseStatus {
@@ -1138,14 +1527,24 @@ function mapLine(row: PurchaseLineRow): PurchaseLine {
   return {
     id: row.id,
     purchaseId: row.purchase_id,
+    roomTypeId: row.room_type_id,
     roomName: row.room_name,
     description: row.description,
     capacity: Number(row.capacity),
     quantity: Number(row.quantity),
     costPerNight: Number(row.cost_per_night),
+    publicPricePerNight:
+      row.public_price_per_night == null
+        ? null
+        : Number(row.public_price_per_night),
     checkIn: row.check_in,
     checkOut: row.check_out,
     roomId: row.room_id,
+    offerId: row.offer_id,
+    board: mealPlanCode(row.board ?? "") ?? "room_only",
+    view: row.view ?? "",
+    minNights: Number(row.min_nights ?? 1) || 1,
+    saleMode: saleModeCode(row.sale_mode ?? "") ?? "book",
   };
 }
 
@@ -1311,19 +1710,25 @@ async function insertPurchaseLines(
   for (const [index, line] of lines.entries()) {
     await sql.execute(
       `INSERT INTO purchase_lines
-        (id, purchase_id, room_name, description, capacity, quantity, cost_per_night, sort_order, check_in, check_out)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, purchase_id, room_type_id, room_name, description, capacity, quantity, cost_per_night, public_price_per_night, sort_order, check_in, check_out, board, view, min_nights, sale_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         crypto.randomUUID(),
         purchaseId,
+        line.roomTypeId,
         line.roomName,
         line.description,
         line.capacity,
         line.quantity,
         line.costPerNight,
+        line.publicPricePerNight,
         index,
         line.checkIn,
         line.checkOut,
+        line.board,
+        line.view,
+        line.minNights,
+        line.saleMode,
       ],
     );
   }
@@ -1411,6 +1816,27 @@ export async function savePurchase(input: {
   return { ok: false as const, error: "purchase" as const };
 }
 
+async function ensureOffer(
+  sql: SqlClient,
+  input: { hotelId: string; roomTypeId: string; board: string; view: string },
+) {
+  const view = input.view.trim().slice(0, 80);
+  const existing = await sql.query<{ id: string }>(
+    `SELECT id FROM offers
+     WHERE hotel_id = ? AND room_type_id = ? AND board = ? AND view = ?
+     LIMIT 1`,
+    [input.hotelId, input.roomTypeId, input.board, view],
+  );
+  if (existing[0]) return existing[0].id;
+  const id = crypto.randomUUID();
+  await sql.execute(
+    `INSERT INTO offers (id, hotel_id, room_type_id, board, view, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, input.hotelId, input.roomTypeId, input.board, view, new Date().toISOString()],
+  );
+  return id;
+}
+
 export async function confirmPurchase(id: string) {
   const purchase = await getPurchase(id);
   if (!purchase || purchase.status !== "draft") {
@@ -1418,58 +1844,25 @@ export async function confirmPurchase(id: string) {
   }
   if (!purchase.lines.length) return { ok: false as const, error: "lines" as const };
   for (const line of purchase.lines) {
+    if (!line.roomTypeId) return { ok: false as const, error: "lines" as const };
     const period = purchasePeriodError(line.checkIn, line.checkOut);
     if (period) return { ok: false as const, error: period };
   }
 
   await transaction(async (sql) => {
-    const roomIds = new Map<string, string>();
     for (const line of purchase.lines) {
-      const key = `${line.roomName.trim().toLowerCase()}|${line.checkIn}|${line.checkOut}`;
-      let roomId = roomIds.get(key);
-      if (!roomId) {
-        const existing = await sql.query<{ id: string }>(
-          `SELECT id FROM rooms
-           WHERE hotel_id = ?
-             AND room_type = lower(btrim(?))
-             AND check_in = ?
-             AND check_out = ?
-           LIMIT 1`,
-          [purchase.hotelId, line.roomName, line.checkIn, line.checkOut],
-        );
-        roomId = existing[0]?.id;
-      }
-      if (!roomId) {
-        roomId = crypto.randomUUID();
-        await sql.execute(
-          `INSERT INTO rooms
-            (id, hotel_id, name, room_type, description, capacity, quantity, cost_per_night, created_at, check_in, check_out)
-           VALUES (?, ?, ?, lower(btrim(?)), ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            roomId,
-            purchase.hotelId,
-            line.roomName,
-            line.roomName,
-            line.description,
-            line.capacity,
-            line.quantity,
-            line.costPerNight,
-            new Date().toISOString(),
-            line.checkIn,
-            line.checkOut,
-          ],
-        );
-      } else {
-        await sql.execute(
-          `UPDATE rooms SET cost_per_night = ?, capacity = ? WHERE id = ?`,
-          [line.costPerNight, line.capacity, roomId],
-        );
-      }
-      roomIds.set(key, roomId);
-      await sql.execute("UPDATE purchase_lines SET room_id = ? WHERE id = ?", [
-        roomId,
-        line.id,
-      ]);
+      const offerId = await ensureOffer(sql, {
+        hotelId: purchase.hotelId,
+        roomTypeId: line.roomTypeId ?? "",
+        board: line.board,
+        view: line.view,
+      });
+      await sql.execute(
+        `UPDATE purchase_lines
+         SET offer_id = ?, board = ?, view = ?, min_nights = ?, sale_mode = ?
+         WHERE id = ?`,
+        [offerId, line.board, line.view, line.minNights, line.saleMode, line.id],
+      );
     }
     await sql.execute(
       `UPDATE purchases SET status = 'confirmed', confirmed_at = ? WHERE id = ? AND status = 'draft'`,
@@ -1487,14 +1880,22 @@ export async function cancelPurchase(id: string) {
   }
 
   for (const line of purchase.lines) {
-    if (!line.roomId) continue;
-    const room = await getRoom(line.roomId);
-    if (!room) continue;
-    const [held, reserved] = await Promise.all([
-      heldQuantity(room, line.checkIn, line.checkOut, purchase.id),
-      reservedQuantity(line.roomId, line.checkIn, line.checkOut),
-    ]);
-    if (reserved > held) return { ok: false as const, error: "cancel" as const };
+    const sold = await query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count
+       FROM allotment_lines AS sale
+       JOIN allotments AS allotment ON allotment.id = sale.allotment_id
+       WHERE allotment.status IN ('provisional', 'confirmed')
+         AND (
+           sale.purchase_line_id = ?
+           OR (sale.purchase_line_id IS NULL AND sale.offer_id = ?)
+         )
+         AND allotment.check_in < ?
+         AND allotment.check_out > ?`,
+      [line.id, line.offerId, line.checkOut, line.checkIn],
+    );
+    if (Number(sold[0]?.count ?? 0) > 0) {
+      return { ok: false as const, error: "cancel" as const };
+    }
   }
 
   await execute("UPDATE purchases SET status = 'cancelled' WHERE id = ?", [id]);
@@ -1630,24 +2031,32 @@ export async function listAllotmentRooms() {
     name: string;
     hotel_name: string;
     cost_per_night: number;
-    check_in: string | null;
-    check_out: string | null;
+    check_in: string;
+    check_out: string;
+    board: string;
+    view: string;
+    offer_id: string | null;
   }>(
-    `SELECT r.id, r.name, r.cost_per_night, r.check_in, r.check_out, h.name AS hotel_name
-     FROM rooms r
-     JOIN hotels h ON h.id = r.hotel_id
-     ORDER BY h.name, r.name, r.check_in NULLS LAST`,
+    `SELECT line.id, type.name, line.cost_per_night, line.check_in, line.check_out,
+            line.board, line.view, line.offer_id, hotel.name AS hotel_name
+     FROM purchase_lines AS line
+     JOIN purchases AS purchase ON purchase.id = line.purchase_id
+     JOIN hotels AS hotel ON hotel.id = purchase.hotel_id
+     JOIN room_types AS type ON type.id = line.room_type_id
+     WHERE purchase.status = 'confirmed'
+     ORDER BY hotel.name, type.name, line.check_in`,
   );
-  return rows
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      hotelName: row.hotel_name,
-      costPerNight: Number(row.cost_per_night),
-      checkIn: row.check_in,
-      checkOut: row.check_out,
-    }))
-    .filter(roomHasPeriod);
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    hotelName: row.hotel_name,
+    costPerNight: Number(row.cost_per_night),
+    checkIn: row.check_in,
+    checkOut: row.check_out,
+    board: mealPlanCode(row.board) ?? "room_only",
+    view: row.view ?? "",
+    offerId: row.offer_id,
+  }));
 }
 
 type AllotmentRow = {
@@ -1656,6 +2065,9 @@ type AllotmentRow = {
   agency_id: string;
   agency_name: string;
   status: string;
+  channel: string | null;
+  booking_id: string | null;
+  submission_id: string | null;
   check_in: string;
   check_out: string;
   notes: string;
@@ -1666,9 +2078,11 @@ type AllotmentRow = {
 type AllotmentLineRow = {
   id: string;
   allotment_id: string;
-  room_id: string;
-  hotel_name: string;
-  room_name: string;
+  room_id: string | null;
+  offer_id: string | null;
+  purchase_line_id: string | null;
+  hotel_name: string | null;
+  room_name: string | null;
   room_check_in: string | null;
   room_check_out: string | null;
   quantity: number;
@@ -1677,18 +2091,27 @@ type AllotmentLineRow = {
 };
 
 function asAllotmentStatus(value: string): AllotmentStatus {
+  if (value === "draft") return "request";
   return allotmentStatuses.includes(value as AllotmentStatus)
     ? (value as AllotmentStatus)
-    : "draft";
+    : "request";
+}
+
+function asSaleChannel(value: string | null): SaleChannel {
+  return saleChannels.includes(value as SaleChannel)
+    ? (value as SaleChannel)
+    : "desk";
 }
 
 function mapAllotmentLine(row: AllotmentLineRow): AllotmentLine {
   return {
     id: row.id,
     allotmentId: row.allotment_id,
-    roomId: row.room_id,
-    hotelName: row.hotel_name,
-    roomName: row.room_name,
+    roomId: row.room_id ?? "",
+    offerId: row.offer_id,
+    purchaseLineId: row.purchase_line_id,
+    hotelName: row.hotel_name ?? "",
+    roomName: row.room_name ?? "",
     roomCheckIn: row.room_check_in,
     roomCheckOut: row.room_check_out,
     quantity: Number(row.quantity),
@@ -1704,6 +2127,9 @@ function mapAllotment(row: AllotmentRow, lines: AllotmentLine[]): Allotment {
     agencyId: row.agency_id,
     agencyName: row.agency_name,
     status: asAllotmentStatus(row.status),
+    channel: asSaleChannel(row.channel),
+    bookingId: row.booking_id,
+    submissionId: row.submission_id,
     checkIn: row.check_in,
     checkOut: row.check_out,
     notes: row.notes,
@@ -1715,11 +2141,19 @@ function mapAllotment(row: AllotmentRow, lines: AllotmentLine[]): Allotment {
 
 async function allotmentLines(allotmentId?: string) {
   const rows = await query<AllotmentLineRow>(
-    `SELECT l.*, r.name AS room_name, r.check_in AS room_check_in,
-            r.check_out AS room_check_out, h.name AS hotel_name
+    `SELECT l.id, l.allotment_id, l.room_id, l.offer_id, l.purchase_line_id,
+            l.quantity, l.cost_per_night, l.agency_price_per_night,
+            COALESCE(hotel.name, room_hotel.name, '') AS hotel_name,
+            COALESCE(type.name, room.name, '') AS room_name,
+            COALESCE(contract.check_in, room.check_in) AS room_check_in,
+            COALESCE(contract.check_out, room.check_out) AS room_check_out
      FROM allotment_lines l
-     JOIN rooms r ON r.id = l.room_id
-     JOIN hotels h ON h.id = r.hotel_id
+     LEFT JOIN rooms room ON room.id = l.room_id
+     LEFT JOIN hotels room_hotel ON room_hotel.id = room.hotel_id
+     LEFT JOIN offers offer ON offer.id = COALESCE(l.offer_id, room.offer_id)
+     LEFT JOIN room_types type ON type.id = offer.room_type_id
+     LEFT JOIN hotels hotel ON hotel.id = offer.hotel_id
+     LEFT JOIN purchase_lines contract ON contract.id = l.purchase_line_id
      ${allotmentId ? "WHERE l.allotment_id = ?" : ""}
      ORDER BY l.sort_order, l.id`,
     allotmentId ? [allotmentId] : [],
@@ -1764,6 +2198,42 @@ function allotmentPeriodError(checkIn: string, checkOut: string) {
   return null;
 }
 
+async function allotmentWindowError(
+  checkIn: string,
+  checkOut: string,
+  roomIds: string[],
+) {
+  const unique = [...new Set(roomIds)];
+  if (!unique.length) {
+    const covered = await query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count
+       FROM rooms
+       WHERE check_in IS NOT NULL
+         AND check_out IS NOT NULL
+         AND check_in <= ?
+         AND check_out >= ?`,
+      [checkIn, checkOut],
+    );
+    return Number(covered[0]?.count ?? 0) > 0 ? null : ("window" as const);
+  }
+
+  const rows = await query<{
+    id: string;
+    check_in: string | null;
+    check_out: string | null;
+  }>(
+    `SELECT id, check_in, check_out
+     FROM rooms
+     WHERE id IN (${unique.map(() => "?").join(", ")})`,
+    unique,
+  );
+  if (rows.length !== unique.length) return "missing-room" as const;
+  const outside = rows.some(
+    (row) => !stayInside(checkIn, checkOut, row.check_in, row.check_out),
+  );
+  return outside ? ("window" as const) : null;
+}
+
 async function nextAllotmentNumber(sql: Pick<SqlClient, "query">) {
   const rows = await sql.query<{ number: string }>(
     `SELECT number FROM allotments
@@ -1775,6 +2245,140 @@ async function nextAllotmentNumber(sql: Pick<SqlClient, "query">) {
   return `A${String(current + 1).padStart(5, "0")}`;
 }
 
+export async function ensureIndividualAgency(
+  sql: SqlClient,
+  input: {
+    name: string;
+    email: string;
+    phone: string;
+    country: string;
+    createdAt: string;
+  },
+) {
+  const existing = await sql.query<{ id: string }>(
+    `SELECT id FROM agencies
+     WHERE kind = 'individual' AND lower(email) = lower(?)
+     ORDER BY created_at
+     LIMIT 1`,
+    [input.email],
+  );
+  if (existing[0]) return existing[0].id;
+  const id = crypto.randomUUID();
+  await sql.execute(
+    `INSERT INTO agencies
+      (id, name, kind, country, contact_name, email, phone, created_at)
+     VALUES (?, ?, 'individual', ?, '', ?, ?, ?)`,
+    [
+      id,
+      input.name,
+      input.country,
+      input.email,
+      input.phone,
+      input.createdAt,
+    ],
+  );
+  return id;
+}
+
+export async function insertWebsiteSale(
+  sql: SqlClient,
+  input: {
+    channel: "b2c" | "b2b";
+    agencyId: string;
+    checkIn: string;
+    checkOut: string;
+    notes: string;
+    createdAt: string;
+    bookingId?: string | null;
+    submissionId?: string | null;
+    status?: AllotmentStatus;
+    confirmedAt?: string | null;
+    lines?: AllotmentLineInput[];
+  },
+) {
+  const id = crypto.randomUUID();
+  const number = await nextAllotmentNumber(sql);
+  const status = input.status ?? "request";
+  await sql.execute(
+    `INSERT INTO allotments
+      (id, number, agency_id, status, check_in, check_out, notes, created_at,
+       confirmed_at, channel, booking_id, submission_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      number,
+      input.agencyId,
+      status,
+      input.checkIn,
+      input.checkOut,
+      input.notes.slice(0, 2000),
+      input.createdAt,
+      status === "confirmed" ? (input.confirmedAt ?? input.createdAt) : null,
+      input.channel,
+      input.bookingId ?? null,
+      input.submissionId ?? null,
+    ],
+  );
+  if (input.lines?.length) await insertAllotmentLines(sql, id, input.lines);
+  return id;
+}
+
+export async function mirrorBookingSale(
+  bookingId: string,
+  status: "confirmed" | "cancelled",
+  sql?: Pick<SqlClient, "execute">,
+) {
+  const run = sql ? sql.execute.bind(sql) : execute;
+  const confirmedAt = new Date().toISOString();
+  await run(
+    `UPDATE allotments
+     SET status = ?,
+         confirmed_at = CASE
+           WHEN ? = 'confirmed' THEN COALESCE(confirmed_at, ?)
+           ELSE confirmed_at
+         END
+     WHERE booking_id = ?`,
+    [status, status, confirmedAt, bookingId],
+  );
+  if (status !== "cancelled") return;
+  await run(
+    `DELETE FROM assignments
+     WHERE allotment_id IN (SELECT id FROM allotments WHERE booking_id = ?)`,
+    [bookingId],
+  );
+  await run(
+    `UPDATE allotment_lines
+     SET assignment_id = NULL
+     WHERE allotment_id IN (SELECT id FROM allotments WHERE booking_id = ?)`,
+    [bookingId],
+  );
+}
+
+export async function countWebsiteDraftSales() {
+  const rows = await query<{ count: number }>(
+    `SELECT COUNT(*)::int AS count
+     FROM allotments
+     WHERE channel IN ('b2c', 'b2b') AND status IN ('request', 'provisional')`,
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
+export async function allotmentIdForBooking(bookingId: string) {
+  const rows = await query<{ id: string }>(
+    "SELECT id FROM allotments WHERE booking_id = ?",
+    [bookingId],
+  );
+  return rows[0]?.id ?? null;
+}
+
+export async function allotmentIdForSubmission(submissionId: string) {
+  const rows = await query<{ id: string }>(
+    "SELECT id FROM allotments WHERE submission_id = ?",
+    [submissionId],
+  );
+  return rows[0]?.id ?? null;
+}
+
 async function insertAllotmentLines(
   sql: Pick<SqlClient, "execute">,
   allotmentId: string,
@@ -1783,12 +2387,14 @@ async function insertAllotmentLines(
   for (const [index, line] of lines.entries()) {
     await sql.execute(
       `INSERT INTO allotment_lines
-        (id, allotment_id, room_id, quantity, cost_per_night, agency_price_per_night, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (id, allotment_id, room_id, offer_id, purchase_line_id, quantity, cost_per_night, agency_price_per_night, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         crypto.randomUUID(),
         allotmentId,
-        line.roomId,
+        line.roomId || null,
+        line.offerId,
+        line.purchaseLineId,
         line.quantity,
         line.costPerNight,
         line.agencyPricePerNight,
@@ -1796,6 +2402,54 @@ async function insertAllotmentLines(
       ],
     );
   }
+}
+
+async function prepareSaleLines(
+  lines: AllotmentLineInput[],
+  checkIn: string,
+  checkOut: string,
+) {
+  const ids = lines.map((line) => line.purchaseLineId).filter((id): id is string => Boolean(id));
+  if (!ids.length || ids.length !== lines.length) {
+    return { ok: false as const, error: "missing-room" as const };
+  }
+  const unique = [...new Set(ids)];
+  const rows = await query<{
+    id: string;
+    offer_id: string | null;
+    check_in: string;
+    check_out: string;
+    room_id: string | null;
+  }>(
+    `SELECT line.id, line.offer_id, line.check_in, line.check_out,
+            (SELECT room.id FROM rooms AS room WHERE room.offer_id = line.offer_id LIMIT 1) AS room_id
+     FROM purchase_lines AS line
+     JOIN purchases AS purchase ON purchase.id = line.purchase_id
+     WHERE purchase.status = 'confirmed'
+       AND line.id IN (${unique.map(() => "?").join(", ")})`,
+    unique,
+  );
+  if (rows.length !== unique.length) {
+    return { ok: false as const, error: "missing-room" as const };
+  }
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const prepared: AllotmentLineInput[] = [];
+  for (const line of lines) {
+    const contract = byId.get(line.purchaseLineId ?? "");
+    if (!contract?.offer_id) {
+      return { ok: false as const, error: "missing-room" as const };
+    }
+    if (checkIn < contract.check_in || checkOut > contract.check_out) {
+      return { ok: false as const, error: "window" as const };
+    }
+    prepared.push({
+      ...line,
+      offerId: contract.offer_id,
+      purchaseLineId: contract.id,
+      roomId: contract.room_id ?? "",
+    });
+  }
+  return { ok: true as const, lines: prepared };
 }
 
 export async function saveAllotment(input: {
@@ -1814,20 +2468,13 @@ export async function saveAllotment(input: {
   );
   if (!agency[0]) return { ok: false as const, error: "agency" as const };
 
-  const roomIds = [...new Set(input.lines.map((line) => line.roomId))];
-  if (roomIds.length) {
-    const found = await query<{ id: string }>(
-      `SELECT id FROM rooms WHERE id IN (${roomIds.map(() => "?").join(", ")})`,
-      roomIds,
-    );
-    if (found.length !== roomIds.length) {
-      return { ok: false as const, error: "missing-room" as const };
-    }
-  }
+  const prepared = await prepareSaleLines(input.lines, input.checkIn, input.checkOut);
+  if (!prepared.ok) return prepared;
+  const lines = prepared.lines;
 
   if (input.id) {
     const existing = await getAllotment(input.id);
-    if (!existing || existing.status !== "draft") {
+    if (!existing || existing.status !== "request" || existing.channel === "b2c") {
       return { ok: false as const, error: "allotment" as const };
     }
     const allotmentId = input.id;
@@ -1835,13 +2482,13 @@ export async function saveAllotment(input: {
       await sql.execute(
         `UPDATE allotments
          SET agency_id = ?, check_in = ?, check_out = ?, notes = ?
-         WHERE id = ? AND status = 'draft'`,
+         WHERE id = ? AND status = 'request'`,
         [input.agencyId, input.checkIn, input.checkOut, input.notes, allotmentId],
       );
       await sql.execute("DELETE FROM allotment_lines WHERE allotment_id = ?", [
         allotmentId,
       ]);
-      await insertAllotmentLines(sql, allotmentId, input.lines);
+      await insertAllotmentLines(sql, allotmentId, lines);
     });
     return { ok: true as const, id: allotmentId };
   }
@@ -1854,7 +2501,7 @@ export async function saveAllotment(input: {
         await sql.execute(
           `INSERT INTO allotments
             (id, number, agency_id, status, check_in, check_out, notes, created_at)
-           VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, 'request', ?, ?, ?, ?)`,
           [
             id,
             number,
@@ -1865,7 +2512,7 @@ export async function saveAllotment(input: {
             new Date().toISOString(),
           ],
         );
-        await insertAllotmentLines(sql, id, input.lines);
+        await insertAllotmentLines(sql, id, lines);
       });
       return { ok: true as const, id };
     } catch (error) {
@@ -1932,9 +2579,51 @@ async function heldForConfirm(
   return Number(rows[0]?.held ?? 0);
 }
 
-export async function confirmAllotment(id: string) {
+async function assertSaleFits(
+  allotment: Allotment,
+  sql: SqlClient,
+) {
+  await releaseExpiredHolds();
+  for (const line of allotment.lines) {
+    if (!line.purchaseLineId || !line.offerId) {
+      throw new AllotmentConfirmError("missing-room");
+    }
+    await sql.query(
+      "SELECT id FROM purchase_lines WHERE id = ? FOR UPDATE",
+      [line.purchaseLineId],
+    );
+    const onLine = await contractLineFree(
+      line.purchaseLineId,
+      allotment.checkIn,
+      allotment.checkOut,
+      sql,
+      allotment.id,
+    );
+    const onOffer = await offerFree(
+      line.offerId,
+      allotment.checkIn,
+      allotment.checkOut,
+      sql,
+      allotment.id,
+    );
+    const remaining = Math.min(onLine, onOffer);
+    if (line.quantity > remaining) {
+      throw new AllotmentConfirmError("quantity", remaining);
+    }
+  }
+}
+
+async function moveAllotment(
+  id: string,
+  next: "provisional" | "confirmed",
+) {
   const allotment = await getAllotment(id);
-  if (!allotment || allotment.status !== "draft") {
+  const from = next === "provisional" ? ["request"] : ["request", "provisional"];
+  if (
+    !allotment ||
+    allotment.channel === "b2c" ||
+    !from.includes(allotment.status)
+  ) {
     return { ok: false as const, error: "allotment" as const };
   }
   if (!allotment.lines.length) {
@@ -1949,118 +2638,16 @@ export async function confirmAllotment(id: string) {
         "SELECT status FROM allotments WHERE id = ? FOR UPDATE",
         [id],
       );
-      if (locked[0]?.status !== "draft") {
+      if (!locked[0] || !from.includes(locked[0].status)) {
         throw new AllotmentConfirmError("allotment");
       }
-
-      const freshLines = await sql.query<{
-        id: string;
-        room_id: string;
-        quantity: number;
-        cost_per_night: number;
-        agency_price_per_night: number;
-      }>(
-        `SELECT id, room_id, quantity, cost_per_night, agency_price_per_night
-         FROM allotment_lines
-         WHERE allotment_id = ?
-         ORDER BY sort_order, id`,
-        [id],
-      );
-      if (!freshLines.length) throw new AllotmentConfirmError("allotment");
-
-      const needed = new Map<string, number>();
-      for (const line of freshLines) {
-        needed.set(
-          line.room_id,
-          (needed.get(line.room_id) ?? 0) + Number(line.quantity),
-        );
-      }
-
-      const rooms = new Map<string, number>();
-      for (const roomId of [...needed.keys()].sort()) {
-        const rows = await sql.query<{ id: string; quantity: number }>(
-          "SELECT id, quantity FROM rooms WHERE id = ? FOR UPDATE",
-          [roomId],
-        );
-        if (!rows[0]) throw new AllotmentConfirmError("missing-room");
-        rooms.set(roomId, Number(rows[0].quantity));
-      }
-
-      for (const [roomId, quantity] of needed) {
-        const held = await heldForConfirm(
-          sql,
-          roomId,
-          rooms.get(roomId) ?? 0,
-          allotment.checkIn,
-          allotment.checkOut,
-        );
-        const reservedRows = await sql.query<{ reserved: number }>(
-          `SELECT
-             COALESCE((
-               SELECT SUM(quantity)
-               FROM assignments
-               WHERE room_id = ?
-                 AND check_in < ?
-                 AND check_out > ?
-             ), 0)
-             + COALESCE((
-               SELECT SUM(quantity)
-               FROM bookings
-               WHERE room_id = ?
-                 AND check_in < ?
-                 AND check_out > ?
-                 AND (
-                   status = 'confirmed'
-                   OR (status = 'pending' AND hold_until::timestamptz > NOW())
-                 )
-             ), 0) AS reserved`,
-          [
-            roomId,
-            allotment.checkOut,
-            allotment.checkIn,
-            roomId,
-            allotment.checkOut,
-            allotment.checkIn,
-          ],
-        );
-        const reserved = Number(reservedRows[0]?.reserved ?? 0);
-        const remaining = Math.max(0, held - reserved);
-        if (quantity > remaining) {
-          throw new AllotmentConfirmError("quantity", remaining);
-        }
-      }
-
-      for (const line of freshLines) {
-        const assignmentId = crypto.randomUUID();
-        await sql.execute(
-          `INSERT INTO assignments
-            (id, room_id, agency_id, quantity, check_in, check_out, cost_per_night, agency_price_per_night, notes, created_at, allotment_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            assignmentId,
-            line.room_id,
-            allotment.agencyId,
-            Number(line.quantity),
-            allotment.checkIn,
-            allotment.checkOut,
-            Number(line.cost_per_night),
-            Number(line.agency_price_per_night),
-            allotment.notes,
-            new Date().toISOString(),
-            allotment.id,
-          ],
-        );
-        await sql.execute(
-          "UPDATE allotment_lines SET assignment_id = ? WHERE id = ?",
-          [assignmentId, line.id],
-        );
-      }
-
+      await assertSaleFits(allotment, sql);
       await sql.execute(
         `UPDATE allotments
-         SET status = 'confirmed', confirmed_at = ?
-         WHERE id = ? AND status = 'draft'`,
-        [new Date().toISOString(), id],
+         SET status = ?,
+             confirmed_at = CASE WHEN ? = 'confirmed' THEN ? ELSE confirmed_at END
+         WHERE id = ?`,
+        [next, next, new Date().toISOString(), id],
       );
     });
   } catch (error) {
@@ -2071,13 +2658,35 @@ export async function confirmAllotment(id: string) {
     }
     throw error;
   }
+  return { ok: true as const };
+}
 
+export async function holdAllotment(id: string) {
+  return moveAllotment(id, "provisional");
+}
+
+export async function confirmAllotment(id: string) {
+  return moveAllotment(id, "confirmed");
+}
+
+export async function markNoShow(id: string) {
+  const allotment = await getAllotment(id);
+  if (!allotment || allotment.status !== "confirmed") {
+    return { ok: false as const, error: "allotment" as const };
+  }
+  await execute(
+    "UPDATE allotments SET status = 'no_show' WHERE id = ? AND status = 'confirmed'",
+    [id],
+  );
   return { ok: true as const };
 }
 
 export async function cancelAllotment(id: string) {
   const allotment = await getAllotment(id);
-  if (!allotment || allotment.status !== "confirmed") {
+  if (
+    !allotment ||
+    (allotment.status !== "confirmed" && allotment.status !== "provisional")
+  ) {
     return { ok: false as const, error: "allotment" as const };
   }
   await transaction(async (sql) => {
@@ -2086,8 +2695,16 @@ export async function cancelAllotment(id: string) {
       "UPDATE allotment_lines SET assignment_id = NULL WHERE allotment_id = ?",
       [id],
     );
+    if (allotment.bookingId) {
+      await sql.execute(
+        `UPDATE bookings
+         SET status = 'cancelled'
+         WHERE id = ? AND status IN ('pending', 'confirmed')`,
+        [allotment.bookingId],
+      );
+    }
     await sql.execute(
-      "UPDATE allotments SET status = 'cancelled' WHERE id = ? AND status = 'confirmed'",
+      "UPDATE allotments SET status = 'cancelled' WHERE id = ? AND status IN ('confirmed', 'provisional')",
       [id],
     );
   });
@@ -2096,14 +2713,263 @@ export async function cancelAllotment(id: string) {
 
 export async function deleteAllotment(id: string) {
   const allotment = await getAllotment(id);
-  if (!allotment || (allotment.status !== "draft" && allotment.status !== "cancelled")) {
+  if (!allotment || (allotment.status !== "request" && allotment.status !== "cancelled")) {
     return false;
+  }
+  if (allotment.bookingId) {
+    await execute("DELETE FROM bookings WHERE id = ?", [allotment.bookingId]);
   }
   await execute("DELETE FROM assignments WHERE allotment_id = ?", [id]);
   await execute("DELETE FROM allotment_lines WHERE allotment_id = ?", [id]);
   await execute(
-    "DELETE FROM allotments WHERE id = ? AND status IN ('draft', 'cancelled')",
+    "DELETE FROM allotments WHERE id = ? AND status IN ('request', 'cancelled')",
     [id],
   );
   return true;
+}
+
+export async function reopenAllotment(id: string) {
+  const allotment = await getAllotment(id);
+  if (!allotment || allotment.status !== "cancelled" || allotment.channel === "b2c") {
+    return false;
+  }
+  await execute(
+    `UPDATE allotments
+     SET status = 'request', confirmed_at = NULL
+     WHERE id = ? AND status = 'cancelled'`,
+    [id],
+  );
+  return true;
+}
+
+export async function hotelDailyChart(hotelId: string) {
+  const stock = await loadContractStock();
+  const offers = stock.offers.filter((offer) => offer.hotel_id === hotelId);
+  return Promise.all(
+    offers.map(async (offer) => {
+      const lines = stock.byOffer.get(offer.id) ?? [];
+      const window = chartWindow(
+        lines.map((line) => ({ checkIn: line.checkIn, checkOut: line.checkOut })),
+      );
+      return {
+        id: offer.id,
+        name: offer.name,
+        guests: Number(offer.guests),
+        board: mealPlanCode(offer.board) ?? "room_only",
+        view: offer.view,
+        days: await offerChart(offer.id, window.from, window.to),
+      };
+    }),
+  );
+}
+
+export async function listLineRates(purchaseId: string) {
+  const rows = await query<{
+    id: string;
+    purchase_line_id: string;
+    agency_id: string;
+    agency_name: string;
+    price_per_night: number;
+  }>(
+    `SELECT rate.id, rate.purchase_line_id, rate.agency_id, agency.name AS agency_name,
+            rate.price_per_night
+     FROM contract_rates AS rate
+     JOIN agencies AS agency ON agency.id = rate.agency_id
+     JOIN purchase_lines AS line ON line.id = rate.purchase_line_id
+     WHERE line.purchase_id = ?
+     ORDER BY agency.name`,
+    [purchaseId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    purchaseLineId: row.purchase_line_id,
+    agencyId: row.agency_id,
+    agencyName: row.agency_name,
+    pricePerNight: Number(row.price_per_night),
+  }));
+}
+
+export async function saveContractRate(input: {
+  purchaseLineId: string;
+  agencyId: string;
+  pricePerNight: number;
+}) {
+  if (!Number.isInteger(input.pricePerNight) || input.pricePerNight < 1) return false;
+  const line = await query<{ id: string }>(
+    `SELECT line.id
+     FROM purchase_lines AS line
+     JOIN purchases AS purchase ON purchase.id = line.purchase_id
+     WHERE line.id = ? AND purchase.status = 'confirmed'`,
+    [input.purchaseLineId],
+  );
+  const agency = await query<{ id: string; kind: string | null }>(
+    "SELECT id, kind FROM agencies WHERE id = ?",
+    [input.agencyId],
+  );
+  if (!line[0] || !agency[0] || agency[0].kind === "individual") return false;
+  await execute(
+    `INSERT INTO contract_rates (id, purchase_line_id, agency_id, price_per_night)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (purchase_line_id, agency_id)
+     DO UPDATE SET price_per_night = EXCLUDED.price_per_night`,
+    [crypto.randomUUID(), input.purchaseLineId, input.agencyId, input.pricePerNight],
+  );
+  return true;
+}
+
+export async function deleteContractRate(id: string) {
+  await execute("DELETE FROM contract_rates WHERE id = ?", [id]);
+}
+
+export async function listDeskRates() {
+  const rows = await query<{
+    purchase_line_id: string;
+    agency_id: string;
+    price_per_night: number;
+  }>(
+    `SELECT purchase_line_id, agency_id, price_per_night
+     FROM contract_rates`,
+  );
+  return rows.map((row) => ({
+    purchaseLineId: row.purchase_line_id,
+    agencyId: row.agency_id,
+    pricePerNight: Number(row.price_per_night),
+  }));
+}
+
+export async function agencyPrices(agencyId: string) {
+  const rows = await query<{
+    purchase_line_id: string;
+    offer_id: string | null;
+    price_per_night: number;
+    check_in: string;
+    check_out: string;
+  }>(
+    `SELECT rate.purchase_line_id, line.offer_id, rate.price_per_night,
+            line.check_in, line.check_out
+     FROM contract_rates AS rate
+     JOIN purchase_lines AS line ON line.id = rate.purchase_line_id
+     JOIN purchases AS purchase ON purchase.id = line.purchase_id
+     WHERE rate.agency_id = ?
+       AND purchase.status = 'confirmed'`,
+    [agencyId],
+  );
+  return rows.map((row) => ({
+    purchaseLineId: row.purchase_line_id,
+    offerId: row.offer_id,
+    pricePerNight: Number(row.price_per_night),
+    checkIn: row.check_in,
+    checkOut: row.check_out,
+  }));
+}
+
+export async function createAgencyReservation(input: {
+  agencyId: string;
+  offerId: string;
+  checkIn: string;
+  checkOut: string;
+  quantity: number;
+}) {
+  const stay = parseStay(input.checkIn, input.checkOut);
+  if (!stay) return { ok: false as const, error: "dates" as const };
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 5000) {
+    return { ok: false as const, error: "quantity" as const };
+  }
+  const rates = await agencyPrices(input.agencyId);
+  const rate = rates.find(
+    (item) =>
+      item.offerId === input.offerId &&
+      item.checkIn <= stay.checkIn &&
+      item.checkOut >= stay.checkOut,
+  );
+  if (!rate) return { ok: false as const, error: "rate" as const };
+  const lines = await query<{
+    id: string;
+    cost_per_night: number;
+    min_nights: number | null;
+    sale_mode: string | null;
+    room_id: string | null;
+  }>(
+    `SELECT line.id, line.cost_per_night, line.min_nights, line.sale_mode,
+            (SELECT room.id FROM rooms AS room WHERE room.offer_id = line.offer_id LIMIT 1) AS room_id
+     FROM purchase_lines AS line
+     WHERE line.id = ?`,
+    [rate.purchaseLineId],
+  );
+  const line = lines[0];
+  if (!line) return { ok: false as const, error: "rate" as const };
+  if (stay.nights < (Number(line.min_nights ?? 1) || 1)) {
+    return { ok: false as const, error: "dates" as const };
+  }
+  await releaseExpiredHolds();
+  const saleMode = saleModeCode(line.sale_mode ?? "") ?? "book";
+  const createdAt = new Date().toISOString();
+  let number = "";
+  let status: "request" | "provisional" = "request";
+  await transaction(async (sql) => {
+    await sql.query("SELECT id FROM purchase_lines WHERE id = ? FOR UPDATE", [line.id]);
+    const onLine = await contractLineFree(
+      line.id,
+      stay.checkIn,
+      stay.checkOut,
+      sql,
+    );
+    const onOffer = await offerFree(input.offerId, stay.checkIn, stay.checkOut, sql);
+    const asksRequest =
+      saleMode === "request" || input.quantity > Math.min(onLine, onOffer);
+    status = asksRequest ? "request" : "provisional";
+    const saleId = await insertWebsiteSale(sql, {
+      channel: "b2b",
+      agencyId: input.agencyId,
+      checkIn: stay.checkIn,
+      checkOut: stay.checkOut,
+      notes: "",
+      createdAt,
+      status,
+      lines: [
+        {
+          roomId: line.room_id ?? "",
+          offerId: input.offerId,
+          purchaseLineId: line.id,
+          quantity: input.quantity,
+          costPerNight: Number(line.cost_per_night),
+          agencyPricePerNight: rate.pricePerNight,
+        },
+      ],
+    });
+    const saved = await sql.query<{ number: string }>(
+      "SELECT number FROM allotments WHERE id = ?",
+      [saleId],
+    );
+    number = saved[0]?.number ?? "";
+  });
+  return { ok: true as const, number, status };
+}
+
+export async function withAgencyRates<
+  T extends { rooms: Array<{ id: string; agencyPricePerNight: number | null }> },
+>(hotels: T[], agencyId: string, stay: { checkIn: string; checkOut: string } | null) {
+  const prices = await agencyPrices(agencyId);
+  return hotels
+    .map((hotel) => ({
+      ...hotel,
+      rooms: hotel.rooms.flatMap((room) => {
+        const matches = prices.filter(
+          (price) =>
+            price.offerId === room.id &&
+            (!stay ||
+              (price.checkIn <= stay.checkIn && price.checkOut >= stay.checkOut)),
+        );
+        if (!matches.length) return [];
+        return [
+          {
+            ...room,
+            agencyPricePerNight: Math.min(
+              ...matches.map((item) => item.pricePerNight),
+            ),
+          },
+        ];
+      }),
+    }))
+    .filter((hotel) => hotel.rooms.length > 0);
 }

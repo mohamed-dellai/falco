@@ -135,6 +135,8 @@ export function DateField({
   onChange,
   required = false,
   min,
+  max,
+  disabled = false,
   locale,
   label,
   variant = "desk",
@@ -148,6 +150,8 @@ export function DateField({
   onChange?: (value: string) => void;
   required?: boolean;
   min?: string;
+  max?: string;
+  disabled?: boolean;
   locale: string;
   label?: string;
   variant?: "desk" | "public";
@@ -171,6 +175,7 @@ export function DateField({
 
   function commit(next: string) {
     if (next && min && next < min) return;
+    if (next && max && next > max) return;
     if (!controlled) setInternal(next);
     onChange?.(next);
   }
@@ -186,11 +191,20 @@ export function DateField({
           type="date"
           required={required}
           min={min}
+          max={max}
+          disabled={disabled}
           value={current}
           aria-label={label}
           aria-invalid={invalid}
           aria-describedby={describedBy}
-          onChange={(event) => commit(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            if ((next && min && next < min) || (next && max && next > max)) {
+              event.target.value = current;
+              return;
+            }
+            commit(next);
+          }}
           className={fieldClass}
         />
       ) : (
@@ -199,6 +213,8 @@ export function DateField({
           value={current}
           required={required}
           min={min}
+          max={max}
+          disabled={disabled}
           label={label}
           invalid={invalid}
           describedBy={describedBy}
@@ -218,6 +234,8 @@ function HijriPicker({
   value,
   required,
   min,
+  max,
+  disabled = false,
   label,
   invalid,
   describedBy,
@@ -228,6 +246,8 @@ function HijriPicker({
   value: string;
   required: boolean;
   min?: string;
+  max?: string;
+  disabled?: boolean;
   label?: string;
   invalid?: boolean;
   describedBy?: string;
@@ -245,6 +265,7 @@ function HijriPicker({
     weekStart: 6,
     weekendDays: [5, 6],
     minDate: min || null,
+    maxDate: max || null,
     showTodayButton: true,
     showClearButton: true,
     closeOnSelect: true,
@@ -271,7 +292,7 @@ function HijriPicker({
     function onPick(event: Event) {
       const detail = (event as CustomEvent<{ value?: string }>).detail;
       const next = detail?.value ?? "";
-      if (next && min && next < min) {
+      if (next && ((min && next < min) || (max && next > max))) {
         const picker = pickerRef.current;
         if (value) picker?.setGregorianValue(value);
         else if (picker?.getGregorianValue()) picker.clear();
@@ -291,7 +312,7 @@ function HijriPicker({
       input.removeEventListener("mcd:change", onPick);
       input.removeEventListener("mcd:clear", onClear);
     };
-  }, [inputRef, min, onValue, pickerRef, value]);
+  }, [inputRef, max, min, onValue, pickerRef, value]);
 
   return (
     <>
@@ -301,6 +322,7 @@ function HijriPicker({
         type="text"
         readOnly
         required={required}
+        disabled={disabled}
         aria-label={label}
         dir="auto"
         aria-haspopup="dialog"

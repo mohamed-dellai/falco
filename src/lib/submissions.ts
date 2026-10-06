@@ -1,5 +1,7 @@
 import { execute, query, transaction } from "@/lib/db";
 import type { AgencyInput, QuoteInput } from "@/lib/forms";
+import { insertWebsiteSale } from "@/lib/inventory";
+import { nightsBetween, shiftIsoDate, todayInRiyadh } from "@/lib/money";
 
 export type SubmissionKind = "agency" | "quote";
 
@@ -85,6 +87,18 @@ function mapSubmission(row: SubmissionRow): Submission {
   };
 }
 
+function websiteStay(arrival: string, departure: string) {
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(arrival) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(departure) &&
+    nightsBetween(arrival, departure) >= 1
+  ) {
+    return { checkIn: arrival, checkOut: departure };
+  }
+  const checkIn = todayInRiyadh();
+  return { checkIn, checkOut: shiftIsoDate(checkIn, 1) };
+}
+
 function asSubmissionStatus(value: string | null): SubmissionStatus {
   return submissionStatuses.includes(value as SubmissionStatus)
     ? (value as SubmissionStatus)
@@ -136,6 +150,24 @@ export async function recordAgencyApplication(
         createdAt,
       ],
     );
+    const stay = websiteStay("", "");
+    await insertWebsiteSale(sql, {
+      channel: "b2b",
+      agencyId,
+      checkIn: stay.checkIn,
+      checkOut: stay.checkOut,
+      notes: [
+        input.role,
+        input.agencyWebsite,
+        String(input.annualPilgrims),
+        input.markets,
+        input.requirements,
+      ]
+        .filter((part) => part.trim())
+        .join("\n"),
+      createdAt,
+      submissionId: id,
+    });
   });
 
   return { id, agencyId };
@@ -184,6 +216,23 @@ export async function recordQuote(input: QuoteInput, reference: string) {
         createdAt,
       ],
     );
+    const stay = websiteStay(input.arrival, input.departure);
+    await insertWebsiteSale(sql, {
+      channel: "b2b",
+      agencyId,
+      checkIn: stay.checkIn,
+      checkOut: stay.checkOut,
+      notes: [
+        input.travellers == null ? "" : String(input.travellers),
+        input.roomCount == null ? "" : String(input.roomCount),
+        input.requirements,
+        input.packageSlug,
+      ]
+        .filter((part) => part.trim())
+        .join("\n"),
+      createdAt,
+      submissionId: id,
+    });
   });
 
   return id;

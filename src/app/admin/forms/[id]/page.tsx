@@ -1,18 +1,12 @@
-import { notFound, redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { getSubmission } from "@/lib/submissions";
+import { redirect } from "next/navigation";
+import { allotmentIdForSubmission } from "@/lib/inventory";
 
-export const dynamic = "force-dynamic";
-
-export default async function FormPage({
+export default async function RequestPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
   const { id } = await params;
-  const submission = await getSubmission(id);
-  if (!submission) notFound();
-
-  redirect(`/admin/forms?selected=${encodeURIComponent(submission.id)}`);
+  const sale = await allotmentIdForSubmission(id);
+  redirect(sale ? `/admin/allotments/${sale}` : "/admin/allotments?channel=b2b");
 }

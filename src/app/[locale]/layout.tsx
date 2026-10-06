@@ -8,10 +8,12 @@ import {
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { HideOnGate } from "@/components/public-section";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { routing, type Locale } from "@/i18n/routing";
-import { siteConfig } from "@/lib/site";
+import { getCompanyProfile } from "@/lib/company";
+import { siteConfig, whatsappUrl } from "@/lib/site";
 import "../globals.css";
 
 const bodyFont = Plus_Jakarta_Sans({
@@ -82,7 +84,10 @@ export default async function LocaleLayout({
 
   const activeLocale = locale as Locale;
   setRequestLocale(activeLocale);
-  const messages = await getMessages();
+  const [messages, company] = await Promise.all([
+    getMessages(),
+    getCompanyProfile(),
+  ]);
   const direction = activeLocale === "ar" ? "rtl" : "ltr";
 
   return (
@@ -100,11 +105,16 @@ export default async function LocaleLayout({
           >
             {skipLabels[activeLocale]}
           </a>
-          <SiteHeader />
+          <SiteHeader
+            companyName={company.name}
+            whatsappHref={whatsappUrl(company.whatsapp)}
+          />
           <main id="main-content" className="min-h-screen pt-20">
             {children}
           </main>
-          <SiteFooter />
+          <HideOnGate>
+            <SiteFooter company={company} />
+          </HideOnGate>
         </NextIntlClientProvider>
       </body>
     </html>

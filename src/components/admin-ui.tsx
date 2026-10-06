@@ -5,16 +5,16 @@ import { Search } from "lucide-react";
 export const adminFieldClass = "desk-field";
 
 export const adminButtonClass =
-  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-[var(--desk-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--desk-primary-hover)] disabled:pointer-events-none disabled:opacity-55 lg:min-h-10";
+  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-[var(--desk-primary)] px-4 text-xs font-semibold text-white transition hover:bg-[var(--desk-primary-hover)] disabled:pointer-events-none disabled:opacity-55 lg:h-9 lg:min-h-9";
 
 export const adminButtonSecondaryClass =
-  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-[var(--desk-line-strong)] bg-white px-4 py-2 text-sm font-semibold text-[var(--desk-text)] transition hover:border-[var(--desk-primary)] hover:text-[var(--desk-primary)] disabled:pointer-events-none disabled:opacity-55 lg:min-h-10";
+  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--desk-line)] bg-white px-3.5 text-xs font-semibold text-[var(--desk-ink)] shadow-sm transition hover:bg-[var(--desk-surface-muted)] disabled:pointer-events-none disabled:opacity-55 lg:h-9 lg:min-h-9";
 
 export const adminButtonGhostClass =
-  "desk-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-3 py-2 text-sm font-semibold text-[var(--desk-primary)] transition hover:bg-[var(--desk-surface-muted)] disabled:pointer-events-none disabled:opacity-55 lg:min-h-10";
+  "desk-focus inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-[var(--desk-muted)] transition hover:bg-[var(--desk-surface-muted)] hover:text-[var(--desk-ink)] disabled:pointer-events-none disabled:opacity-55 lg:h-9 lg:min-h-9";
 
 export const adminButtonDangerClass =
-  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-[var(--desk-danger-line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--desk-danger)] transition hover:bg-[var(--desk-danger-soft)] disabled:pointer-events-none disabled:opacity-55 lg:min-h-10";
+  "desk-focus desk-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--desk-line)] bg-white px-3.5 text-xs font-semibold text-[var(--desk-danger)] transition hover:bg-[var(--desk-danger-soft)] disabled:pointer-events-none disabled:opacity-55 lg:h-9 lg:min-h-9";
 
 export function AdminPanel({
   title,
@@ -31,7 +31,7 @@ export function AdminPanel({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-[var(--desk-surface)] ${className}`}
+      className={`overflow-hidden rounded-lg border border-[var(--desk-line)] bg-[var(--desk-surface)] shadow-sm ${className}`}
     >
       {(title || description || actions) && (
         <header className="flex flex-wrap items-start gap-3 border-b border-[var(--desk-line)] px-4 py-3 sm:px-5">
@@ -140,25 +140,23 @@ export function AdminFilterBar({
   return (
     <nav
       aria-label={label}
-      className="flex min-w-0 max-w-full gap-1 overflow-x-auto rounded-xl border border-[var(--desk-line)] bg-white p-1"
+      className="flex min-w-0 max-w-full gap-0 overflow-x-auto rounded-lg border border-[var(--desk-line)] bg-white shadow-sm"
     >
       {items.map((item) => (
         <Link
           key={item.href}
           href={item.href}
           aria-current={item.active ? "page" : undefined}
-          className={`desk-focus flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition lg:min-h-10 ${
+          className={`desk-focus flex min-h-11 shrink-0 items-center gap-2 border-e border-[var(--desk-line)] px-3 py-1.5 text-xs font-semibold transition last:border-e-0 lg:min-h-8 ${
             item.active
-              ? "bg-[var(--desk-ink)] text-white"
+              ? "bg-[var(--desk-surface-muted)] text-[var(--desk-ink)]"
               : "text-[var(--desk-muted)] hover:bg-[var(--desk-surface-muted)] hover:text-[var(--desk-ink)]"
           }`}
         >
           {item.label}
           {item.count !== undefined && (
             <span
-              className={`font-plex text-[11px] ${
-                item.active ? "text-white/70" : "text-[var(--desk-muted)]"
-              }`}
+              className="font-plex text-[11px] text-[var(--desk-muted)]"
             >
               {item.count}
             </span>
@@ -205,7 +203,7 @@ export function AdminEmptyState({
 }) {
   return (
     <section
-      className={`rounded-2xl border border-dashed border-[var(--desk-line-strong)] bg-white px-5 text-center ${
+      className={`rounded-lg border border-dashed border-[var(--desk-line-strong)] bg-white px-5 text-center shadow-sm ${
         compact ? "py-5" : "py-10"
       }`}
     >
@@ -230,7 +228,7 @@ export function AdminEmptyState({
 
 export function AdminTableFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-[var(--desk-line)] bg-white">
+    <div className="overflow-x-auto rounded-lg border border-[var(--desk-line)] bg-white shadow-sm">
       {children}
     </div>
   );
@@ -268,7 +266,7 @@ export function AdminStatStrip({
   items: Array<{ label: string; value: ReactNode; detail?: string }>;
 }) {
   return (
-    <section className="grid gap-px overflow-hidden rounded-2xl border border-[var(--desk-line)] bg-[var(--desk-line)] sm:grid-cols-2 lg:grid-cols-4">
+    <section className="grid gap-px overflow-hidden rounded-lg border border-[var(--desk-line)] bg-[var(--desk-line)] shadow-sm sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
         <article key={item.label} className="bg-white px-4 py-3.5">
           <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--desk-muted)]">

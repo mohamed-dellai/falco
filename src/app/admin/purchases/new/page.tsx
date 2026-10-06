@@ -5,7 +5,7 @@ import { PurchaseForm } from "@/components/purchase-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { listHotels } from "@/lib/inventory";
+import { listHotels, listRoomTypes } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,10 @@ export default async function NewPurchasePage({
   await requireAdmin();
   const copy = adminCopy(await getAdminLocale());
   const query = await searchParams;
-  const hotels = await listHotels();
+  const [hotels, roomTypes] = await Promise.all([
+    listHotels(),
+    listRoomTypes(),
+  ]);
 
   return (
     <AdminShell
@@ -26,7 +29,11 @@ export default async function NewPurchasePage({
     >
       <AdminError code={query.error} />
       {hotels.length ? (
-        <PurchaseForm hotels={hotels} hotelId={query.hotel} />
+        <PurchaseForm
+          hotels={hotels}
+          hotelId={query.hotel}
+          roomTypes={roomTypes}
+        />
       ) : (
         <AdminEmptyState
           title={copy.noHotels}

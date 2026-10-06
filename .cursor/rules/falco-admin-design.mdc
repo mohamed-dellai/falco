@@ -1,0 +1,42 @@
+---
+description: Falco wholesale admin desk visual system — Odoo form sheet plus Joodbooking clarity
+globs: src/app/admin/**/*,src/components/admin*.tsx,src/components/purchase-form.tsx,src/components/allotment-form.tsx,src/components/requests-inbox.tsx,src/components/named-confirm.tsx,design/admin-*.html
+alwaysApply: false
+---
+
+# Falco admin desk
+
+System: minimalist Odoo document sheet, Joodbooking light canvas. High density, no decorative widgets. Reference overview: `design/admin-overview.html`. Other module HTML arrives later — match this system, do not invent a second look. Do not apply this to the public site.
+
+## Tokens
+
+- Canvas `#F8FAFC`. Sheet `#FFFFFF`, 1px `#E2E8F0`, `shadow-sm`.
+- Navy headings `#15375E`. Body `#414649` / slate `#64748B`.
+- Primary blue `#2D60E0` only for the confirm CTA, active tab, focus.
+- Gold `#C59B27` only for SAR marks, draft badges, allotment markers.
+- Status dot + short word: confirmed `#10B981`, draft/hold `#F59E0B`, cancelled `#EF4444`.
+- Type: Plus Jakarta Sans. Arabic: Changa or IBM Plex Sans Arabic. Money, quantities, dates: `tabular-nums`.
+
+## Chrome
+
+- Slim white icon rail (64px, rounded, floating), not a dark full-height sidebar. EN/FR switch lives on the rail.
+- Top bar: module name, season, global search, SAR/USD peg, notifications.
+- List: one sheet, search, filters, row click opens the form. No inline editing.
+- Form: one sheet for new and existing. Breadcrumb, record id, stage track Draft → Confirmed → Done. Tabs for lines, rules, notes. Line grid with add-line. Totals bottom right.
+
+## Button bar
+
+Fixed on every form, this order only:
+
+1. Cancel — gray text `#64748B`, never a red fill. Confirm first if rooms or a payment are held.
+2. Save draft — white pill, blue outline. Stores the document and holds no rooms.
+3. Confirm — filled `#2D60E0` pill. Commits inventory.
+
+Hotels, rooms, and clients use Save in the blue slot and omit draft. Delete is a separate text danger control behind a confirm sheet.
+
+## Inventory
+
+- Draft purchase holds 0 rooms. Confirm puts rooms on the wholesale calendar.
+- Confirmed sale locks rooms for that agency. Never over-allocate.
+- Dates show Gregorian and Hijri together. The Hijri grid must not clip.
+- Desk copy is EN/FR. Hotel and holy-zone names stay as stored, including Arabic.

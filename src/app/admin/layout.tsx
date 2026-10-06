@@ -1,25 +1,16 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Instrument_Sans, Newsreader } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import { AdminAccountProvider } from "@/components/admin-account";
 import { AdminLocaleProvider } from "@/components/admin-locale";
+import { currentAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import "../globals.css";
 import "./admin.css";
 
-const sans = Instrument_Sans({
+const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-desk",
-});
-
-const news = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-news",
-});
-
-const plex = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,16 +27,19 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const locale = await getAdminLocale();
+  const account = await currentAdmin();
 
   return (
     <html
       lang={locale}
-      className={`${sans.variable} ${news.variable} ${plex.variable}`}
+      className={sans.variable}
     >
       <body
         className={`${sans.className} admin-desk bg-[var(--desk-canvas)] text-[var(--desk-ink)] antialiased`}
       >
-        <AdminLocaleProvider locale={locale}>{children}</AdminLocaleProvider>
+        <AdminLocaleProvider locale={locale}>
+          <AdminAccountProvider account={account}>{children}</AdminAccountProvider>
+        </AdminLocaleProvider>
       </body>
     </html>
   );

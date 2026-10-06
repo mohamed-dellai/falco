@@ -77,6 +77,22 @@ export function nightsBetween(checkIn: string, checkOut: string) {
   return Math.round((end - start) / 86_400_000);
 }
 
+export function shiftIsoDate(iso: string, days: number) {
+  const parsed = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(parsed)) return "";
+  return new Date(parsed + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function stayInside(
+  checkIn: string,
+  checkOut: string,
+  windowIn: string | null | undefined,
+  windowOut: string | null | undefined,
+) {
+  if (!checkIn || !checkOut || !windowIn || !windowOut) return false;
+  return checkIn >= windowIn && checkOut <= windowOut;
+}
+
 export function todayInRiyadh() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Riyadh",

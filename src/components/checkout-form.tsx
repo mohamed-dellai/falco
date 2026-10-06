@@ -27,6 +27,7 @@ export function CheckoutForm({
   const [quantity, setQuantity] = useState(1);
   const [travellers, setTravellers] = useState(1);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
   const rooms = Math.min(maxDirectRooms, Math.max(1, quantity || 1));
   const people = Math.max(1, travellers || 1);
@@ -35,6 +36,7 @@ export function CheckoutForm({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setNotice("");
     if (people > capacity * rooms) {
       setError(t("capacity"));
       return;
@@ -58,7 +60,17 @@ export function CheckoutForm({
           locale,
         }),
       });
-      const result = (await response.json()) as { url?: string; code?: string };
+      const result = (await response.json()) as {
+        url?: string | null;
+        code?: string;
+        requested?: boolean;
+        reference?: string;
+      };
+      if (result.requested) {
+        setNotice(t("requested", { reference: result.reference ?? "" }));
+        setPending(false);
+        return;
+      }
       if (!response.ok || !result.url) {
         setError(
           t(
@@ -168,6 +180,9 @@ export function CheckoutForm({
           total: formatMoney(total, locale),
         })}
       </p>
+      {notice && (
+        <p className="mt-3 text-sm font-bold text-primary">{notice}</p>
+      )}
       {error && (
         <p role="alert" className="mt-3 text-sm font-bold text-red-800">
           {error}

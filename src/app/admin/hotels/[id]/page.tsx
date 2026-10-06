@@ -27,16 +27,14 @@ import { adminCopy, fill } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import {
   getHotel,
-  heldOn,
+  hotelDailyChart,
   listHotelPhotos,
   listPurchases,
-  listRooms,
   purchaseAmount,
-  roomHasPeriod,
   purchaseSpan,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
-import { roomTypeLabel } from "@/lib/room-types";
+import { mealPlanLabel, roomTypeLabel, type MealPlan } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -65,17 +63,17 @@ export default async function HotelAdminPage({
   const hotel = await getHotel(id);
   if (!hotel) notFound();
 
-  const [photos, rooms, purchases] = await Promise.all([
+  const [photos, purchases, chart] = await Promise.all([
     listHotelPhotos(id),
-    listRooms(id),
     listPurchases({ hotelId: id }),
+    hotelDailyChart(id),
   ]);
-  const roomCards = await Promise.all(
-    rooms.filter(roomHasPeriod).map(async (room) => ({
-      ...room,
-      heldToday: await heldOn(room),
-    })),
-  );
+  const boards: Record<MealPlan, string> = {
+    room_only: copy.roomOnly,
+    breakfast: copy.breakfastBoard,
+    half_board: copy.halfBoard,
+    full_board: copy.fullBoard,
+  };
 
   return (
     <AdminShell
@@ -147,100 +145,46 @@ export default async function HotelAdminPage({
       </div>
 
       <div className="mt-6">
-        <AdminSectionHeader title={copy.roomsForHotel} />
+        <AdminSectionHeader title={copy.chartTitle} />
       </div>
-      {roomCards.length ? (
-        <>
-          <div className="grid gap-3 lg:hidden">
-            {roomCards.map((room) => (
-              <Link
-                key={room.id}
-                href={`/admin/rooms/${room.id}`}
-                className="desk-focus rounded-2xl border border-[var(--desk-line)] bg-white p-4"
-              >
-                <h2 className="font-semibold">
-                  {roomTypeLabel(room.name, (type) => copy[type])}
-                </h2>
-                <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
-                  {formatDateRange(room.checkIn, room.checkOut, locale)}
-                </p>
-                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--desk-line)] pt-3 text-xs">
-                  <span>
-                    <span className="block text-[var(--desk-muted)]">
-                      {copy.guests}
-                    </span>
-                    <strong className="font-plex">{room.capacity}</strong>
-                  </span>
-                  <span>
-                    <span className="block text-[var(--desk-muted)]">
-                      {copy.heldToday}
-                    </span>
-                    <strong className="font-plex">{room.heldToday}</strong>
-                  </span>
-                  <span className="text-end">
-                    <span className="block text-[var(--desk-muted)]">
-                      {copy.costNight}
-                    </span>
-                    <strong className="font-plex">
-                      {formatMoney(room.costPerNight, locale)}
-                    </strong>
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-          <div className="hidden lg:block">
-            <AdminTableFrame>
-              <table className="desk-table w-full border-collapse text-start text-sm">
-                <thead className="bg-[var(--desk-canvas)]">
-                  <tr>
-                    <th className="px-4 py-3 text-start">{copy.roomType}</th>
-                    <th className="px-4 py-3 text-start">{copy.period}</th>
-                    <th className="px-4 py-3 text-end">{copy.guests}</th>
-                    <th className="px-4 py-3 text-end">{copy.heldToday}</th>
-                    <th className="px-4 py-3 text-end">{copy.costNight}</th>
-                    <th className="px-4 py-3 text-end">
-                      {copy.publicPriceNight}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roomCards.map((room) => (
-                    <tr key={room.id}>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/rooms/${room.id}`}
-                          className="desk-focus rounded-sm font-semibold text-[var(--desk-primary)] hover:underline"
-                        >
-                          {roomTypeLabel(room.name, (type) => copy[type])}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 font-plex text-xs">
-                        {formatDateRange(room.checkIn, room.checkOut, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-end font-plex">
-                        {room.capacity}
-                      </td>
-                      <td className="px-4 py-3 text-end font-plex">
-                        {room.heldToday}
-                      </td>
-                      <td className="px-4 py-3 text-end font-plex">
-                        {formatMoney(room.costPerNight, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-end font-plex">
-                        {room.publicPricePerNight == null
-                          ? "—"
-                          : formatMoney(room.publicPricePerNight, locale)}
-                      </td>
+      {chart.length ? (
+        <div className="grid gap-4">
+          {chart.map((offer) => (
+            <AdminPanel key={offer.id}>
+              <h2 className="font-semibold">
+                {roomTypeLabel(offer.name, (type) => copy[type])}
+                <span className="ms-2 text-sm font-medium text-[var(--desk-muted)]">
+                  {copy.guests} {offer.guests} · {mealPlanLabel(offer.board, boards)}
+                  {offer.view.trim() ? ` · ${offer.view.trim()}` : ""}
+                </span>
+              </h2>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full border-collapse text-start text-sm">
+                  <thead>
+                    <tr className="text-[var(--desk-muted)]">
+                      <th className="px-2 py-2 text-start">{copy.stay}</th>
+                      <th className="px-2 py-2 text-end">{copy.chartHeld}</th>
+                      <th className="px-2 py-2 text-end">{copy.chartTaken}</th>
+                      <th className="px-2 py-2 text-end">{copy.chartFree}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </AdminTableFrame>
-          </div>
-        </>
+                  </thead>
+                  <tbody>
+                    {offer.days.map((day) => (
+                      <tr key={day.day} className="border-t border-[var(--desk-line)]">
+                        <td className="px-2 py-2 font-plex">{day.day}</td>
+                        <td className="px-2 py-2 text-end font-plex">{day.held}</td>
+                        <td className="px-2 py-2 text-end font-plex">{day.taken}</td>
+                        <td className="px-2 py-2 text-end font-plex">{day.free}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </AdminPanel>
+          ))}
+        </div>
       ) : (
-        <AdminEmptyState title={copy.roomsAfterPurchase} />
+        <AdminEmptyState title={copy.chartEmpty} />
       )}
 
       <div className="mt-6">

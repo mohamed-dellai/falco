@@ -11,6 +11,7 @@ import {
 import {
   AllotmentStatusPill,
   DeleteCancelledAllotment,
+  SaleChannelMark,
 } from "@/components/allotment-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, countText, fill } from "@/lib/admin-copy";
@@ -19,7 +20,9 @@ import {
   allotmentStatuses,
   allotmentValue,
   listAllotments,
+  saleChannels,
   type AllotmentStatus,
+  type SaleChannel,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
 import { roomTypeLabel } from "@/lib/room-types";
@@ -32,9 +35,17 @@ function asStatus(value: string | undefined) {
     : undefined;
 }
 
-function filterHref(status: string, query: string) {
+function asChannel(value: string | undefined) {
+  if (value === "website") return "website" as const;
+  return saleChannels.includes(value as SaleChannel)
+    ? (value as SaleChannel)
+    : undefined;
+}
+
+function filterHref(status: string, channel: string, query: string) {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
+  if (channel) params.set("channel", channel);
   if (query) params.set("q", query);
   const suffix = params.toString();
   return `/admin/allotments${suffix ? `?${suffix}` : ""}`;
@@ -43,23 +54,36 @@ function filterHref(status: string, query: string) {
 export default async function AllotmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; channel?: string; q?: string }>;
 }) {
   await requireAdmin();
   const locale = await getAdminLocale();
   const copy = adminCopy(locale);
   const query = await searchParams;
   const status = asStatus(query.status);
+  const channel = asChannel(query.channel);
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
   const all = await listAllotments();
-  const statusRows = status
-    ? all.filter((allotment) => allotment.status === status)
+  const channelRows = channel
+    ? all.filter((allotment) =>
+        channel === "website"
+          ? allotment.channel === "b2c" || allotment.channel === "b2b"
+          : allotment.channel === channel,
+      )
     : all;
+  const statusRows = status
+    ? channelRows.filter((allotment) => allotment.status === status)
+    : channelRows;
   const allotments = search
     ? statusRows.filter((allotment) =>
         [
           allotment.number,
           allotment.agencyName,
+          allotment.channel === "b2c"
+            ? copy.channelB2c
+            : allotment.channel === "b2b"
+              ? copy.channelB2b
+              : copy.channelDesk,
           allotment.checkIn,
           allotment.checkOut,
           ...allotment.lines.flatMap((line) => [
@@ -75,9 +99,17 @@ export default async function AllotmentsPage({
     : statusRows;
   const filters = [
     ["", copy.all],
-    ["draft", copy.draft],
+    ["request", copy.statusRequest],
+    ["provisional", copy.statusProvisional],
     ["confirmed", copy.confirmed],
     ["cancelled", copy.cancelled],
+    ["no_show", copy.statusNoShow],
+  ] as const;
+  const sources = [
+    ["", copy.all],
+    ["desk", copy.channelDesk],
+    ["b2c", copy.channelB2c],
+    ["b2b", copy.channelB2b],
   ] as const;
 
   return (
@@ -112,20 +144,34 @@ export default async function AllotmentsPage({
           label={copy.searchAllotments}
           placeholder={copy.searchAllotments}
           value={query.q}
-          hidden={{ status }}
+          hidden={{ status, channel }}
         />
-        <AdminFilterBar
-          label={copy.status}
-          items={filters.map(([value, label]) => ({
-            href: filterHref(value, query.q ?? ""),
-            label,
-            active: (status ?? "") === value,
-            count:
-              value === ""
-                ? all.length
-                : all.filter((item) => item.status === value).length,
-          }))}
-        />
+        <div className="flex flex-col items-start gap-2">
+          <AdminFilterBar
+            label={copy.status}
+            items={filters.map(([value, label]) => ({
+              href: filterHref(value, channel ?? "", query.q ?? ""),
+              label,
+              active: (status ?? "") === value,
+              count:
+                value === ""
+                  ? channelRows.length
+                  : channelRows.filter((item) => item.status === value).length,
+            }))}
+          />
+          <AdminFilterBar
+            label={copy.saleChannel}
+            items={sources.map(([value, label]) => ({
+              href: filterHref(status ?? "", value, query.q ?? ""),
+              label,
+              active: (channel ?? "") === value,
+              count:
+                value === ""
+                  ? all.length
+                  : all.filter((item) => item.channel === value).length,
+            }))}
+          />
+        </div>
       </div>
 
       {allotments.length ? (
@@ -151,7 +197,10 @@ export default async function AllotmentsPage({
                           {allotment.agencyName}
                         </h2>
                       </div>
-                      <AllotmentStatusPill status={allotment.status} />
+                      <div className="flex flex-col items-end gap-1">
+                        <SaleChannelMark channel={allotment.channel} />
+                        <AllotmentStatusPill status={allotment.status} />
+                      </div>
                     </div>
                     <p className="mt-3 text-sm text-[var(--desk-muted)]">
                       {formatDateRange(
@@ -189,6 +238,7 @@ export default async function AllotmentsPage({
                   <tr>
                     <th className="px-4 py-3 text-start">{copy.number}</th>
                     <th className="px-4 py-3 text-start">{copy.client}</th>
+                    <th className="px-4 py-3 text-start">{copy.saleChannel}</th>
                     <th className="px-4 py-3 text-start">{copy.stay}</th>
                     <th className="px-4 py-3 text-end">{copy.rooms}</th>
                     <th className="px-4 py-3 text-end">{copy.sell}</th>
@@ -210,6 +260,9 @@ export default async function AllotmentsPage({
                         </td>
                         <td className="px-4 py-3 font-medium">
                           {allotment.agencyName}
+                        </td>
+                        <td className="px-4 py-3">
+                          <SaleChannelMark channel={allotment.channel} />
                         </td>
                         <td className="px-4 py-3 font-plex text-xs whitespace-nowrap">
                           {formatDateRange(

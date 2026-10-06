@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_dashboard" name="shell-type"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  @layer base {
+    html, body { margin: 0; padding: 0; }
+    body { overscroll-behavior: none; }
+    main > :first-child { margin-top: 0 !important; }
+    main > :last-child { margin-bottom: 0 !important; }
+  }
+  ::-webkit-scrollbar { display: none; }
+</style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "status-draft": "#F59E0B",
+          "primary": "#0046c3",
+          "primary-container": "#2d60e0",
+          "status-confirmed": "#10B981",
+          "status-confirmed-bg": "#ECFDF5",
+          "status-draft-bg": "#FFFBEB",
+          "canvas-subtle": "#F8FAFC",
+          "canvas-base": "#FFFFFF"
+        },
+        fontFamily: {
+          sans: ["Plus Jakarta Sans", "sans-serif"]
+        }
+      }
+    }
+  }
+</script>
+</head>
+<body class="bg-[#f8fafc] font-sans text-slate-800 antialiased min-h-screen">
+<!-- Slim Left Navigation Rail (Consistent with SCREEN_2 & SCREEN_4) -->
+<aside class="fixed left-4 top-4 bottom-4 w-16 bg-white border border-slate-200/80 rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] z-50 flex flex-col items-center py-4 justify-between">
+<div class="flex flex-col items-center w-full gap-5">
+<a class="flex flex-col items-center group focus:outline-none" href="#" title="Falco Room Desk">
+<div class="w-10 h-10 rounded-lg bg-[#15375e] flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform">
+<span class="text-base font-bold text-white">F</span>
+<span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#c59b27] ring-2 ring-white"></span>
+</div>
+</a>
+<nav class="flex flex-col items-center w-full gap-1.5 px-2">
+<!-- Active Overview tab -->
+<a class="w-10 h-10 flex items-center justify-center rounded-lg bg-blue-50 text-[#2d60e0] font-semibold transition-all shadow-xs" href="#" title="Overview">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Requests">
+<span class="material-symbols-outlined text-[20px]">inbox</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Bookings">
+<span class="material-symbols-outlined text-[20px]">book_online</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Hotels">
+<span class="material-symbols-outlined text-[20px]">apartment</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Rooms">
+<span class="material-symbols-outlined text-[20px]">hotel</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Purchases">
+<span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Sales">
+<span class="material-symbols-outlined text-[20px]">point_of_sale</span>
+</a>
+<a class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all" href="#" title="Clients">
+<span class="material-symbols-outlined text-[20px]">group</span>
+</a>
+</nav>
+</div>
+<div class="flex flex-col items-center w-full gap-3">
+<div class="flex items-center justify-center bg-slate-100 rounded-md p-0.5 text-xs">
+<button class="px-1.5 py-0.5 rounded bg-white shadow-xs text-slate-800 font-semibold" type="button">EN</button>
+<button class="px-1.5 py-0.5 text-slate-500 hover:text-slate-800" type="button">FR</button>
+</div>
+<div class="w-8 h-8 rounded-full bg-[#15375e] text-white flex items-center justify-center text-xs font-semibold cursor-pointer">
+      JD
+    </div>
+</div>
+</aside>
+<!-- Top Fixed Odoo Navigation Bar -->
+<header class="fixed top-0 left-24 right-0 h-14 bg-white border-b border-slate-200 z-40 px-6 flex items-center justify-between">
+<!-- Left breadcrumb / period indicator -->
+<div class="flex items-center gap-3">
+<span class="text-sm font-bold text-[#15375e] tracking-tight">Overview</span>
+<span class="text-slate-300">/</span>
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-slate-600">1448 AH Peak Season</span>
+<span class="text-[11px] text-slate-400 font-mono">(Q1 2027)</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live Engine
+      </span>
+</div>
+</div>
+<!-- Right: Search, Peg and user quick badge -->
+<div class="flex items-center gap-3">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-slate-400">search</span>
+<input class="h-8 pl-8 pr-3 rounded bg-[#f8fafc] border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#2d60e0] w-64 transition-all" placeholder="Search allotments, vouchers, hotels..." type="text"/>
+</div>
+<div class="hidden md:flex items-center text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-600">
+<span class="text-[#c59b27] font-bold mr-1">SAR / USD</span>
+<span class="font-mono text-slate-700">3.7500</span>
+</div>
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:bg-slate-100 relative transition-colors" title="Notifications" type="button">
+<span class="material-symbols-outlined text-[18px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+</button>
+<div class="w-7 h-7 rounded-full bg-[#15375e] flex items-center justify-center text-white text-xs font-semibold">SA</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<div class="pl-24 pr-6 pt-18 pb-16">
+<main class="max-w-7xl mx-auto pt-4 flex flex-col gap-6">
+<!-- Odoo Style Control Bar & Action Buttons -->
+<div class="bg-white border border-slate-200 rounded-lg p-3.5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+<!-- Title & Subtitle Info -->
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded bg-slate-100 flex items-center justify-center text-[#15375e] shrink-0 border border-slate-200">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h1 class="text-base font-bold text-slate-900 tracking-tight">Wholesale Desk Portfolio</h1>
+<span class="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium border border-slate-200">B2B Allotment Master</span>
+</div>
+<p class="text-xs text-slate-500">Real-time inventory matrix, contract commitments &amp; active distributor holds</p>
+</div>
+</div>
+<!-- Action Buttons Bar: Standard Height (36px), Clean Odoo Styling -->
+<div class="flex items-center gap-2 flex-wrap">
+<!-- Tertiary Button: Export -->
+<button class="h-9 px-3 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs" title="Export Ledger to Spreadsheet" type="button">
+<span class="material-symbols-outlined text-[16px] text-slate-500">download</span>
+<span>Export</span>
+</button>
+<!-- Secondary Button: New Hotel -->
+<button class="h-9 px-3.5 rounded bg-white hover:bg-slate-50 border border-slate-200 text-[#15375e] text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs" type="button">
+<span class="material-symbols-outlined text-[16px] text-slate-600">apartment</span>
+<span>New Hotel</span>
+</button>
+<!-- Secondary Button: New Sale -->
+<button class="h-9 px-3.5 rounded bg-white hover:bg-slate-50 border border-slate-200 text-[#15375e] text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs" type="button">
+<span class="material-symbols-outlined text-[16px] text-slate-600">point_of_sale</span>
+<span>New Sale</span>
+</button>
+<!-- Primary Action Button: + New Purchase -->
+<button class="h-9 px-4 rounded bg-[#2d60e0] hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>New Purchase</span>
+</button>
+</div>
+</div>
+<!-- 4 Lightweight Odoo KPI Metric Cards (Single Row, Subtle Borders, Tabular Numbers) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- KPI 1: Wholesale Stock -->
+<div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-slate-300 transition-colors">
+<div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+<span class="font-medium uppercase tracking-wider text-[11px]">Wholesale Stock</span>
+<span class="material-symbols-outlined text-[18px] text-[#2d60e0]">warehouse</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">40</span>
+<span class="text-xs text-slate-500 font-medium">rooms allocated</span>
+</div>
+<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+<span class="text-emerald-600 font-medium flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 100% Guaranteed Available
+          </span>
+<span class="text-slate-400 font-mono">2 Hotels</span>
+</div>
+</div>
+<!-- KPI 2: Total In-House / Active Guests -->
+<div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-slate-300 transition-colors">
+<div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+<span class="font-medium uppercase tracking-wider text-[11px]">In-House / Active Pax</span>
+<span class="material-symbols-outlined text-[18px] text-slate-500">hotel</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">0</span>
+<span class="text-xs text-slate-500 font-medium">checked-in</span>
+</div>
+<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">Upcoming arrivals window</span>
+<span class="text-slate-700 font-medium font-mono">72h SLA</span>
+</div>
+</div>
+<!-- KPI 3: Active Room Holds -->
+<div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-slate-300 transition-colors">
+<div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+<span class="font-medium uppercase tracking-wider text-[11px]">Active Room Holds</span>
+<span class="material-symbols-outlined text-[18px] text-amber-500">hourglass_top</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold font-mono text-slate-900 tabular-nums">3</span>
+<span class="text-xs text-amber-700 font-medium">(12 rooms locked)</span>
+</div>
+<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">Expiring nearest</span>
+<span class="font-mono font-semibold text-amber-600">4h 18m left</span>
+</div>
+</div>
+<!-- KPI 4: Gross Wholesale Value -->
+<div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:border-slate-300 transition-colors">
+<div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+<span class="font-medium uppercase tracking-wider text-[11px]">Gross Wholesale Value</span>
+<span class="font-bold text-[#c59b27] font-mono text-xs bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">SAR</span>
+</div>
+<div class="flex items-baseline gap-1.5">
+<span class="text-xs font-semibold text-[#c59b27]">SAR</span>
+<span class="text-2xl font-bold font-mono text-[#15375e] tabular-nums">748,000</span>
+</div>
+<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">Avg. contract rate</span>
+<span class="font-mono text-slate-700 font-medium">SAR 2,275 / nt</span>
+</div>
+</div>
+</div>
+<!-- Real-Time Allocation Matrix: Clean Odoo-Style Sheet / Table View -->
+<div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+<!-- Sheet Ribbon Header -->
+<div class="px-5 py-3 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#2d60e0]">calendar_view_week</span>
+<h2 class="text-sm font-bold text-slate-900 tracking-tight">Real-Time Allocation Matrix</h2>
+<span class="text-xs text-slate-400 font-mono">| 1448 AH Holy City Allotments</span>
+</div>
+<div class="flex items-center gap-2 text-xs">
+<div class="flex items-center bg-white border border-slate-200 rounded divide-x divide-slate-200 overflow-hidden shadow-xs">
+<button class="px-3 py-1 font-semibold text-slate-900 bg-slate-100" type="button">All Cities (40)</button>
+<button class="px-3 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50" type="button">Makkah (24)</button>
+<button class="px-3 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50" type="button">Madinah (16)</button>
+</div>
+<button class="text-xs text-[#2d60e0] hover:underline font-medium ml-2" type="button">Configure Waves</button>
+</div>
+</div>
+<!-- Allocation Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs border-collapse">
+<thead>
+<tr class="bg-slate-50/60 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+<th class="py-2.5 px-4 min-w-[240px]">Property &amp; Contract</th>
+<th class="py-2.5 px-4 min-w-[120px]">Holy Zone</th>
+<th class="py-2.5 px-3 text-center">Allocated Rooms</th>
+<th class="py-2.5 px-4 min-w-[260px]">Season Wave Distribution</th>
+<th class="py-2.5 px-3 text-center">Release Buffer</th>
+<th class="py-2.5 px-4 text-right">Contract Value</th>
+<th class="py-2.5 px-3 text-center">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 text-slate-800">
+<!-- Property 1: Makkah Clock Royal Tower -->
+<tr class="hover:bg-slate-50/60 transition-colors">
+<td class="py-3 px-4">
+<div class="font-medium text-slate-900 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-amber-600">apartment</span>
+                  Makkah Clock Royal Tower, A Fairmont Hotel
+                </div>
+<div class="text-[11px] text-slate-400 font-mono mt-0.5">
+                  Contract #FLC-MK-8821 • Deluxe Quad Haram View
+                </div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-[#c59b27] border border-amber-200">
+                  Haram Central Front
+                </span>
+</td>
+<td class="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                24 Rms
+              </td>
+<td class="py-3 px-4">
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] text-slate-500 font-mono">
+<span>Rajab (8)</span>
+<span>Shaban (10)</span>
+<span>Ramadan (6)</span>
+</div>
+<div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex border border-slate-200/60">
+<div class="h-full bg-[#0046c3]" style="width: 33%" title="Rajab 15-30: 8 Rooms"></div>
+<div class="h-full bg-[#2d60e0]" style="width: 42%" title="Shaban Peak: 10 Rooms"></div>
+<div class="h-full bg-[#c59b27]" style="width: 25%" title="Ramadan 1-20: 6 Rooms"></div>
+</div>
+<div class="text-[10px] text-slate-400 flex items-center justify-between">
+<span class="text-emerald-600 font-medium">Free Sale Active</span>
+<span class="font-mono">100% Available</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  14 Days SLA
+                </span>
+</td>
+<td class="py-3 px-4 text-right font-mono font-bold text-[#15375e]">
+                SAR 468,000.00
+              </td>
+<td class="py-3 px-3 text-center">
+<button class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors" title="View Purchase Contract" type="button">
+<span class="material-symbols-outlined text-[17px]">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Property 2: Pullman Zamzam Madina -->
+<tr class="hover:bg-slate-50/60 transition-colors">
+<td class="py-3 px-4">
+<div class="font-medium text-slate-900 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-[#15375e]">apartment</span>
+                  Pullman Zamzam Madina Hotel
+                </div>
+<div class="text-[11px] text-slate-400 font-mono mt-0.5">
+                  Contract #FLC-MD-3094 • Superior Double City
+                </div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  Northern Central Area
+                </span>
+</td>
+<td class="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                16 Rms
+              </td>
+<td class="py-3 px-4">
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] text-slate-500 font-mono">
+<span>Rajab (6)</span>
+<span>Shaban (6)</span>
+<span>Ramadan (4)</span>
+</div>
+<div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex border border-slate-200/60">
+<div class="h-full bg-[#0046c3]" style="width: 37.5%" title="Rajab Standard: 6 Rooms"></div>
+<div class="h-full bg-[#2d60e0]" style="width: 37.5%" title="Shaban Mid: 6 Rooms"></div>
+<div class="h-full bg-[#c59b27]" style="width: 25%" title="Ramadan Early: 4 Rooms"></div>
+</div>
+<div class="text-[10px] text-slate-400 flex items-center justify-between">
+<span class="text-emerald-600 font-medium">Free Sale Active</span>
+<span class="font-mono">Zero Blackouts</span>
+</div>
+</div>
+</td>
+<td class="py-3 px-3 text-center">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  7 Days SLA
+                </span>
+</td>
+<td class="py-3 px-4 text-right font-mono font-bold text-[#15375e]">
+                SAR 280,000.00
+              </td>
+<td class="py-3 px-3 text-center">
+<button class="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors" title="View Purchase Contract" type="button">
+<span class="material-symbols-outlined text-[17px]">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Matrix Footer Strip -->
+<div class="px-5 py-2.5 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#0046c3]"></span> Rajab: 14 Rms</span>
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#2d60e0]"></span> Shaban: 16 Rms</span>
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#c59b27]"></span> Ramadan: 10 Rms</span>
+</div>
+<span class="font-mono text-slate-600 font-medium">Total: 40 Rooms • SAR 748,000.00</span>
+</div>
+</div>
+<!-- Active Desk Room Holds: Clean Tabular Ledger -->
+<div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+<!-- Section Header Ribbon -->
+<div class="px-5 py-3 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#15375e]">receipt_long</span>
+<h2 class="text-sm font-bold text-slate-900 tracking-tight">Active Desk Holds &amp; In-Flight Blocks</h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            3 Active Holds
+          </span>
+</div>
+<div class="flex items-center gap-2">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-1.5 text-[15px] text-slate-400">filter_alt</span>
+<input class="h-7 pl-7 pr-3 rounded bg-white border border-slate-200 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-[#2d60e0] w-48" placeholder="Filter holds..." type="text"/>
+</div>
+<button class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded bg-white hover:bg-slate-50" type="button">
+            Group by Agency
+          </button>
+</div>
+</div>
+<!-- Ledger Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs border-collapse">
+<thead>
+<tr class="bg-slate-50/60 border-b border-slate-200 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+<th class="py-2.5 px-4 min-w-[200px]">Agency / Desk Partner</th>
+<th class="py-2.5 px-4 min-w-[200px]">Hotel &amp; Room Category</th>
+<th class="py-2.5 px-4">Dates</th>
+<th class="py-2.5 px-3 text-center">Nights</th>
+<th class="py-2.5 px-3 text-center">Rooms</th>
+<th class="py-2.5 px-4 text-right">Total (SAR)</th>
+<th class="py-2.5 px-4">Hold Timer / Status</th>
+<th class="py-2.5 px-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 text-slate-800 font-sans">
+<!-- Hold 1 -->
+<tr class="hover:bg-slate-50/60 transition-colors">
+<td class="py-3 px-4">
+<span class="font-semibold text-slate-900 block">Al-Safwa Travel Group</span>
+<span class="text-[11px] text-slate-400">VIP Umrah Package #441</span>
+</td>
+<td class="py-3 px-4">
+<span class="text-slate-800 font-medium block">Makkah Clock Royal Tower</span>
+<span class="text-[11px] text-slate-400">Deluxe Quad Harām View</span>
+</td>
+<td class="py-3 px-4 font-mono text-xs text-slate-700">
+                18 Feb - 25 Feb 2027
+              </td>
+<td class="py-3 px-3 text-center font-mono text-slate-600">
+                7 nts
+              </td>
+<td class="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                4 Rms
+              </td>
+<td class="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
+                SAR 78,400.00
+              </td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  4h 18m left
+                </span>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="inline-flex items-center gap-1">
+<button class="px-2 py-1 rounded bg-[#2d60e0] hover:bg-blue-700 text-white text-[11px] font-medium transition-colors" title="Convert to Confirmed Voucher" type="button">
+                    Confirm
+                  </button>
+<button class="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-red-600 text-[11px] font-medium transition-colors" title="Release back to pool" type="button">
+                    Release
+                  </button>
+</div>
+</td>
+</tr>
+<!-- Hold 2 -->
+<tr class="hover:bg-slate-50/60 transition-colors">
+<td class="py-3 px-4">
+<span class="font-semibold text-slate-900 block">Elysian Hajj Services (UK)</span>
+<span class="text-[11px] text-slate-400">Umrah First Tier Desk</span>
+</td>
+<td class="py-3 px-4">
+<span class="text-slate-800 font-medium block">Pullman Zamzam Madina</span>
+<span class="text-[11px] text-slate-400">Superior Double City View</span>
+</td>
+<td class="py-3 px-4 font-mono text-xs text-slate-700">
+                24 Feb - 28 Feb 2027
+              </td>
+<td class="py-3 px-3 text-center font-mono text-slate-600">
+                4 nts
+              </td>
+<td class="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                6 Rms
+              </td>
+<td class="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
+                SAR 42,000.00
+              </td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  18h 40m left
+                </span>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="inline-flex items-center gap-1">
+<button class="px-2 py-1 rounded bg-[#2d60e0] hover:bg-blue-700 text-white text-[11px] font-medium transition-colors" title="Convert to Confirmed Voucher" type="button">
+                    Confirm
+                  </button>
+<button class="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-red-600 text-[11px] font-medium transition-colors" title="Release back to pool" type="button">
+                    Release
+                  </button>
+</div>
+</td>
+</tr>
+<!-- Hold 3 -->
+<tr class="hover:bg-slate-50/60 transition-colors">
+<td class="py-3 px-4">
+<span class="font-semibold text-slate-900 block">Nur Al-Madinah Tours</span>
+<span class="text-[11px] text-slate-400">Corporate Group Block</span>
+</td>
+<td class="py-3 px-4">
+<span class="text-slate-800 font-medium block">Makkah Clock Royal Tower</span>
+<span class="text-[11px] text-slate-400">Deluxe Quad Harām View</span>
+</td>
+<td class="py-3 px-4 font-mono text-xs text-slate-700">
+                01 Mar - 10 Mar 2027
+              </td>
+<td class="py-3 px-3 text-center font-mono text-slate-600">
+                9 nts
+              </td>
+<td class="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                2 Rms
+              </td>
+<td class="py-3 px-4 text-right font-mono font-bold text-slate-900 tabular-nums">
+                SAR 50,400.00
+              </td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  29h left
+                </span>
+</td>
+<td class="py-3 px-4 text-right">
+<div class="inline-flex items-center gap-1">
+<button class="px-2 py-1 rounded bg-[#2d60e0] hover:bg-blue-700 text-white text-[11px] font-medium transition-colors" title="Convert to Confirmed Voucher" type="button">
+                    Confirm
+                  </button>
+<button class="px-2 py-1 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-red-600 text-[11px] font-medium transition-colors" title="Release back to pool" type="button">
+                    Release
+                  </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Bottom Ledger Controls & Totals -->
+<div class="px-5 py-3 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-slate-400">info</span>
+<span>Unconfirmed agent holds automatically revert to general wholesale pool upon expiry.</span>
+</div>
+<div class="flex items-center gap-4 font-mono">
+<span>Active In-Flight: <strong>12 Rooms</strong></span>
+<span class="text-slate-300">|</span>
+<span>Pending Gross: <strong class="text-[#15375e]">SAR 170,800.00</strong></span>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

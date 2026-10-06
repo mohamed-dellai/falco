@@ -60,6 +60,8 @@ export default async function AgenciesPage({
           client.contactName,
           client.email,
           client.phone,
+          client.commercialRegistration,
+          client.vatNumber,
         ]
           .join(" ")
           .toLocaleLowerCase(locale)
@@ -136,14 +138,32 @@ export default async function AgenciesPage({
                 </p>
                 <dl className="mt-3 grid gap-2 border-t border-[var(--desk-line)] pt-3 text-sm">
                   {client.kind === "agency" && (
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-[var(--desk-muted)]">
-                        {copy.contact}
-                      </dt>
-                      <dd className="text-end font-medium">
-                        {client.contactName || "—"}
-                      </dd>
-                    </div>
+                    <>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-[var(--desk-muted)]">
+                          {copy.contact}
+                        </dt>
+                        <dd className="text-end font-medium">
+                          {client.contactName || "—"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-[var(--desk-muted)]">
+                          {copy.commercialRegistration}
+                        </dt>
+                        <dd className="text-end font-medium">
+                          {client.commercialRegistration || "—"}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-[var(--desk-muted)]">
+                          {copy.vatNumber}
+                        </dt>
+                        <dd className="text-end font-medium">
+                          {client.vatNumber || "—"}
+                        </dd>
+                      </div>
+                    </>
                   )}
                   <div className="flex justify-between gap-3">
                     <dt className="text-[var(--desk-muted)]">{copy.email}</dt>
@@ -170,6 +190,10 @@ export default async function AgenciesPage({
                     <th className="px-4 py-3 text-start">{copy.clientKind}</th>
                     <th className="px-4 py-3 text-start">{copy.country}</th>
                     <th className="px-4 py-3 text-start">{copy.contact}</th>
+                    <th className="px-4 py-3 text-start">
+                      {copy.commercialRegistration}
+                    </th>
+                    <th className="px-4 py-3 text-start">{copy.vatNumber}</th>
                     <th className="px-4 py-3 text-start">{copy.email}</th>
                     <th className="px-4 py-3 text-start">{copy.phone}</th>
                   </tr>
@@ -197,6 +221,16 @@ export default async function AgenciesPage({
                         {client.kind === "individual"
                           ? "—"
                           : client.contactName || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {client.kind === "individual"
+                          ? "—"
+                          : client.commercialRegistration || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {client.kind === "individual"
+                          ? "—"
+                          : client.vatNumber || "—"}
                       </td>
                       <td className="px-4 py-3">{client.email || "—"}</td>
                       <td className="px-4 py-3 font-plex text-xs">

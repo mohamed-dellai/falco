@@ -7,6 +7,7 @@ import { ClientFields } from "@/components/client-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
+import { agencyLoginEmail } from "@/lib/agency-auth";
 import { getAgency } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function ClientPage({
   const query = await searchParams;
   const client = await getAgency(id);
   if (!client) notFound();
+  const portalEmail = await agencyLoginEmail(client.id);
 
   return (
     <AdminShell
@@ -34,7 +36,7 @@ export default async function ClientPage({
       <AdminPanel title={copy.clientRecord} className="max-w-3xl">
         <form action={updateAgencyAction} className="grid gap-3">
           <input type="hidden" name="id" value={client.id} />
-          <ClientFields client={client} />
+          <ClientFields client={{ ...client, portalEmail }} />
           <AdminSubmitButton
             pendingLabel={copy.saving}
             className={`${adminButtonClass} w-fit`}

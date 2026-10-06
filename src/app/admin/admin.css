@@ -3,35 +3,36 @@
    override them — unlayered CSS beats utilities in Tailwind v4's cascade. */
 @layer components {
   .admin-desk {
-    --desk-canvas: #f7f5f0;
+    --desk-canvas: #f8fafc;
     --desk-surface: #ffffff;
-    --desk-surface-muted: #f1eee7;
-    --desk-ink: #081c36;
-    --desk-text: #172033;
-    --desk-text-soft: #334155;
-    --desk-muted: #5c6470;
-    --desk-muted-soft: #8b93a1;
-    --desk-primary: #0e4d8c;
-    --desk-primary-hover: #0c4379;
-    --desk-primary-soft: #eef6fd;
-    --desk-info-line: #c9dbed;
-    --desk-line: #dfe5ec;
-    --desk-line-soft: #eef0f3;
-    --desk-line-strong: #c5ced8;
-    --desk-neutral-soft: #eef2f6;
+    --desk-surface-muted: #f1f5f9;
+    --desk-ink: #15375e;
+    --desk-text: #414649;
+    --desk-text-soft: #64748b;
+    --desk-muted: #64748b;
+    --desk-muted-soft: #94a3b8;
+    --desk-primary: #2d60e0;
+    --desk-primary-hover: #1d4ed8;
+    --desk-primary-deep: #0046c3;
+    --desk-primary-soft: #eff6ff;
+    --desk-info-line: #bfdbfe;
+    --desk-line: #e2e8f0;
+    --desk-line-soft: #f1f5f9;
+    --desk-line-strong: #cbd5e1;
+    --desk-neutral-soft: #f1f5f9;
     --desk-gold: #c59b27;
-    --desk-gold-soft: #ffdf98;
-    --desk-success: #146c36;
-    --desk-success-soft: #e5f6ea;
-    --desk-success-line: #b8ddc3;
-    --desk-warning: #8a6814;
-    --desk-warning-soft: #fff4ce;
-    --desk-warning-line: #ead595;
-    --desk-danger: #9b1c1c;
-    --desk-danger-soft: #fdecec;
-    --desk-danger-line: #e7b4b4;
-    --desk-sidebar-width: 264px;
-    --desk-control-height: 2.5rem;
+    --desk-gold-soft: #fffbeb;
+    --desk-success: #10b981;
+    --desk-success-soft: #ecfdf5;
+    --desk-success-line: #a7f3d0;
+    --desk-warning: #d97706;
+    --desk-warning-soft: #fffbeb;
+    --desk-warning-line: #fde68a;
+    --desk-danger: #ef4444;
+    --desk-danger-soft: #fef2f2;
+    --desk-danger-line: #fecaca;
+    --desk-sidebar-width: 4rem;
+    --desk-control-height: 2.25rem;
     background: var(--desk-canvas);
     color: var(--desk-ink);
   }
@@ -41,12 +42,10 @@
     font-family: inherit;
   }
 
-  .font-news {
-    font-family: var(--font-news), Georgia, serif;
-  }
-
+  .font-news,
   .font-plex {
-    font-family: var(--font-plex), ui-monospace, monospace;
+    font-family: var(--font-desk), "Plus Jakarta Sans", sans-serif;
+    font-variant-numeric: tabular-nums;
   }
 
   .desk-press:active {
@@ -57,7 +56,7 @@
     min-height: var(--desk-control-height);
     width: 100%;
     border: 1px solid var(--desk-line);
-    border-radius: 0.625rem;
+    border-radius: 0.5rem;
     background: var(--desk-surface);
     padding: 0.5rem 0.75rem;
     color: var(--desk-ink);
@@ -79,7 +78,7 @@
 
   .desk-field:focus-visible,
   .desk-focus:focus-visible {
-    outline: 2px solid var(--desk-gold);
+    outline: 2px solid var(--desk-primary);
     outline-offset: 2px;
   }
 

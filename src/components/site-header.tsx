@@ -5,15 +5,12 @@ import { Menu, MessageCircle, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import type { Locale } from "@/i18n/routing";
-import { getWhatsAppUrl } from "@/lib/site";
-
-const navigation = [
-  { href: "/" as const, label: "home" },
-  { href: "/hotels" as const, label: "hotels" },
-  { href: "/about" as const, label: "about" },
-  { href: "/contact" as const, label: "contact" },
-] as const;
+import { routing, type Locale } from "@/i18n/routing";
+import {
+  sectionHome,
+  sectionLinks,
+  usePublicSection,
+} from "@/components/public-section";
 
 const languages: Array<{ value: Locale; label: string }> = [
   { value: "en", label: "English" },
@@ -22,38 +19,89 @@ const languages: Array<{ value: Locale; label: string }> = [
   { value: "it", label: "Italiano" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({
+  companyName,
+  whatsappHref,
+}: {
+  companyName: string;
+  whatsappHref: string;
+}) {
   const t = useTranslations("Nav");
   const common = useTranslations("Common");
   const locale = useLocale() as Locale;
   const pathname = usePathname();
   const router = useRouter();
+  const section = usePublicSection();
+  const homeHref = sectionHome(section);
+  const navigation = sectionLinks(section);
   const [open, setOpen] = useState(false);
 
   function switchLanguage(nextLocale: Locale) {
     setOpen(false);
-    router.replace(pathname, { locale: nextLocale });
+    const current = new URL(window.location.href);
+    const segments = current.pathname.split("/");
+    if ((routing.locales as readonly string[]).includes(segments[1] ?? "")) {
+      segments.splice(1, 1);
+    }
+    const path = `${segments.join("/") || "/"}${current.search}${current.hash}`;
+    router.replace(path, { locale: nextLocale });
   }
 
-  function isActive(href: (typeof navigation)[number]["href"]) {
-    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  function isActive(href: string) {
+    const path = pathname.split(/[?#]/)[0] || "/";
+    return path === href || path.startsWith(`${href}/`);
+  }
+
+  if (section === "gate") {
+    return (
+      <header className="fixed inset-x-0 top-0 z-50 bg-primary-dark">
+        <div className="site-shell flex h-20 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <Image
+              src="/falco-logo.png"
+              width={56}
+              height={56}
+              alt={companyName}
+              className="size-12 rounded-xl bg-white object-cover"
+              priority
+            />
+            <strong className="font-display truncate text-base text-white">
+              {companyName}
+            </strong>
+          </div>
+          <select
+            value={locale}
+            aria-label={t("language")}
+            dir="ltr"
+            onChange={(event) => switchLanguage(event.target.value as Locale)}
+            className="w-28 rounded-full border border-white/20 bg-white px-3 py-2 text-xs font-extrabold text-primary outline-none sm:w-auto"
+          >
+            {languages.map((language) => (
+              <option key={language.value} value={language.value}>
+                {language.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </header>
+    );
   }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-line/80 bg-surface/95 backdrop-blur-xl">
       <div className="site-shell flex h-20 items-center justify-between gap-4">
-        <Link href="/" className="flex min-w-0 items-center gap-2">
+        <Link href={homeHref} className="flex min-w-0 items-center gap-2">
           <Image
             src="/falco-logo.png"
             width={56}
             height={56}
-            alt={common("brand")}
+            alt={companyName}
             className="size-14 rounded-xl bg-white object-cover"
             priority
           />
           <span className="hidden leading-tight sm:block">
             <strong className="font-display block text-base text-primary">
-              {common("brand")}
+              {companyName}
             </strong>
             <span className="block text-xs font-bold text-gold">
               {common("tagline")}
@@ -96,18 +144,20 @@ export function SiteHeader() {
             ))}
           </select>
           <a
-            href={getWhatsAppUrl()}
+            href={whatsappHref}
             aria-label={common("whatsapp")}
             className="hidden size-10 place-items-center rounded-full border border-line bg-surface-low text-primary transition hover:border-gold sm:grid"
           >
             <MessageCircle size={19} />
           </a>
-          <Link
-            href="/contact"
-            className="hidden rounded-lg bg-primary px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-primary-dark xl:inline-flex"
-          >
-            {common("quote")}
-          </Link>
+          {section === "agent" && (
+            <Link
+              href="/contact"
+              className="hidden rounded-lg bg-primary px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-primary-dark xl:inline-flex"
+            >
+              {common("quote")}
+            </Link>
+          )}
           <button
             type="button"
             className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-low text-primary lg:hidden"
@@ -142,16 +192,18 @@ export function SiteHeader() {
                 {t(item.label)}
               </Link>
             ))}
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-4">
-              <Link
-                href="/contact"
-                onClick={() => setOpen(false)}
-                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white"
-              >
-                {common("quote")}
-              </Link>
+            <div className="mt-3 grid gap-2 border-t border-line pt-4">
+              {section === "agent" && (
+                <Link
+                  href="/contact"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white"
+                >
+                  {common("quote")}
+                </Link>
+              )}
               <a
-                href={getWhatsAppUrl()}
+                href={whatsappHref}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 py-3 text-sm font-bold text-primary"
               >
                 <MessageCircle size={17} />

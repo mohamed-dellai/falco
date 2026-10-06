@@ -74,7 +74,7 @@ export default async function BookingCompletePage({
           </p>
         </div>
         <Link
-          href="/stay"
+          href="/quest"
           className="mt-6 inline-flex text-sm font-bold text-primary"
         >
           {t("back")}

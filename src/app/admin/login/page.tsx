@@ -1,12 +1,22 @@
-import { loginAction } from "@/app/admin/actions";
+import { createFirstAdminAction, loginAction } from "@/app/admin/actions";
 import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
 import { LanguageSwitch } from "@/components/admin-locale";
 import { AdminSubmitButton } from "@/components/admin-submit-button";
 import { adminButtonClass, adminFieldClass } from "@/components/admin-ui";
-import { adminPasswordConfigured } from "@/lib/admin-auth";
-import { adminCopy } from "@/lib/admin-copy";
+import { adminCopy, type AdminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
+import { countAdminUsers } from "@/lib/admin-users";
+
+function loginMessage(code: string | undefined, copy: AdminCopy) {
+  if (code === "password") return copy.passwordShort;
+  if (code === "mismatch") return copy.passwordMismatch;
+  if (code === "email") return copy.emailTaken;
+  if (code === "invalid") return copy.invalidError;
+  if (code === "rejected") return copy.passwordRejected;
+  if (code) return copy.passwordRejected;
+  return "";
+}
 
 export default async function AdminLoginPage({
   searchParams,
@@ -15,7 +25,8 @@ export default async function AdminLoginPage({
 }) {
   const query = await searchParams;
   const copy = adminCopy(await getAdminLocale());
-  const configured = adminPasswordConfigured();
+  const firstAccount = (await countAdminUsers()) === 0;
+  const message = loginMessage(query.error, copy);
 
   return (
     <main className="admin-desk grid min-h-screen bg-[var(--desk-canvas)] lg:grid-cols-[minmax(20rem,0.78fr)_1.22fr]">
@@ -56,7 +67,7 @@ export default async function AdminLoginPage({
       </section>
       <section className="grid place-items-center px-4 py-10 sm:px-8">
         <form
-          action={loginAction}
+          action={firstAccount ? createFirstAdminAction : loginAction}
           className="w-full max-w-sm rounded-2xl border border-[var(--desk-line)] bg-white p-6 shadow-[0_24px_64px_-44px_rgba(8,28,54,0.55)] sm:p-8"
         >
           <div className="mb-6 flex items-center justify-between lg:hidden">
@@ -77,38 +88,75 @@ export default async function AdminLoginPage({
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--desk-surface-muted)] text-[var(--desk-primary)]">
             <ShieldCheck aria-hidden="true" size={20} />
           </span>
-          <h1 className="font-news mt-4 text-3xl font-medium">{copy.signIn}</h1>
+          <h1 className="font-news mt-4 text-3xl font-medium">
+            {firstAccount ? copy.createFirstAccount : copy.signIn}
+          </h1>
           <p className="mt-1 text-sm leading-6 text-[var(--desk-muted)]">
-            {copy.signInCopy}
+            {firstAccount ? copy.firstAccountCopy : copy.signInCopy}
           </p>
-          {query.error && (
+          {message && (
             <p
               role="alert"
               className="mt-4 rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
             >
-              {copy.passwordRejected}
+              {message}
             </p>
           )}
-          {!configured && (
-            <p className="mt-4 rounded-xl border border-[var(--desk-warning-line)] bg-[var(--desk-warning-soft)] px-3 py-2 text-sm text-[var(--desk-warning)]">
-              {copy.passwordMissing}
-            </p>
+          {firstAccount && (
+            <label className="mt-5 grid gap-1.5 text-xs font-semibold text-[var(--desk-text)]">
+              {copy.accountName}
+              <input
+                name="name"
+                autoComplete="name"
+                required
+                minLength={2}
+                maxLength={80}
+                className={adminFieldClass}
+              />
+            </label>
           )}
           <label className="mt-5 grid gap-1.5 text-xs font-semibold text-[var(--desk-text)]">
+            {copy.email}
+            <input
+              name="email"
+              type="email"
+              autoComplete="username"
+              required
+              maxLength={160}
+              className={adminFieldClass}
+            />
+          </label>
+          <label className="mt-4 grid gap-1.5 text-xs font-semibold text-[var(--desk-text)]">
             {copy.password}
             <input
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={firstAccount ? "new-password" : "current-password"}
               required
+              minLength={8}
+              maxLength={200}
               className={adminFieldClass}
             />
           </label>
+          {firstAccount && (
+            <label className="mt-4 grid gap-1.5 text-xs font-semibold text-[var(--desk-text)]">
+              {copy.passwordAgain}
+              <input
+                name="passwordAgain"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                maxLength={200}
+                className={adminFieldClass}
+              />
+            </label>
+          )}
           <AdminSubmitButton
             pendingLabel={copy.signingIn}
             className={`${adminButtonClass} mt-4 w-full`}
           >
-            {copy.signIn}
+            {firstAccount ? copy.createFirstAccount : copy.signIn}
           </AdminSubmitButton>
         </form>
       </section>

@@ -24,7 +24,14 @@ import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 import type { Purchase, PurchaseStatus } from "@/lib/inventory";
-import { roomTypeCode, roomTypeLabel, roomTypes } from "@/lib/room-types";
+import {
+  mealPlanLabel,
+  mealPlans,
+  roomTypeLabel,
+  saleModes,
+  type MealPlan,
+  type SaleMode,
+} from "@/lib/room-types";
 import {
   formatDate,
   formatMoney,
@@ -32,8 +39,17 @@ import {
   nightsBetween,
 } from "@/lib/money";
 
+type CatalogOption = {
+  id: string;
+  name: string;
+  guests: number;
+  board: MealPlan;
+  view: string;
+};
+
 type DraftLine = {
   key: string;
+  roomTypeId: string;
   name: string;
   description: string;
   quantity: string;
@@ -41,11 +57,29 @@ type DraftLine = {
   checkIn: string;
   checkOut: string;
   price: string;
+  publicPrice: string;
   roomId?: string | null;
+  board: MealPlan;
+  view: string;
+  minNights: string;
+  saleMode: SaleMode;
 };
+
+function boardLabels(copy: AdminCopy): Record<MealPlan, string> {
+  return {
+    room_only: copy.roomOnly,
+    breakfast: copy.breakfastBoard,
+    half_board: copy.halfBoard,
+    full_board: copy.fullBoard,
+  };
+}
 
 function roomLabel(copy: AdminCopy, name: string) {
   return roomTypeLabel(name, (type) => copy[type]);
+}
+
+function optionLabel(copy: AdminCopy, type: CatalogOption) {
+  return `${roomTypeLabel(type.name, (code) => copy[code])} · ${type.guests}`;
 }
 
 function cityName(copy: AdminCopy, city: string) {
@@ -91,6 +125,7 @@ function parsedQuantity(value: string) {
 function emptyLine(): DraftLine {
   return {
     key: crypto.randomUUID(),
+    roomTypeId: "",
     name: "",
     description: "",
     quantity: "1",
@@ -98,12 +133,18 @@ function emptyLine(): DraftLine {
     checkIn: "",
     checkOut: "",
     price: "",
+    publicPrice: "",
+    board: "room_only",
+    view: "",
+    minNights: "1",
+    saleMode: "book",
   };
 }
 
 function lineFromPurchase(purchase: Purchase): DraftLine[] {
   return purchase.lines.map((line) => ({
     key: line.id,
+    roomTypeId: line.roomTypeId ?? "",
     name: line.roomName,
     description: line.description,
     quantity: String(line.quantity),
@@ -111,13 +152,26 @@ function lineFromPurchase(purchase: Purchase): DraftLine[] {
     checkIn: line.checkIn,
     checkOut: line.checkOut,
     price: moneyInput(line.costPerNight),
+    publicPrice:
+      line.publicPricePerNight == null
+        ? ""
+        : moneyInput(line.publicPricePerNight),
     roomId: line.roomId,
+    board: line.board,
+    view: line.view,
+    minNights: String(line.minNights),
+    saleMode: line.saleMode,
   }));
 }
 
 function lineIsFilled(line: DraftLine) {
   return Boolean(
-    line.name.trim() || line.price.trim() || line.checkIn || line.checkOut,
+    line.roomTypeId ||
+      line.name.trim() ||
+      line.price.trim() ||
+      line.publicPrice.trim() ||
+      line.checkIn ||
+      line.checkOut,
   );
 }
 
@@ -125,10 +179,12 @@ export function PurchaseForm({
   hotels,
   purchase,
   hotelId,
+  roomTypes,
 }: {
   hotels: Array<{ id: string; name: string; city: string }>;
   purchase?: Purchase;
   hotelId?: string;
+  roomTypes: CatalogOption[];
 }) {
   const copy = useAdminCopy();
   const locale = useAdminLocale();
@@ -179,15 +235,18 @@ export function PurchaseForm({
     const broken = filled.find((line) => {
       const capacity = Number(line.capacity);
       const nights = nightsBetween(line.checkIn, line.checkOut);
+      const publicRaw = line.publicPrice.trim();
+      const publicHalalas = publicRaw ? lineHalalas(publicRaw) : null;
       return (
-        !roomTypeCode(line.name) ||
+        !line.roomTypeId ||
         parsedQuantity(line.quantity) === null ||
         !Number.isInteger(capacity) ||
         capacity < 1 ||
         capacity > 20 ||
         nights < 1 ||
         nights > 1095 ||
-        lineHalalas(line.price) === null
+        lineHalalas(line.price) === null ||
+        (publicRaw !== "" && (publicHalalas === null || publicHalalas < 1))
       );
     });
     if (broken) {
@@ -345,6 +404,7 @@ export function PurchaseForm({
                 <th className="px-2 py-2">{copy.from}</th>
                 <th className="px-2 py-2">{copy.to}</th>
                 <th className="px-2 py-2 text-end">{copy.pricePerNight}</th>
+                <th className="px-2 py-2 text-end">{copy.publicPriceNight}</th>
                 <th className="px-2 py-2 text-end">{copy.amount}</th>
                 {!locked && <th className="w-8 px-2 py-2" />}
               </tr>
@@ -380,17 +440,26 @@ export function PurchaseForm({
                         )
                       ) : (
                         <select
-                          name="lineName"
-                          value={roomTypeCode(line.name) ?? ""}
-                          onChange={(event) =>
-                            updateLine(line.key, { name: event.target.value })
-                          }
+                          name="lineRoomType"
+                          value={line.roomTypeId}
+                          onChange={(event) => {
+                            const picked = roomTypes.find(
+                              (type) => type.id === event.target.value,
+                            );
+                            updateLine(line.key, {
+                              roomTypeId: event.target.value,
+                              name: picked?.name ?? "",
+                              capacity: picked
+                                ? String(picked.guests)
+                                : line.capacity,
+                            });
+                          }}
                           className={adminFieldClass}
                         >
                           <option value="">{copy.selectRoom}</option>
                           {roomTypes.map((type) => (
-                            <option key={type} value={type}>
-                              {copy[type]}
+                            <option key={type.id} value={type.id}>
+                              {optionLabel(copy, type)}
                             </option>
                           ))}
                         </select>
@@ -403,19 +472,85 @@ export function PurchaseForm({
                       {locked ? (
                         <span className="text-[var(--desk-text-soft)]">
                           {line.description}
+                          <span className="mt-1 block text-xs">
+                            {mealPlanLabel(line.board, boardLabels(copy))}
+                            {line.view.trim() ? ` · ${line.view.trim()}` : ""}
+                            {` · ${copy.minNights} ${line.minNights}`}
+                            {` · ${line.saleMode === "request" ? copy.requestBooking : copy.bookNow}`}
+                          </span>
                         </span>
                       ) : (
-                        <input
-                          name="lineDescription"
-                          value={line.description}
-                          placeholder={copy.roomDetailsExample}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              description: event.target.value,
-                            })
-                          }
-                          className={adminFieldClass}
-                        />
+                        <div className="grid gap-2">
+                          <input
+                            name="lineDescription"
+                            value={line.description}
+                            placeholder={copy.roomDetailsExample}
+                            onChange={(event) =>
+                              updateLine(line.key, {
+                                description: event.target.value,
+                              })
+                            }
+                            className={adminFieldClass}
+                          />
+                          <select
+                            name="lineBoard"
+                            value={line.board}
+                            onChange={(event) =>
+                              updateLine(line.key, {
+                                board: event.target.value as MealPlan,
+                              })
+                            }
+                            className={adminFieldClass}
+                          >
+                            {mealPlans.map((board) => (
+                              <option key={board} value={board}>
+                                {mealPlanLabel(board, boardLabels(copy))}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="lineView"
+                            value={line.view}
+                            maxLength={80}
+                            placeholder={copy.typeView}
+                            onChange={(event) =>
+                              updateLine(line.key, { view: event.target.value })
+                            }
+                            className={adminFieldClass}
+                          />
+                          <label className="grid gap-1 text-xs font-semibold text-[var(--desk-muted)]">
+                            {copy.minNights}
+                            <input
+                              name="lineMinNights"
+                              type="number"
+                              min={1}
+                              max={120}
+                              value={line.minNights}
+                              onChange={(event) =>
+                                updateLine(line.key, {
+                                  minNights: event.target.value,
+                                })
+                              }
+                              className={adminFieldClass}
+                            />
+                          </label>
+                          <select
+                            name="lineSaleMode"
+                            value={line.saleMode}
+                            onChange={(event) =>
+                              updateLine(line.key, {
+                                saleMode: event.target.value as SaleMode,
+                              })
+                            }
+                            className={adminFieldClass}
+                          >
+                            {saleModes.map((mode) => (
+                              <option key={mode} value={mode}>
+                                {mode === "request" ? copy.requestBooking : copy.bookNow}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </td>
                     <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
@@ -444,23 +579,9 @@ export function PurchaseForm({
                       <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
                         {copy.sleeps}
                       </span>
-                      {locked ? (
-                        <span className="tabular-nums">{line.capacity}</span>
-                      ) : (
-                        <input
-                          name="lineCapacity"
-                          type="number"
-                          min={1}
-                          max={20}
-                          value={line.capacity}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              capacity: event.target.value,
-                            })
-                          }
-                          className={`${adminFieldClass} w-full text-end lg:w-16`}
-                        />
-                      )}
+                      <span className="tabular-nums">
+                        {line.capacity || "—"}
+                      </span>
                     </td>
                     <td className="block px-0 py-2 lg:table-cell lg:px-2">
                       <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
@@ -516,6 +637,31 @@ export function PurchaseForm({
                             updateLine(line.key, { price: event.target.value })
                           }
                           className={`${adminFieldClass} w-full text-end lg:w-28`}
+                        />
+                      )}
+                    </td>
+                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
+                        {copy.publicPriceNight}
+                      </span>
+                      {locked ? (
+                        <span className="tabular-nums">
+                          {line.publicPrice.trim()
+                            ? formatMoney(lineHalalas(line.publicPrice) ?? 0, locale)
+                            : "—"}
+                        </span>
+                      ) : (
+                        <input
+                          name="linePublicPrice"
+                          inputMode="decimal"
+                          value={line.publicPrice}
+                          title={copy.publicPriceHint}
+                          onChange={(event) =>
+                            updateLine(line.key, {
+                              publicPrice: event.target.value,
+                            })
+                          }
+                          className={`${adminFieldClass} w-full text-end lg:w-36`}
                         />
                       )}
                     </td>

@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { QuoteForm } from "@/components/forms";
 import { localeAlternates, type Locale } from "@/i18n/routing";
 import { getHotel, getRoom, parseStay } from "@/lib/inventory";
-import { siteConfig } from "@/lib/site";
+import { getCompanyProfile } from "@/lib/company";
 
 type PageProps = {
   params: Promise<{ locale: Locale }>;
@@ -36,6 +36,7 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
   const query = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("Contact");
+  const company = await getCompanyProfile();
   const hotel = query.hotel ? await getHotel(query.hotel) : null;
   const room = query.room ? await getRoom(query.room) : null;
   const requestedRoom = [hotel?.name, room?.name].filter(Boolean).join(" — ");
@@ -84,23 +85,36 @@ export default async function ContactPage({ params, searchParams }: PageProps) {
               </h2>
               <div className="mt-5 grid gap-4 text-sm text-muted">
                 <a
-                  href={`tel:+${siteConfig.whatsapp}`}
+                  href={`tel:+${company.whatsapp}`}
                   className="flex items-start gap-3 hover:text-primary"
                 >
                   <Phone className="mt-0.5 shrink-0 text-gold" size={18} />
-                  {siteConfig.phoneDisplay}
+                  {company.phoneDisplay}
                 </a>
                 <a
-                  href={`mailto:${siteConfig.email}`}
+                  href={`mailto:${company.email}`}
                   className="flex items-start gap-3 hover:text-primary"
                 >
                   <Mail className="mt-0.5 shrink-0 text-gold" size={18} />
-                  {siteConfig.email}
+                  {company.email}
                 </a>
                 <p className="flex items-start gap-3">
                   <MapPin className="mt-0.5 shrink-0 text-gold" size={18} />
-                  {siteConfig.company.address[locale]}
+                  {company.address[locale]}
                 </p>
+                {company.legalName && (
+                  <p>{company.legalName}</p>
+                )}
+                {company.commercialRegistration && (
+                  <p>
+                    {t("commercialRegistration")}: {company.commercialRegistration}
+                  </p>
+                )}
+                {company.vatNumber && (
+                  <p>
+                    {t("vatNumber")}: {company.vatNumber}
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -54,7 +54,7 @@ export async function AvailableHotels({
     <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {hotels.map((hotel) => {
         const image = hotel.photos[0] ?? hotel.rooms[0]?.photos[0];
-        const openRooms = hotel.rooms.reduce((sum, room) => sum + room.open, 0);
+        const openRooms = hotel.rooms.reduce((sum, room) => sum + (room.open ?? 0), 0);
         return (
           <article
             key={hotel.id}

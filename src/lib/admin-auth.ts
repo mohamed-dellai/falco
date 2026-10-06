@@ -1,6 +1,12 @@
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  findAdminByEmail,
+  getAdminUser,
+  verifyPassword,
+  type AdminUser,
+} from "@/lib/admin-users";
 
 const cookieName = "falco_admin_session";
 
@@ -16,40 +22,41 @@ function signature(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("hex");
 }
 
-function sameSecret(left: string, right: string) {
-  const leftHash = createHash("sha256").update(left).digest();
-  const rightHash = createHash("sha256").update(right).digest();
-  return timingSafeEqual(leftHash, rightHash);
+function readSession(cookie: string | undefined) {
+  if (!cookie) return null;
+  const [userId, expiresAt, digest] = cookie.split(".");
+  if (!userId || !expiresAt || !digest) return null;
+  if (Number(expiresAt) < Date.now()) return null;
+  const expected = signature(`${userId}.${expiresAt}`);
+  if (expected.length !== digest.length) return null;
+  const valid = timingSafeEqual(Buffer.from(expected), Buffer.from(digest));
+  return valid ? userId : null;
 }
 
-export function adminPasswordConfigured() {
-  return Boolean(process.env.ADMIN_PASSWORD);
+export async function currentAdmin(): Promise<AdminUser | null> {
+  const userId = readSession((await cookies()).get(cookieName)?.value);
+  if (!userId) return null;
+  return getAdminUser(userId);
 }
 
 export async function isAdmin() {
-  const cookie = (await cookies()).get(cookieName)?.value;
-  if (!cookie) return false;
-
-  const [expiresAt, digest] = cookie.split(".");
-  if (!expiresAt || !digest) return false;
-  if (Number(expiresAt) < Date.now()) return false;
-
-  const expected = signature(expiresAt);
-  if (expected.length !== digest.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(digest));
+  return Boolean(await currentAdmin());
 }
 
 export async function requireAdmin() {
   if (!(await isAdmin())) redirect("/admin/login");
 }
 
-export async function createAdminSession(password: string) {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || !sameSecret(password, expected)) return false;
+export async function createAdminSession(email: string, password: string) {
+  const account = await findAdminByEmail(email);
+  if (!account || !(await verifyPassword(password, account.password_hash))) {
+    return false;
+  }
 
   const expiresAt = String(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const payload = `${account.id}.${expiresAt}`;
   const store = await cookies();
-  store.set(cookieName, `${expiresAt}.${signature(expiresAt)}`, {
+  store.set(cookieName, `${payload}.${signature(payload)}`, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

@@ -9,6 +9,7 @@ import {
   getAllotment,
   listAgencies,
   listAllotmentRooms,
+  listDeskRates,
 } from "@/lib/inventory";
 import { formatDate } from "@/lib/money";
 
@@ -26,10 +27,11 @@ export default async function AllotmentPage({
   const copy = adminCopy(locale);
   const { id } = await params;
   const query = await searchParams;
-  const [allotment, agencies, rooms] = await Promise.all([
+  const [allotment, agencies, rooms, rates] = await Promise.all([
     getAllotment(id),
     listAgencies(),
     listAllotmentRooms(),
+    listDeskRates(),
   ]);
   if (!allotment) notFound();
 
@@ -55,7 +57,12 @@ export default async function AllotmentPage({
           <AdminNotice>{copy.allotmentCancelledNotice}</AdminNotice>
         </div>
       )}
-      <AllotmentForm agencies={agencies} rooms={rooms} allotment={allotment} />
+      <AllotmentForm
+        agencies={agencies}
+        rooms={rooms}
+        allotment={allotment}
+        rates={rates}
+      />
     </AdminShell>
   );
 }

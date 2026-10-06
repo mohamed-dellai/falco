@@ -5,7 +5,7 @@ import { AdminEmptyState, adminButtonClass } from "@/components/admin-ui";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { listAgencies, listAllotmentRooms } from "@/lib/inventory";
+import { listAgencies, listAllotmentRooms, listDeskRates } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +24,10 @@ export default async function NewAllotmentPage({
   await requireAdmin();
   const copy = adminCopy(await getAdminLocale());
   const query = await searchParams;
-  const [agencies, rooms] = await Promise.all([
+  const [agencies, rooms, rates] = await Promise.all([
     listAgencies(),
     listAllotmentRooms(),
+    listDeskRates(),
   ]);
 
   return (
@@ -63,6 +64,7 @@ export default async function NewAllotmentPage({
           agencyId={query.agency}
           initialCheckIn={query.checkIn}
           initialCheckOut={query.checkOut}
+          rates={rates}
         />
       )}
     </AdminShell>

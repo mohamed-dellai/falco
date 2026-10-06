@@ -3,7 +3,7 @@ import Image from "next/image";
 import { MapPin, Target } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { localeAlternates, type Locale } from "@/i18n/routing";
-import { siteConfig } from "@/lib/site";
+import { getCompanyProfile } from "@/lib/company";
 
 type PageProps = {
   params: Promise<{ locale: Locale }>;
@@ -28,6 +28,7 @@ export default async function AboutPage({ params }: PageProps) {
   setRequestLocale(locale);
   const t = await getTranslations("About");
   const common = await getTranslations("Common");
+  const company = await getCompanyProfile();
 
   return (
     <section className="section-space">
@@ -68,7 +69,7 @@ export default async function AboutPage({ params }: PageProps) {
               {t("locationTitle")}
             </h2>
             <p className="mt-3 text-sm leading-7 text-muted">
-              {siteConfig.company.address[locale]}
+              {company.address[locale]}
             </p>
           </article>
         </div>

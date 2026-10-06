@@ -15,6 +15,9 @@ export function ClientFields({
     contactName: string;
     email: string;
     phone: string;
+    commercialRegistration: string;
+    vatNumber: string;
+    portalEmail?: string;
   };
 }) {
   const copy = useAdminCopy();
@@ -58,14 +61,52 @@ export function ClientFields({
         />
       </AdminField>
       {!individual && (
-        <AdminField label={copy.contact}>
-          <input
-            name="contactName"
-            maxLength={120}
-            defaultValue={client?.contactName}
-            className={adminFieldClass}
-          />
-        </AdminField>
+        <>
+          <AdminField label={copy.contact}>
+            <input
+              name="contactName"
+              maxLength={120}
+              defaultValue={client?.contactName}
+              className={adminFieldClass}
+            />
+          </AdminField>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <AdminField label={copy.commercialRegistration}>
+              <input
+                name="commercialRegistration"
+                maxLength={40}
+                defaultValue={client?.commercialRegistration}
+                className={adminFieldClass}
+              />
+            </AdminField>
+            <AdminField label={copy.vatNumber}>
+              <input
+                name="vatNumber"
+                maxLength={40}
+                defaultValue={client?.vatNumber}
+                className={adminFieldClass}
+              />
+            </AdminField>
+            <AdminField label={copy.portalEmail}>
+              <input
+                name="portalEmail"
+                type="email"
+                maxLength={160}
+                defaultValue={client?.portalEmail}
+                className={adminFieldClass}
+              />
+            </AdminField>
+            <AdminField label={copy.portalPassword} hint={copy.portalPasswordHint}>
+              <input
+                name="portalPassword"
+                type="password"
+                autoComplete="new-password"
+                maxLength={200}
+                className={adminFieldClass}
+              />
+            </AdminField>
+          </div>
+        </>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <AdminField label={copy.email}>

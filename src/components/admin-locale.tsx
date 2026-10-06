@@ -29,7 +29,13 @@ export function useAdminLocale() {
   return useContext(AdminLocaleContext);
 }
 
-export function LanguageSwitch({ tone = "dark" }: { tone?: "dark" | "light" }) {
+export function LanguageSwitch({
+  tone = "dark",
+  compact = false,
+}: {
+  tone?: "dark" | "light";
+  compact?: boolean;
+}) {
   const locale = useAdminLocale();
   const copy = useAdminCopy();
   const router = useRouter();
@@ -53,7 +59,13 @@ export function LanguageSwitch({ tone = "dark" }: { tone?: "dark" | "light" }) {
       : "text-[var(--desk-primary)]";
 
   return (
-    <div className="flex items-center gap-2 px-3 text-xs font-semibold">
+    <div
+      className={
+        compact
+          ? "flex items-center rounded-md bg-[var(--desk-surface-muted)] p-0.5 text-[10px] font-semibold"
+          : "flex items-center gap-2 px-3 text-xs font-semibold"
+      }
+    >
       <button
         type="button"
         onClick={() => choose("en")}
@@ -61,20 +73,28 @@ export function LanguageSwitch({ tone = "dark" }: { tone?: "dark" | "light" }) {
         lang="en"
         aria-label={copy.switchToEnglish}
         aria-pressed={locale === "en"}
-        className={`desk-focus min-h-10 rounded-md px-1 disabled:opacity-55 ${
-          locale === "en" ? active : idle
+        className={`desk-focus rounded-md disabled:opacity-55 ${
+          compact ? "px-1.5 py-0.5" : "min-h-10 px-1"
+        } ${
+          locale === "en"
+            ? compact
+              ? "bg-white text-[var(--desk-ink)] shadow-sm"
+              : active
+            : idle
         }`}
       >
-        {copy.english}
+        {compact ? "EN" : copy.english}
       </button>
-      <span
-        aria-hidden="true"
-        className={
-          tone === "dark" ? "text-white/25" : "text-[var(--desk-line-strong)]"
-        }
-      >
-        /
-      </span>
+      {compact ? null : (
+        <span
+          aria-hidden="true"
+          className={
+            tone === "dark" ? "text-white/25" : "text-[var(--desk-line-strong)]"
+          }
+        >
+          /
+        </span>
+      )}
       <button
         type="button"
         onClick={() => choose("fr")}
@@ -82,11 +102,17 @@ export function LanguageSwitch({ tone = "dark" }: { tone?: "dark" | "light" }) {
         lang="fr"
         aria-label={copy.switchToFrench}
         aria-pressed={locale === "fr"}
-        className={`desk-focus min-h-10 rounded-md px-1 disabled:opacity-55 ${
-          locale === "fr" ? active : idle
+        className={`desk-focus rounded-md disabled:opacity-55 ${
+          compact ? "px-1.5 py-0.5" : "min-h-10 px-1"
+        } ${
+          locale === "fr"
+            ? compact
+              ? "bg-white text-[var(--desk-ink)] shadow-sm"
+              : active
+            : idle
         }`}
       >
-        {copy.french}
+        {compact ? "FR" : copy.french}
       </button>
     </div>
   );

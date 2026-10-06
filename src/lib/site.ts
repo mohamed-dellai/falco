@@ -24,8 +24,8 @@ export const siteConfig = {
   },
 };
 
-export function getWhatsAppUrl(message?: string) {
-  const number = siteConfig.whatsapp.replace(/[^\d]/g, "");
+export function whatsappUrl(whatsapp: string, message?: string) {
+  const number = whatsapp.replace(/\D/g, "");
   const base = number ? `https://wa.me/${number}` : "https://wa.me/";
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }

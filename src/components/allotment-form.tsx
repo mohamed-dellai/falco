@@ -1,17 +1,17 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, type FormEvent } from "react";
 import {
   cancelAllotmentAction,
+  confirmHeldAllotmentAction,
   deleteAllotmentAction,
+  markNoShowAction,
+  reopenAllotmentAction,
   saveAllotmentAction,
 } from "@/app/admin/actions";
 import {
-  AdminField,
   AdminStatusPill,
-  adminButtonClass,
   adminButtonDangerClass,
-  adminButtonSecondaryClass,
   adminFieldClass,
 } from "@/components/admin-ui";
 import {
@@ -22,14 +22,15 @@ import {
 import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
-import { roomTypeLabel } from "@/lib/room-types";
-import type { Allotment, AllotmentStatus } from "@/lib/inventory";
+import { mealPlanLabel, roomTypeLabel, type MealPlan } from "@/lib/room-types";
+import type { Allotment, AllotmentStatus, SaleChannel } from "@/lib/inventory";
 import {
-  formatDate,
   formatDateRange,
   formatMoney,
   moneyInput,
   nightsBetween,
+  shiftIsoDate,
+  stayInside,
 } from "@/lib/money";
 
 type RoomOption = {
@@ -39,6 +40,8 @@ type RoomOption = {
   costPerNight: number;
   checkIn: string | null;
   checkOut: string | null;
+  board?: MealPlan;
+  view?: string;
 };
 
 function roomChoiceLabel(
@@ -54,6 +57,23 @@ function roomChoiceLabel(
   return `${hotelName} — ${roomTypeLabel(name, (type) => copy[type])}${period}`;
 }
 
+function contractLabel(
+  room: RoomOption,
+  locale: string,
+  copy: AdminCopy,
+) {
+  const meal = room.board
+    ? mealPlanLabel(room.board, {
+        room_only: copy.roomOnly,
+        breakfast: copy.breakfastBoard,
+        half_board: copy.halfBoard,
+        full_board: copy.fullBoard,
+      })
+    : "";
+  const view = room.view?.trim() ? ` · ${room.view.trim()}` : "";
+  return `${roomChoiceLabel(room.hotelName, room.name, room.checkIn, room.checkOut, locale, copy)}${meal ? ` · ${meal}` : ""}${view}`;
+}
+
 type DraftLine = {
   key: string;
   roomId: string;
@@ -66,9 +86,11 @@ type DraftLine = {
 export function AllotmentStatusPill({ status }: { status: AllotmentStatus }) {
   const copy = useAdminCopy();
   const statusLabel: Record<AllotmentStatus, string> = {
-    draft: copy.draft,
+    request: copy.statusRequest,
+    provisional: copy.statusProvisional,
     confirmed: copy.confirmed,
     cancelled: copy.cancelled,
+    no_show: copy.statusNoShow,
   };
   return (
     <AdminStatusPill
@@ -128,7 +150,7 @@ function lineFromAllotment(
 ): DraftLine[] {
   return allotment.lines.map((line) => ({
     key: line.id,
-    roomId: line.roomId,
+    roomId: line.purchaseLineId || line.roomId,
     quantity: String(line.quantity),
     cost: moneyInput(line.costPerNight),
     price: moneyInput(line.agencyPricePerNight),
@@ -147,6 +169,77 @@ function lineIsFilled(line: DraftLine) {
   return Boolean(line.roomId || line.cost.trim() || line.price.trim());
 }
 
+function stayBounds(options: RoomOption[], mode: "union" | "intersection") {
+  let start = "";
+  let end = "";
+  for (const room of options) {
+    if (!room.checkIn || !room.checkOut) continue;
+    if (!start || (mode === "union" ? room.checkIn < start : room.checkIn > start)) {
+      start = room.checkIn;
+    }
+    if (!end || (mode === "union" ? room.checkOut > end : room.checkOut < end)) {
+      end = room.checkOut;
+    }
+  }
+  if (!start || !end || start >= end) return null;
+  return { start, end };
+}
+
+export function SaleChannelMark({ channel }: { channel: SaleChannel }) {
+  const copy = useAdminCopy();
+  const label =
+    channel === "b2c"
+      ? copy.channelB2c
+      : channel === "b2b"
+        ? copy.channelB2b
+        : copy.channelDesk;
+  const tone =
+    channel === "b2c"
+      ? "bg-[var(--desk-primary-soft)] text-[var(--desk-primary)]"
+      : channel === "b2b"
+        ? "bg-[var(--desk-gold-soft)] text-[var(--desk-gold)]"
+        : "bg-[var(--desk-surface-muted)] text-[var(--desk-muted)]";
+  return (
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+function StageTrack({ status }: { status: AllotmentStatus }) {
+  const copy = useAdminCopy();
+  const steps: Array<{ id: AllotmentStatus; label: string }> = [
+    { id: "request", label: copy.statusRequest },
+    { id: "provisional", label: copy.statusProvisional },
+    { id: "confirmed", label: copy.confirmed },
+    { id: "cancelled", label: copy.cancelled },
+    { id: "no_show", label: copy.statusNoShow },
+  ];
+  return (
+    <div className="flex overflow-hidden rounded border border-[var(--desk-line)] bg-white text-[11px] font-semibold">
+      {steps.map((step) => {
+        const current = step.id === status;
+        const tone = !current
+          ? "text-[var(--desk-muted)]"
+          : step.id === "confirmed"
+            ? "bg-[var(--desk-success-soft)] text-[var(--desk-success)]"
+            : step.id === "cancelled"
+              ? "bg-[var(--desk-danger-soft)] text-[var(--desk-danger)]"
+              : "bg-[var(--desk-warning-soft)] text-[var(--desk-warning)]";
+        return (
+          <span
+            key={step.id}
+            className={`inline-flex items-center gap-1.5 border-e border-[var(--desk-line)] px-3 py-1 last:border-e-0 ${tone}`}
+          >
+            {current && <span className="size-1.5 rounded-full bg-current" />}
+            {step.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AllotmentForm({
   agencies,
   rooms,
@@ -155,6 +248,7 @@ export function AllotmentForm({
   agencyId,
   initialCheckIn,
   initialCheckOut,
+  rates = [],
 }: {
   agencies: Array<{
     id: string;
@@ -168,11 +262,16 @@ export function AllotmentForm({
   agencyId?: string;
   initialCheckIn?: string;
   initialCheckOut?: string;
+  rates?: Array<{
+    purchaseLineId: string;
+    agencyId: string;
+    pricePerNight: number;
+  }>;
 }) {
   const copy = useAdminCopy();
   const locale = useAdminLocale();
-  const locked =
-    allotment?.status === "confirmed" || allotment?.status === "cancelled";
+  const websiteBooking = allotment?.channel === "b2c";
+  const locked = Boolean(allotment && allotment.status !== "request") || websiteBooking;
   const preset = rooms.find((room) => room.id === roomId);
   const [selectedAgencyId, setSelectedAgencyId] = useState(
     allotment?.agencyId ?? agencyId ?? "",
@@ -190,6 +289,7 @@ export function AllotmentForm({
   );
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState("");
+  const selectedAgency = agencies.find((agency) => agency.id === selectedAgencyId);
 
   const totals = useMemo(() => {
     const nights = nightsBetween(checkIn, checkOut);
@@ -210,6 +310,44 @@ export function AllotmentForm({
     return { nights, cost, revenue, margin: revenue - cost, rooms };
   }, [checkIn, checkOut, lines]);
 
+  const selectedRooms = lines
+    .map((line) => rooms.find((room) => room.id === line.roomId))
+    .filter((room): room is RoomOption => Boolean(room?.checkIn && room.checkOut));
+  const bounds = selectedRooms.length
+    ? stayBounds(selectedRooms, "intersection")
+    : stayBounds(rooms, "union");
+  const clash = selectedRooms.length > 0 && !bounds;
+  const stayReady = nightsBetween(checkIn, checkOut) > 0;
+  const windowProblem = clash
+    ? copy.saleRoomsClash
+    : stayReady &&
+        selectedRooms.some(
+          (room) => !stayInside(checkIn, checkOut, room.checkIn, room.checkOut),
+        )
+      ? copy.saleWindowError
+      : stayReady &&
+          !rooms.some((room) =>
+            stayInside(checkIn, checkOut, room.checkIn, room.checkOut),
+          )
+        ? copy.noRoomForStay
+        : "";
+  const listedRooms = stayReady
+    ? rooms.filter((room) =>
+        stayInside(checkIn, checkOut, room.checkIn, room.checkOut),
+      )
+    : rooms;
+  const checkInMax = bounds
+    ? [shiftIsoDate(bounds.end, -1), checkOut ? shiftIsoDate(checkOut, -1) : ""]
+        .filter(Boolean)
+        .sort()[0]
+    : undefined;
+  const checkOutMin = bounds
+    ? [shiftIsoDate(bounds.start, 1), checkIn ? shiftIsoDate(checkIn, 1) : ""]
+        .filter(Boolean)
+        .sort()
+        .at(-1)
+    : undefined;
+
   function updateLine(key: string, patch: Partial<DraftLine>) {
     setLines((current) =>
       current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
@@ -219,7 +357,7 @@ export function AllotmentForm({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const intent =
-      submitter instanceof HTMLButtonElement ? submitter.value : "draft";
+      submitter instanceof HTMLButtonElement ? submitter.value : "request";
     const filled = lines.filter(lineIsFilled);
     if (!selectedAgencyId) {
       event.preventDefault();
@@ -237,7 +375,20 @@ export function AllotmentForm({
       setFormError(copy.spanError);
       return;
     }
-    if (intent === "confirm" && filled.length === 0) {
+    const uncovered = filled.some((line) => {
+      if (!line.roomId) return false;
+      const room = rooms.find((item) => item.id === line.roomId);
+      return !room || !stayInside(checkIn, checkOut, room.checkIn, room.checkOut);
+    });
+    const stockCovers = rooms.some((room) =>
+      stayInside(checkIn, checkOut, room.checkIn, room.checkOut),
+    );
+    if (uncovered || !stockCovers) {
+      event.preventDefault();
+      setFormError(copy.saleWindowError);
+      return;
+    }
+    if ((intent === "confirm" || intent === "hold") && filled.length === 0) {
       event.preventDefault();
       setFormError(copy.allotmentLinesError);
       return;
@@ -259,9 +410,9 @@ export function AllotmentForm({
   }
 
   return (
-    <div className="overflow-visible rounded-2xl border border-[var(--desk-line)] bg-white">
-      <div className="sticky top-[4.5rem] z-10 flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[var(--desk-line)] bg-white/95 px-4 py-3 backdrop-blur lg:static">
-        <div className="flex flex-wrap gap-2">
+    <div className="overflow-hidden rounded-lg border border-[var(--desk-line)] bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--desk-line)] bg-[var(--desk-surface-muted)] px-5 py-3">
+        <div className="flex flex-wrap items-center gap-2">
           {!locked && (
             <>
               <button
@@ -270,40 +421,68 @@ export function AllotmentForm({
                 name="intent"
                 value="confirm"
                 disabled={pending !== ""}
-                className={`${adminButtonClass} min-w-40`}
+                className="desk-focus inline-flex h-8 items-center gap-1.5 rounded bg-[var(--desk-primary)] px-3.5 text-xs font-semibold text-white hover:bg-[var(--desk-primary-hover)] disabled:opacity-55"
               >
-                {pending === "confirm"
-                  ? copy.confirming
-                  : copy.confirmAllotment}
+                {pending === "confirm" ? copy.confirming : copy.confirmAllotment}
               </button>
               <button
                 type="submit"
                 form="allotment-form"
                 name="intent"
-                value="draft"
+                value="hold"
                 disabled={pending !== ""}
-                className={`${adminButtonSecondaryClass} min-w-32`}
+                className="desk-focus inline-flex h-8 items-center gap-1.5 rounded border border-[var(--desk-line)] bg-white px-3 text-xs font-semibold text-[var(--desk-ink)] hover:bg-white/70 disabled:opacity-55"
               >
-                {pending === "draft" ? copy.saving : copy.saveDraft}
+                {pending === "hold" ? copy.saving : copy.holdSale}
+              </button>
+              <button
+                type="submit"
+                form="allotment-form"
+                name="intent"
+                value="request"
+                disabled={pending !== ""}
+                className="desk-focus inline-flex h-8 items-center gap-1.5 rounded border border-[var(--desk-line)] bg-white px-3 text-xs font-semibold text-[var(--desk-ink)] hover:bg-white/70 disabled:opacity-55"
+              >
+                {pending === "request" ? copy.saving : copy.saveRequest}
               </button>
             </>
           )}
-          {allotment?.status === "confirmed" && (
+          {allotment?.status === "provisional" && !websiteBooking && (
+            <form action={confirmHeldAllotmentAction}>
+              <input type="hidden" name="id" value={allotment.id} />
+              <button
+                type="submit"
+                className="desk-focus inline-flex h-8 items-center rounded bg-[var(--desk-primary)] px-3.5 text-xs font-semibold text-white hover:bg-[var(--desk-primary-hover)]"
+              >
+                {copy.confirmAllotment}
+              </button>
+            </form>
+          )}
+          {(allotment?.status === "confirmed" || allotment?.status === "provisional") && (
             <NamedConfirm
               title={copy.cancelAllotmentTitle}
-              body={fill(copy.cancelAllotmentBody, {
-                number: allotment.number,
-              })}
+              body={fill(copy.cancelAllotmentBody, { number: allotment.number })}
               confirm={copy.cancelAction}
               pendingLabel={copy.cancelling}
               cancelLabel={copy.keepAllotment}
               action={cancelAllotmentAction}
               fields={{ id: allotment.id }}
               trigger={copy.cancelAction}
-              triggerClassName={adminButtonDangerClass}
+              triggerClassName="desk-focus inline-flex h-8 items-center px-2 text-xs font-semibold text-[var(--desk-muted)] hover:text-[var(--desk-danger)]"
             />
           )}
-          {allotment?.status === "draft" && (
+          {allotment?.status === "confirmed" && (
+            <form action={markNoShowAction}>
+              <input type="hidden" name="id" value={allotment.id} />
+              <button
+                type="submit"
+                className="desk-focus inline-flex h-8 items-center px-2 text-xs font-semibold text-[var(--desk-muted)] hover:text-[var(--desk-danger)]"
+              >
+                {copy.markNoShow}
+              </button>
+            </form>
+          )}
+          {allotment?.status === "request" && (
             <NamedConfirm
               title={copy.deleteDraftTitle}
               body={fill(copy.deleteDraftBody, { number: allotment.number })}
@@ -313,56 +492,79 @@ export function AllotmentForm({
               action={deleteAllotmentAction}
               fields={{ id: allotment.id }}
               trigger={copy.deleteAction}
-              triggerClassName={adminButtonDangerClass}
+              triggerClassName="desk-focus inline-flex h-8 items-center px-2 text-xs font-semibold text-[var(--desk-muted)] hover:text-[var(--desk-danger)]"
             />
           )}
           {allotment?.status === "cancelled" && (
-            <DeleteCancelledAllotment
-              id={allotment.id}
-              number={allotment.number}
-            />
+            <>
+              {!websiteBooking && (
+                <form action={reopenAllotmentAction}>
+                  <input type="hidden" name="id" value={allotment.id} />
+                  <button
+                    type="submit"
+                    className="desk-focus inline-flex h-8 items-center rounded bg-[var(--desk-primary)] px-3.5 text-xs font-semibold text-white hover:bg-[var(--desk-primary-hover)]"
+                  >
+                    {copy.makeDraft}
+                  </button>
+                </form>
+              )}
+              <DeleteCancelledAllotment id={allotment.id} number={allotment.number} compact />
+            </>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <span
-            aria-live="polite"
-            className="font-plex text-xs tabular-nums text-[var(--desk-muted)]"
-          >
-            {copy.sell} · {formatMoney(totals.revenue, locale)}
-          </span>
-          <AllotmentStatusPill status={allotment?.status ?? "draft"} />
-        </div>
+        <StageTrack status={allotment?.status ?? "request"} />
       </div>
 
       <form
         id="allotment-form"
         action={saveAllotmentAction}
         onSubmit={onSubmit}
-        className="grid gap-5 p-4 sm:p-5"
+        className="p-6 sm:p-8"
       >
         {allotment && <input type="hidden" name="id" value={allotment.id} />}
         {formError && (
           <p
             role="alert"
-            className="rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
+            className="mb-4 rounded-lg border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
           >
             {formError}
           </p>
         )}
 
-        {!locked && (
-          <CalendarSwitch
-            label={copy.calendar}
-            normal={copy.normalCalendar}
-            arabic={copy.arabicCalendar}
-          />
-        )}
-        <div className="grid gap-4 md:grid-cols-3">
-          <AdminField label={copy.client}>
-            {locked ? (
-              <span className="flex min-h-10 items-center text-sm font-medium">
-                {allotment?.agencyName}
+        <div className="mb-6 border-b border-[var(--desk-line-soft)] pb-4">
+          <span className="mb-1 block text-[11px] font-semibold tracking-wider text-[var(--desk-muted)] uppercase">
+            {copy.salesOrder}
+          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="font-plex text-3xl font-bold tracking-tight text-[var(--desk-ink)]">
+              {allotment?.number ?? copy.newAllotment}
+            </h2>
+            <SaleChannelMark channel={allotment?.channel ?? "desk"} />
+            {selectedAgency && (
+              <span className="text-base font-medium text-[var(--desk-text)]">
+                — {selectedAgency.name}
               </span>
+            )}
+          </div>
+        </div>
+
+        {!locked && (
+          <div className="mb-4">
+            <CalendarSwitch
+              label={copy.calendar}
+              normal={copy.normalCalendar}
+              arabic={copy.arabicCalendar}
+            />
+          </div>
+        )}
+
+        <div className="mb-8 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-wide text-[var(--desk-muted)] uppercase">
+              {copy.agency}
+            </span>
+            {locked ? (
+              <span className="text-sm font-medium">{allotment?.agencyName}</span>
             ) : (
               <select
                 name="agencyId"
@@ -371,21 +573,20 @@ export function AllotmentForm({
                 onChange={(event) => setSelectedAgencyId(event.target.value)}
                 className={adminFieldClass}
               >
-                <option value="">{copy.selectAgency}</option>
+                <option value="">{copy.chooseAgency}</option>
                 {agencies.map((agency) => (
                   <option key={agency.id} value={agency.id}>
                     {agency.name}
                     {agency.country ? ` — ${agency.country}` : ""}
-                    {" · "}
-                    {agency.kind === "individual"
-                      ? copy.individual
-                      : copy.agency}
                   </option>
                 ))}
               </select>
             )}
-          </AdminField>
-          <AdminField label={copy.checkIn}>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-wide text-[var(--desk-muted)] uppercase">
+              {copy.checkIn}
+            </span>
             {locked ? (
               <DualDate iso={allotment?.checkIn} locale={locale} />
             ) : (
@@ -394,12 +595,18 @@ export function AllotmentForm({
                 label={copy.checkIn}
                 locale={locale}
                 required
+                min={bounds?.start}
+                max={checkInMax}
+                disabled={clash}
                 value={checkIn}
                 onChange={setCheckIn}
               />
             )}
-          </AdminField>
-          <AdminField label={copy.checkOut}>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-wide text-[var(--desk-muted)] uppercase">
+              {copy.checkOut}
+            </span>
             {locked ? (
               <DualDate iso={allotment?.checkOut} locale={locale} />
             ) : (
@@ -408,35 +615,56 @@ export function AllotmentForm({
                 label={copy.checkOut}
                 locale={locale}
                 required
+                min={checkOutMin}
+                max={bounds?.end}
+                disabled={clash}
                 value={checkOut}
                 onChange={setCheckOut}
               />
             )}
-          </AdminField>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold tracking-wide text-[var(--desk-muted)] uppercase">
+              {copy.orderDate}
+            </span>
+            {allotment ? (
+              <DualDate iso={allotment.createdAt.slice(0, 10)} locale={locale} />
+            ) : (
+              <span className="text-sm text-[var(--desk-muted)]">{copy.numberAssigned}</span>
+            )}
+          </div>
         </div>
 
-        <p className="text-xs leading-5 text-[var(--desk-muted)]">
-          {allotment
-            ? `${allotment.number} · ${fill(copy.orderedOn, {
-                date: formatDate(allotment.createdAt, locale),
-              })}. `
-            : `${copy.numberAssigned} `}
-          {copy.draftNote}
-        </p>
+        {windowProblem ? (
+          <p className="mb-6 text-sm text-[var(--desk-danger)]">{windowProblem}</p>
+        ) : bounds && selectedRooms.length > 0 ? (
+          <p className="mb-6 text-sm text-[var(--desk-muted)]">
+            {fill(copy.saleWindowHint, {
+              range: formatDateRange(bounds.start, bounds.end, locale),
+            })}
+          </p>
+        ) : null}
 
-        <div className="min-w-0 overflow-x-auto">
-          <table className="block w-full border-collapse text-start text-sm lg:table">
-            <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
-              <tr>
-                <th className="px-2 py-2">{copy.rooms}</th>
-                <th className="px-2 py-2 text-end">{copy.qty}</th>
-                <th className="px-2 py-2 text-end">{copy.costNight}</th>
-                <th className="px-2 py-2 text-end">{copy.agencyPriceNight}</th>
-                <th className="px-2 py-2 text-end">{copy.sell}</th>
-                {!locked && <th className="w-8 px-2 py-2" />}
+        <div className="mb-3 border-b border-[var(--desk-line)]">
+          <span className="-mb-px inline-flex border-b-2 border-[var(--desk-primary)] pb-2 text-xs font-bold text-[var(--desk-primary)]">
+            {copy.orderLines}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded border border-[var(--desk-line)]">
+          <table className="w-full min-w-[720px] border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-[var(--desk-line)] bg-[var(--desk-surface-muted)] text-[11px] font-semibold tracking-wider text-[var(--desk-muted)] uppercase">
+                <th className="px-4 py-2.5">{copy.rooms}</th>
+                <th className="px-3 py-2.5 text-center">{copy.nights}</th>
+                <th className="px-3 py-2.5 text-center">{copy.qty}</th>
+                <th className="px-4 py-2.5 text-end">{copy.costNight}</th>
+                <th className="px-4 py-2.5 text-end">{copy.agencyPriceNight}</th>
+                <th className="px-4 py-2.5 text-end">{copy.sell}</th>
+                {!locked && <th className="w-16 px-3 py-2.5" />}
               </tr>
             </thead>
-            <tbody className="grid gap-3 lg:table-row-group">
+            <tbody className="divide-y divide-[var(--desk-line-soft)]">
               {lines.map((line) => {
                 const nights = nightsBetween(checkIn, checkOut);
                 const price = lineHalalas(line.price);
@@ -445,70 +673,58 @@ export function AllotmentForm({
                   nights > 0 && price !== null && quantity !== null
                     ? price * nights * quantity
                     : null;
-                const known = rooms.some((room) => room.id === line.roomId);
                 return (
-                  <tr
-                    key={line.key}
-                    className="block rounded-xl border border-[var(--desk-line)] p-3 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
-                  >
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.rooms}
-                      </span>
+                  <tr key={line.key} className="hover:bg-[var(--desk-canvas)]">
+                    <td className="px-4 py-3">
                       {locked ? (
-                        <span>{line.label}</span>
+                        <span className="font-medium text-[var(--desk-ink)]">{line.label}</span>
                       ) : (
                         <select
                           name="lineRoom"
                           value={line.roomId}
                           onChange={(event) => {
-                            const room = rooms.find(
-                              (item) => item.id === event.target.value,
-                            );
+                            const room = rooms.find((item) => item.id === event.target.value);
                             updateLine(line.key, {
                               roomId: event.target.value,
-                              label: room
-                                ? roomChoiceLabel(
-                                    room.hotelName,
-                                    room.name,
-                                    room.checkIn,
-                                    room.checkOut,
-                                    locale,
-                                    copy,
-                                  )
-                                : "",
-                              cost: room
-                                ? moneyInput(room.costPerNight)
-                                : line.cost,
+                              label: room ? contractLabel(room, locale, copy) : "",
+                              cost: room ? moneyInput(room.costPerNight) : line.cost,
+                              price:
+                                rates.find(
+                                  (rate) =>
+                                    rate.purchaseLineId === event.target.value &&
+                                    rate.agencyId === selectedAgencyId,
+                                )?.pricePerNight != null
+                                  ? moneyInput(
+                                      rates.find(
+                                        (rate) =>
+                                          rate.purchaseLineId === event.target.value &&
+                                          rate.agencyId === selectedAgencyId,
+                                      )!.pricePerNight,
+                                    )
+                                  : line.price,
                             });
                           }}
                           className={adminFieldClass}
                         >
                           <option value="">{copy.selectRoom}</option>
-                          {line.roomId && !known && (
-                            <option value={line.roomId}>{line.label}</option>
-                          )}
-                          {rooms.map((room) => (
+                          {line.roomId &&
+                            !listedRooms.some((room) => room.id === line.roomId) && (
+                              <option value={line.roomId}>{line.label}</option>
+                            )}
+                          {listedRooms.map((room) => (
                             <option key={room.id} value={room.id}>
-                              {roomChoiceLabel(
-                                room.hotelName,
-                                room.name,
-                                room.checkIn,
-                                room.checkOut,
-                                locale,
-                                copy,
-                              )}
+                              {contractLabel(room, locale, copy)}
                             </option>
                           ))}
                         </select>
                       )}
                     </td>
-                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.qty}
-                      </span>
+                    <td className="px-3 py-3 text-center font-plex">
+                      {nights > 0 ? nights : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-center">
                       {locked ? (
-                        <span className="tabular-nums">{line.quantity}</span>
+                        <span className="font-plex font-medium">{line.quantity}</span>
                       ) : (
                         <input
                           name="lineQuantity"
@@ -517,22 +733,15 @@ export function AllotmentForm({
                           max={5000}
                           value={line.quantity}
                           onChange={(event) =>
-                            updateLine(line.key, {
-                              quantity: event.target.value,
-                            })
+                            updateLine(line.key, { quantity: event.target.value })
                           }
-                          className={`${adminFieldClass} w-full text-end lg:w-16`}
+                          className={`${adminFieldClass} text-center`}
                         />
                       )}
                     </td>
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.costNight}
-                      </span>
+                    <td className="px-4 py-3 text-end">
                       {locked ? (
-                        <span className="block text-end tabular-nums">
-                          {line.cost}
-                        </span>
+                        <span className="font-plex">{line.cost}</span>
                       ) : (
                         <input
                           name="lineCost"
@@ -545,14 +754,9 @@ export function AllotmentForm({
                         />
                       )}
                     </td>
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.agencyPriceNight}
-                      </span>
+                    <td className="px-4 py-3 text-end">
                       {locked ? (
-                        <span className="block text-end tabular-nums">
-                          {line.price}
-                        </span>
+                        <span className="font-plex">{line.price}</span>
                       ) : (
                         <input
                           name="linePrice"
@@ -565,26 +769,21 @@ export function AllotmentForm({
                         />
                       )}
                     </td>
-                    <td className="block px-0 py-2 text-end font-plex lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.sell}
-                      </span>
+                    <td className="px-4 py-3 text-end font-plex font-semibold">
                       {sell === null ? "—" : formatMoney(sell, locale)}
                     </td>
                     {!locked && (
-                      <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
+                      <td className="px-3 py-3 text-end">
                         <button
                           type="button"
                           onClick={() =>
                             setLines((current) =>
                               current.length === 1
                                 ? [emptyLine(undefined, locale, copy)]
-                                : current.filter(
-                                    (item) => item.key !== line.key,
-                                  ),
+                                : current.filter((item) => item.key !== line.key),
                             )
                           }
-                          className="desk-focus rounded text-xs font-semibold text-[var(--desk-danger)]"
+                          className="whitespace-nowrap text-[11px] font-semibold text-[var(--desk-danger)]"
                         >
                           {copy.removeLine}
                         </button>
@@ -597,57 +796,69 @@ export function AllotmentForm({
           </table>
         </div>
 
-        {!locked && (
-          <button
-            type="button"
-            onClick={() => setLines((current) => [...current, emptyLine(undefined, locale, copy)])}
-            className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
-          >
-            {copy.addRoom}
-          </button>
-        )}
-
-        <AdminField label={copy.notes}>
-          {locked ? (
-            <p className="text-sm font-normal text-[var(--desk-text)]">
-              {allotment?.notes || "—"}
-            </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {!locked ? (
+            <button
+              type="button"
+              onClick={() =>
+                setLines((current) => [...current, emptyLine(undefined, locale, copy)])
+              }
+              className="font-semibold text-[var(--desk-primary)] hover:underline"
+            >
+              + {copy.addRoom}
+            </button>
           ) : (
-            <textarea
-              name="notes"
-              defaultValue={allotment?.notes ?? ""}
-              className={`${adminFieldClass} !h-auto min-h-20 py-2`}
-            />
+            <span />
           )}
-        </AdminField>
+          <span className="font-plex text-[var(--desk-muted)]">
+            {lines.filter((line) => line.roomId).length} · {totals.rooms} {copy.rooms}
+          </span>
+        </div>
 
-        <dl className="ms-auto grid w-full max-w-sm gap-2 rounded-xl bg-[var(--desk-canvas)] p-4 text-sm">
-          <div className="flex justify-between gap-6">
-            <dt className="text-[var(--desk-muted)]">{copy.rooms}</dt>
-            <dd className="font-plex">{totals.rooms}</dd>
-          </div>
-          <div className="flex justify-between gap-6">
-            <dt className="text-[var(--desk-muted)]">{copy.cost}</dt>
-            <dd className="font-plex">{formatMoney(totals.cost, locale)}</dd>
-          </div>
-          <div className="flex justify-between gap-6">
-            <dt className="text-[var(--desk-muted)]">{copy.sell}</dt>
-            <dd className="font-plex">{formatMoney(totals.revenue, locale)}</dd>
-          </div>
-          <div className="flex justify-between gap-6 border-t border-[var(--desk-line)] pt-2 font-semibold text-[var(--desk-primary)]">
-            <dt>
-              {totals.nights > 0
-                ? fill(copy.marginWithNights, { count: totals.nights })
-                : copy.margin}
-            </dt>
-            <dd className="font-plex">{formatMoney(totals.margin, locale)}</dd>
-          </div>
-        </dl>
+        <div className="mt-6">
+          <label className="grid gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--desk-muted)] uppercase">
+            {copy.terms}
+            {locked ? (
+              <p className="text-sm font-normal normal-case tracking-normal text-[var(--desk-text)]">
+                {allotment?.notes || "—"}
+              </p>
+            ) : (
+              <textarea
+                name="notes"
+                defaultValue={allotment?.notes ?? ""}
+                placeholder={copy.notesExample}
+                className={`${adminFieldClass} !h-auto min-h-20 py-2 normal-case tracking-normal`}
+              />
+            )}
+          </label>
+        </div>
+
+        <div className="mt-8 flex justify-end">
+          <dl className="w-full max-w-xs space-y-2 border-t border-[var(--desk-line)] pt-4 text-sm">
+            <div className="flex justify-between gap-6 text-[var(--desk-muted)]">
+              <dt>{copy.sell}</dt>
+              <dd className="font-plex font-medium text-[var(--desk-ink)]">
+                {formatMoney(totals.revenue, locale)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-6 text-[var(--desk-muted)]">
+              <dt>{copy.margin}</dt>
+              <dd className="font-plex font-medium text-[var(--desk-success)]">
+                {formatMoney(totals.margin, locale)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-6 border-t border-[var(--desk-line)] pt-2 text-base font-bold text-[var(--desk-ink)]">
+              <dt>{copy.contractValue}</dt>
+              <dd className="font-plex text-lg text-[var(--desk-primary)]">
+                {formatMoney(totals.revenue, locale)}
+              </dd>
+            </div>
+          </dl>
+        </div>
       </form>
     </div>
   );
 }
-
 export function DeleteCancelledAllotment({
   id,
   number,
