@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { IBM_Plex_Sans_Arabic, Plus_Jakarta_Sans } from "next/font/google";
 import { AdminAccountProvider } from "@/components/admin-account";
 import { AdminLocaleProvider } from "@/components/admin-locale";
 import { currentAdmin } from "@/lib/admin-auth";
@@ -11,6 +11,12 @@ import "./admin.css";
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-desk",
+});
+
+const arabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "600"],
+  variable: "--font-arabic",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,7 +38,7 @@ export default async function AdminLayout({
   return (
     <html
       lang={locale}
-      className={sans.variable}
+      className={`${sans.variable} ${arabic.variable}`}
     >
       <body
         className={`${sans.className} admin-desk bg-[var(--desk-canvas)] text-[var(--desk-ink)] antialiased`}

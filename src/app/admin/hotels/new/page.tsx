@@ -6,11 +6,14 @@ import {
   adminFieldClass,
 } from "@/components/admin-ui";
 import { AdminSubmitButton } from "@/components/admin-submit-button";
+import { CityPlaceFields } from "@/components/city-place-fields";
 import { createHotelAction } from "@/app/admin/actions";
+import { HotelMapField } from "@/components/hotel-map";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, type AdminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { cities } from "@/lib/inventory";
+import { cities, type City } from "@/lib/inventory";
+import { places } from "@/lib/places";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +24,8 @@ export default async function NewHotelPage({
 }) {
   await requireAdmin();
   const query = await searchParams;
-  const copy = adminCopy(await getAdminLocale());
+  const locale = await getAdminLocale();
+  const copy = adminCopy(locale);
 
   return (
     <AdminShell
@@ -31,16 +35,7 @@ export default async function NewHotelPage({
       <AdminError code={query.error} />
       <AdminPanel title={copy.hotelRecord} className="max-w-3xl">
         <form action={createHotelAction} className="grid gap-3">
-          <HotelFields copy={copy} />
-          <AdminField label={copy.photos} hint={copy.photoRule}>
-            <input
-              name="photos"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              className="desk-focus block min-h-11 w-full rounded-xl border border-dashed border-[var(--desk-line-strong)] bg-[var(--desk-canvas)] px-3 py-2 text-sm file:me-3 file:rounded-lg file:border-0 file:bg-[var(--desk-ink)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
-            />
-          </AdminField>
+          <HotelFields copy={copy} locale={locale} />
           <AdminSubmitButton
             pendingLabel={copy.saving}
             className={`${adminButtonClass} w-fit`}
@@ -56,41 +51,56 @@ export default async function NewHotelPage({
 export function HotelFields({
   hotel,
   copy,
+  locale,
 }: {
+  locale: "en" | "fr";
   hotel?: {
     name: string;
-    city: string;
+    nameAr: string;
+    city: City;
+    placeId: string;
     address: string;
     description: string;
+    descriptionAr: string;
     stars: number;
     distanceToHaram: string;
+    latitude: number | null;
+    longitude: number | null;
   };
   copy: AdminCopy;
 }) {
   return (
     <>
-      <AdminField label={copy.hotelName}>
-        <input
-          name="name"
-          required
-          defaultValue={hotel?.name}
-          className={adminFieldClass}
-        />
-      </AdminField>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AdminField label={copy.city}>
-          <select
-            name="city"
-            defaultValue={hotel?.city ?? "makkah"}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminField label={copy.hotelName}>
+          <input
+            name="name"
+            required
+            defaultValue={hotel?.name}
             className={adminFieldClass}
-          >
-            {cities.map((city) => (
-              <option key={city} value={city}>
-                {copy[city]}
-              </option>
-            ))}
-          </select>
+          />
         </AdminField>
+        <AdminField label={copy.hotelNameAr}>
+          <input
+            name="nameAr"
+            dir="rtl"
+            defaultValue={hotel?.nameAr}
+            className={adminFieldClass}
+          />
+        </AdminField>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <CityPlaceFields
+          cities={cities.map((city) => ({ id: city, label: copy[city] }))}
+          places={places.map((place) => ({
+            id: place.id,
+            city: place.city,
+            label: locale === "fr" ? place.fr : place.en,
+          }))}
+          city={hotel?.city ?? "makkah"}
+          placeId={hotel?.placeId ?? ""}
+          labels={{ city: copy.city, place: copy.place, noPlace: copy.noPlace }}
+        />
         <AdminField label={copy.stars}>
           <input
             name="stars"
@@ -117,10 +127,30 @@ export function HotelFields({
           className={adminFieldClass}
         />
       </AdminField>
+      <HotelMapField
+        latitude={hotel?.latitude ?? null}
+        longitude={hotel?.longitude ?? null}
+        city={hotel?.city ?? "makkah"}
+        labels={{
+          title: copy.mapPosition,
+          hint: copy.mapPositionHint,
+          latitude: copy.latitude,
+          longitude: copy.longitude,
+          clear: copy.clearPosition,
+        }}
+      />
       <AdminField label={copy.description}>
         <textarea
           name="description"
           defaultValue={hotel?.description}
+          className={`${adminFieldClass} !h-auto min-h-28 py-2`}
+        />
+      </AdminField>
+      <AdminField label={copy.descriptionAr}>
+        <textarea
+          name="descriptionAr"
+          dir="rtl"
+          defaultValue={hotel?.descriptionAr}
           className={`${adminFieldClass} !h-auto min-h-28 py-2`}
         />
       </AdminField>

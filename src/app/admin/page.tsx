@@ -23,7 +23,6 @@ import {
   cities,
   inventoryStats,
   listAllotments,
-  listAssignments,
   listHotels,
   listPurchases,
   purchaseAmount,
@@ -34,6 +33,7 @@ import {
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney, nightsBetween, todayInRiyadh } from "@/lib/money";
 import { roomTypeLabel } from "@/lib/room-types";
+import { reportFilters, reservationReport } from "@/lib/reports";
 
 const barButton =
   "desk-focus desk-press inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[var(--desk-line)] bg-white px-2.5 text-xs font-semibold text-[var(--desk-ink)] shadow-sm hover:bg-[var(--desk-surface-muted)]";
@@ -94,44 +94,43 @@ export default async function AdminHomePage({
   const city = cityOf(query.city);
   const today = todayInRiyadh();
   const soon = addDays(today, 3);
-  const [stats, purchases, allotments, assignments, bookings, hotels] =
+  const [stats, purchases, allotments, bookings, hotels, report] =
     await Promise.all([
       inventoryStats(),
       listPurchases({ status: "confirmed" }),
       listAllotments(),
-      listAssignments(),
       listBookings("pending"),
       listHotels(),
+      reservationReport(
+        reportFilters({
+          from: today,
+          to: addDays(today, 30),
+          city: city ?? "",
+        }),
+      ),
     ]);
   const hotelById = new Map(hotels.map((hotel) => [hotel.id, hotel]));
   const confirmed = purchases.filter((purchase) =>
     city ? purchase.hotelCity === city : true,
   );
-  const allocated = confirmed.reduce(
-    (sum, purchase) =>
-      sum + purchase.lines.reduce((lineSum, line) => lineSum + line.quantity, 0),
-    0,
-  );
-  const wholesaleValue = confirmed.reduce(
-    (sum, purchase) => sum + purchaseAmount(purchase),
-    0,
-  );
-  const roomNights = confirmed.reduce(
-    (sum, purchase) =>
-      sum +
-      purchase.lines.reduce(
-        (lineSum, line) =>
-          lineSum + line.quantity * nightsBetween(line.checkIn, line.checkOut),
-        0,
-      ),
-    0,
-  );
-  const inHouse = assignments
-    .filter((item) => item.checkIn <= today && item.checkOut > today)
-    .reduce((sum, item) => sum + item.quantity, 0);
-  const arriving = assignments
-    .filter((item) => item.checkIn > today && item.checkIn <= soon)
-    .reduce((sum, item) => sum + item.quantity, 0);
+  const allocated = report.days[0]?.contracted ?? 0;
+  const wholesaleValue = report.totals.cost;
+  const roomNights = report.totals.contractedRoomNights;
+  const inHouse = allotments
+    .filter(
+      (item) =>
+        item.status === "confirmed" &&
+        item.checkIn <= today &&
+        item.checkOut > today,
+    )
+    .reduce(
+      (sum, item) =>
+        sum + item.lines.reduce((rooms, line) => rooms + line.quantity, 0),
+      0,
+    );
+  const arriving = report.days
+    .filter((day) => day.day > today && day.day <= soon)
+    .reduce((sum, day) => sum + day.arrivals, 0);
   const saleByBooking = new Map(
     allotments.flatMap((item) =>
       item.bookingId ? [[item.bookingId, item.id] as const] : [],
@@ -144,10 +143,7 @@ export default async function AdminHomePage({
   const activeSales = allotments.filter(
     (item) => item.status === "confirmed" && item.checkOut > today,
   );
-  const provisionalSales = allotments.filter((item) => item.status === "provisional");
-  const lockedRooms =
-    provisionalSales.reduce((sum, item) => sum + allotmentValue(item).rooms, 0) +
-    activeSales.reduce((sum, item) => sum + allotmentValue(item).rooms, 0);
+  const lockedRooms = report.days[0]?.reserved ?? 0;
   const nearestBooking = liveBookings
     .slice()
     .sort((left, right) => left.holdUntil.localeCompare(right.holdUntil))[0];
@@ -214,7 +210,7 @@ export default async function AdminHomePage({
             icon={<Warehouse aria-hidden="true" size={18} className="text-[var(--desk-primary)]" />}
             detail={
               <span className="font-medium text-[var(--desk-success)]">
-                {stats.openUnits} {copy.openToSell}
+                {report.days[0]?.free ?? 0} {copy.openToSell}
               </span>
             }
             meta={`${stats.hotels} ${copy.hotels}`}
@@ -617,11 +613,15 @@ function AllotmentRow({
             ? copy.statusRequest
             : allotment.status === "provisional"
               ? copy.statusProvisional
-              : allotment.status === "no_show"
-                ? copy.statusNoShow
-                : allotment.status === "cancelled"
-                  ? copy.cancelled
-                  : copy.confirmed}
+              : allotment.status === "regret"
+                ? copy.statusRegret
+                : allotment.status === "unavailable"
+                  ? copy.statusUnavailable
+                  : allotment.status === "no_show"
+                    ? copy.statusNoShow
+                    : allotment.status === "cancelled"
+                      ? copy.cancelled
+                      : copy.confirmed}
         </span>
       </td>
       <td className="px-4 py-3 text-end">

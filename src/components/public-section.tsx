@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 
@@ -23,17 +23,27 @@ function readAudienceCookie() {
   return match?.[1] === "guest" ? "guest" : match?.[1] === "agent" ? "agent" : "gate";
 }
 
+function subscribeAudience() {
+  return () => {};
+}
+
+function serverAudience(): PublicSection {
+  return "gate";
+}
+
 export function usePublicSection() {
   const pathname = usePathname();
   const fromPath = sectionFromPath(pathname);
-  const [shared, setShared] = useState<PublicSection>("gate");
+  const shared = useSyncExternalStore(
+    subscribeAudience,
+    readAudienceCookie,
+    serverAudience,
+  );
 
   useEffect(() => {
     if (fromPath === "agent" || fromPath === "guest") {
       document.cookie = `${cookieName}=${fromPath}; Path=/; Max-Age=31536000; SameSite=Lax`;
-      return;
     }
-    if (fromPath === "shared") setShared(readAudienceCookie());
   }, [fromPath]);
 
   if (fromPath === "shared") return shared;

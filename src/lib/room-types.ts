@@ -33,7 +33,10 @@ export function roomTypeLabel(
 }
 
 export function mealPlanCode(value: string): MealPlan | null {
-  return mealPlans.includes(value as MealPlan) ? (value as MealPlan) : null;
+  const code = value.trim();
+  if (!code || code.length > 80 || /[\u0000-\u001f,]/.test(code)) return null;
+  const builtin = mealPlans.find((item) => item === code.toLowerCase());
+  return builtin ?? (code as MealPlan);
 }
 
 export function mealPlanMessageKey(board: string) {
@@ -45,10 +48,11 @@ export function mealPlanMessageKey(board: string) {
 
 export function mealPlanLabel(
   board: string,
-  label: Record<MealPlan, string>,
+  label: Partial<Record<MealPlan, string>>,
 ) {
   const code = mealPlanCode(board);
-  return code ? label[code] : board;
+  if (!code) return board;
+  return label[code] || code.replaceAll("_", " ");
 }
 
 export function roomTypeOptionLabel(input: {

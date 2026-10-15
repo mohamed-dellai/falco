@@ -5,6 +5,7 @@ import { AdminSubmitButton } from "@/components/admin-submit-button";
 import { ClientFields } from "@/components/client-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
+import { listClientGroups } from "@/lib/client-crm";
 import { getAdminLocale } from "@/lib/admin-locale";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function NewClientPage({
   await requireAdmin();
   const query = await searchParams;
   const copy = adminCopy(await getAdminLocale());
+  const groups = await listClientGroups();
 
   return (
     <AdminShell
@@ -26,7 +28,7 @@ export default async function NewClientPage({
       <AdminError code={query.error} />
       <AdminPanel title={copy.clientRecord} className="max-w-3xl">
         <form action={createAgencyAction} className="grid gap-3">
-          <ClientFields />
+          <ClientFields groups={groups} portal />
           <AdminSubmitButton
             pendingLabel={copy.saving}
             className={`${adminButtonClass} w-fit`}

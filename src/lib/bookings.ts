@@ -10,8 +10,12 @@ import {
   mirrorBookingSale,
   parseStay,
 } from "@/lib/inventory";
-import { contractLineFree, offerFree, releaseExpiredHolds } from "@/lib/stock";
-import { saleModeCode } from "@/lib/room-types";
+import {
+  contractLineRule,
+  offerRule,
+  releaseExpiredHolds,
+} from "@/lib/stock";
+import { stayAllowed } from "@/lib/hotel-rules";
 import { nightsBetween } from "@/lib/money";
 import { routing, type Locale } from "@/i18n/routing";
 import { roomTypeLabel } from "@/lib/room-types";
@@ -171,8 +175,11 @@ export async function createBooking(input: BookingRequest) {
   const room = await getRoom(input.roomId);
   const hotel = room ? await getHotel(room.hotelId) : null;
   const offerId = room?.offerId;
-  if (!room || !hotel || !offerId) {
+  if (!room || !hotel || !offerId || !hotel.publishedWebsite) {
     return { ok: false as const, error: "unavailable" as const };
+  }
+  if (!stayAllowed(hotel, stay.checkIn)) {
+    return { ok: false as const, error: "window" as const };
   }
   if (input.travellers > room.capacity * input.quantity) {
     return { ok: false as const, error: "capacity" as const };
@@ -204,24 +211,21 @@ export async function createBooking(input: BookingRequest) {
   const eligible = contracts.filter(
     (line) => stay.nights >= (Number(line.min_nights ?? 1) || 1),
   );
-  const open = await offerFree(offerId, stay.checkIn, stay.checkOut);
+  const open = await offerRule(offerId, stay.checkIn, stay.checkOut);
   let bookLine: (typeof eligible)[number] | undefined;
+  let requestLine: (typeof eligible)[number] | undefined;
   for (const line of eligible) {
-    if (
-      (saleModeCode(line.sale_mode ?? "") ?? "book") !== "book" ||
-      line.public_price_per_night == null
-    ) {
+    if (line.public_price_per_night == null) continue;
+    const onLine = await contractLineRule(line.id, stay.checkIn, stay.checkOut);
+    if (onLine.request) {
+      requestLine ??= line;
       continue;
     }
-    const onLine = await contractLineFree(line.id, stay.checkIn, stay.checkOut);
-    if (input.quantity <= Math.min(open, onLine)) {
+    if (input.quantity <= Math.min(open.quantityLeft, onLine.quantityLeft)) {
       bookLine = line;
       break;
     }
   }
-  const requestLine = eligible.find(
-    (line) => (saleModeCode(line.sale_mode ?? "") ?? "book") === "request",
-  );
   const chosen = bookLine ?? requestLine;
   if (!chosen || chosen.public_price_per_night == null) {
     return { ok: false as const, error: "unavailable" as const };
@@ -243,14 +247,19 @@ export async function createBooking(input: BookingRequest) {
       await sql.query("SELECT id FROM purchase_lines WHERE id = ? FOR UPDATE", [
         chosen.id,
       ]);
-      const onLine = await contractLineFree(
+      const onLine = await contractLineRule(
         chosen.id,
         stay.checkIn,
         stay.checkOut,
         sql,
       );
-      const stillOpen = await offerFree(offerId, stay.checkIn, stay.checkOut, sql);
-      if (input.quantity > Math.min(onLine, stillOpen)) return false;
+      const stillOpen = await offerRule(offerId, stay.checkIn, stay.checkOut, sql);
+      if (
+        onLine.request ||
+        input.quantity > Math.min(onLine.quantityLeft, stillOpen.quantityLeft)
+      ) {
+        return false;
+      }
     }
     const createdAt = new Date().toISOString();
     if (!requesting) {
@@ -298,6 +307,7 @@ export async function createBooking(input: BookingRequest) {
       createdAt,
       bookingId: requesting ? null : id,
       status: requesting ? "request" : "provisional",
+      holdUntil: requesting ? null : holdUntil,
       lines: [
         {
           roomId: chosen.room_id ?? "",

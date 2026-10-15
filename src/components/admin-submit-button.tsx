@@ -6,16 +6,19 @@ export function AdminSubmitButton({
   children,
   pendingLabel,
   className,
+  form,
 }: {
   children: React.ReactNode;
   pendingLabel: string;
   className: string;
+  form?: string;
 }) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
+      form={form}
       disabled={pending}
       aria-disabled={pending}
       className={className}

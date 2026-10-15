@@ -2,15 +2,23 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { bookAgencyOfferAction } from "@/app/[locale]/hotels/agency-actions";
+import { HotelLocationMap } from "@/components/hotel-map";
 import { RoomRequest } from "@/components/room-request";
 import { StaySearch } from "@/components/stay-search";
 import { Link } from "@/i18n/navigation";
 import { localeAlternates, type Locale } from "@/i18n/routing";
 import { currentAgency } from "@/lib/agency-auth";
 import { catalogHref, parseCatalogFilters } from "@/lib/hotel-filters";
+import { listHotelOfferings, mealLabel } from "@/lib/hotel-parameters";
 import { getHotel, getShowcaseHotel, parseStay, withAgencyRates } from "@/lib/inventory";
-import { formatMoney, todayInRiyadh } from "@/lib/money";
-import { mealPlanMessageKey, roomTypeLabel } from "@/lib/room-types";
+import {
+  earliestCheckIn,
+  hotelDisplayDescription,
+  hotelDisplayName,
+} from "@/lib/hotel-rules";
+import { placeName } from "@/lib/places";
+import { formatMoney } from "@/lib/money";
+import { mealPlanMessageKey, roomTypeLabel, type MealPlan } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +29,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, id } = await params;
   const hotel = await getHotel(id);
-  if (!hotel) return {};
+  if (!hotel?.publishedDesk) return {};
   return {
-    title: hotel.name,
-    description: hotel.description,
+    title: hotelDisplayName(hotel, locale),
+    description: hotelDisplayDescription(hotel, locale),
     alternates: {
       canonical: `/${locale}/hotels/${id}`,
       languages: localeAlternates(`/hotels/${id}`),
@@ -45,7 +53,7 @@ export default async function HotelPage({
   const filters = parseCatalogFilters(query);
   const stay = parseStay(filters.checkIn, filters.checkOut);
   const hotel = await getHotel(id);
-  if (!hotel) notFound();
+  if (!hotel?.publishedDesk) notFound();
   const agency = await currentAgency();
   const listed = stay ? await getShowcaseHotel(id, stay) : null;
   const priced = listed
@@ -56,9 +64,25 @@ export default async function HotelPage({
   const rooms = priced[0]?.rooms ?? [];
   const booked = typeof query.booked === "string" ? query.booked : "";
   const kind = query.kind === "request" ? "request" : "provisional";
-  const minDate = todayInRiyadh();
+  const minDate = earliestCheckIn(hotel);
+  const title = hotelDisplayName(hotel, locale);
+  const description = hotelDisplayDescription(hotel, locale);
+  const place = placeName(hotel.placeId, locale);
+  const tooSoon = Boolean(stay && stay.checkIn < minDate);
 
+  const offerings = await listHotelOfferings(id);
   const t = await getTranslations("Hotels");
+  const mealNames = new Map(
+    offerings.meals.map((meal) => [
+      meal.id,
+      mealLabel(meal, {
+        room_only: t("roomOnly"),
+        breakfast: t("breakfastBoard"),
+        half_board: t("halfBoard"),
+        full_board: t("fullBoard"),
+      } satisfies Partial<Record<MealPlan, string>>),
+    ]),
+  );
   const search = await getTranslations("Search");
   const common = await getTranslations("Common");
   const gallery = [...hotel.photos, ...rooms.flatMap((room) => room.photos)];
@@ -72,11 +96,20 @@ export default async function HotelPage({
         >
           {t("back")}
         </Link>
+        {agency && (
+          <Link
+            href="/hotels/basket"
+            className="ms-5 text-sm font-bold text-gold underline"
+          >
+            {t("basket")}
+          </Link>
+        )}
         <p className="eyebrow mt-5">
-          {common(hotel.city)} · {t("stars", { count: hotel.stars })}
+          {common(hotel.city)}
+          {place ? ` · ${place}` : ""} · {t("stars", { count: hotel.stars })}
         </p>
         <h1 className="font-display mt-2 text-4xl font-bold text-primary md:text-6xl">
-          {hotel.name}
+          {title}
         </h1>
         {hotel.distanceToHaram && (
           <p className="mt-3 text-sm font-bold text-gold">
@@ -86,10 +119,22 @@ export default async function HotelPage({
         {hotel.address && (
           <p className="mt-2 text-sm text-muted">{hotel.address}</p>
         )}
-        {hotel.description && (
+        {hotel.latitude != null && hotel.longitude != null && (
+          <HotelLocationMap
+            latitude={hotel.latitude}
+            longitude={hotel.longitude}
+            city={hotel.city}
+            name={title}
+            openLabel={t("openMap")}
+          />
+        )}
+        {description && (
           <p className="mt-5 max-w-3xl text-base leading-8 text-muted">
-            {hotel.description}
+            {description}
           </p>
+        )}
+        {hotel.payOnArrival && (
+          <p className="mt-4 text-sm font-bold text-primary">{t("payOnArrival")}</p>
         )}
 
         {gallery.length > 0 && (
@@ -99,7 +144,7 @@ export default async function HotelPage({
               <img
                 key={photo}
                 src={photo}
-                alt={hotel.name}
+                alt={title}
                 className="h-40 w-full rounded-xl object-cover"
               />
             ))}
@@ -107,8 +152,94 @@ export default async function HotelPage({
         )}
 
         <h2 className="font-display mt-12 text-3xl font-bold text-primary">
+          {t("hotelOffers")}
+        </h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-line bg-white p-5">
+            <h3 className="text-sm font-extrabold text-primary">{t("hotelRoomTypes")}</h3>
+            {offerings.roomTypes.length ? (
+              <ul className="mt-3 grid gap-3">
+                {offerings.roomTypes.map((type) => (
+                  <li key={type.id}>
+                    <p className="font-bold text-primary">
+                      {roomTypeLabel(type.name, (code) => t(code))}
+                    </p>
+                    <p className="text-sm text-muted">
+                      {t("sleeps", { count: type.guests })}
+                      {" · "}
+                      {type.childrenAllowed && type.maxChildAge != null
+                        ? t("childrenAllowed", { age: type.maxChildAge })
+                        : t("childrenNotAllowed")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted">{t("noHotelRoomTypes")}</p>
+            )}
+          </div>
+          <div className="rounded-2xl border border-line bg-white p-5">
+            <h3 className="text-sm font-extrabold text-primary">{t("hotelMeals")}</h3>
+            {offerings.meals.length ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {offerings.meals.map((meal) => (
+                  <li
+                    key={meal.id}
+                    className="rounded-full border border-line px-3 py-1 text-sm font-semibold text-primary"
+                  >
+                    {mealNames.get(meal.id)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted">{t("noHotelMeals")}</p>
+            )}
+          </div>
+          <div className="rounded-2xl border border-line bg-white p-5">
+            <h3 className="text-sm font-extrabold text-primary">{t("hotelViews")}</h3>
+            {offerings.views.length ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {offerings.views.map((view) => (
+                  <li
+                    key={view.id}
+                    className="rounded-full border border-line px-3 py-1 text-sm font-semibold text-primary"
+                  >
+                    {view.name}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted">{t("noHotelViews")}</p>
+            )}
+          </div>
+        </div>
+
+        <h2 className="font-display mt-12 text-3xl font-bold text-primary">
           {t("roomsTitle")}
         </h2>
+        {query.error === "cart-mismatch" && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            {t("cartMismatch")}{" "}
+            <Link href="/hotels/basket" className="underline">
+              {t("basket")}
+            </Link>
+          </p>
+        )}
+        {(query.error === "quantity" || query.error === "rate") && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            {t("cartQuantity")}
+          </p>
+        )}
+        {query.error === "client" && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            {t("clientBlocked")}
+          </p>
+        )}
+        {(query.error === "window" || tooSoon) && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            {t("saleWindow")}
+          </p>
+        )}
         {booked ? (
           <p className="mt-4 text-sm font-semibold text-primary">
             {kind === "request"
@@ -154,6 +285,10 @@ export default async function HotelPage({
                   )}
                   <p className="mt-4 text-sm font-bold">
                     {t("sleeps", { count: room.capacity })} ·{" "}
+                    {room.childrenAllowed && room.maxChildAge != null
+                      ? t("childrenAllowed", { age: room.maxChildAge })
+                      : t("childrenNotAllowed")}
+                    {" · "}
                     {t(mealPlanMessageKey(room.board))}
                     {room.view.trim() ? ` · ${room.view.trim()}` : ""} ·{" "}
                     {t("openForStay", { count: room.open ?? 0 })}
@@ -168,11 +303,17 @@ export default async function HotelPage({
                       ? `${t("companyRate")} ${formatMoney(room.agencyPricePerNight, locale)}`
                       : t("rateOnRequest")}
                   </p>
-                  {agency && room.agencyPricePerNight != null ? (
+                  {agency &&
+                  room.agencyPricePerNight != null &&
+                  room.contractPeriodId ? (
                     <form action={bookAgencyOfferAction} className="mt-4 flex flex-wrap items-end gap-3">
                       <input type="hidden" name="locale" value={locale} />
                       <input type="hidden" name="hotelId" value={hotel.id} />
-                      <input type="hidden" name="offerId" value={room.id} />
+                      <input
+                        type="hidden"
+                        name="contractPeriodId"
+                        value={room.contractPeriodId}
+                      />
                       <input type="hidden" name="checkIn" value={stay.checkIn} />
                       <input type="hidden" name="checkOut" value={stay.checkOut} />
                       <label className="grid gap-1 text-xs font-semibold text-primary">
@@ -190,9 +331,7 @@ export default async function HotelPage({
                         type="submit"
                         className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
                       >
-                        {room.saleMode === "request" || (room.open ?? 0) < 1
-                          ? t("requestForAgency")
-                          : t("bookForAgency")}
+                        {t("addToBasket")}
                       </button>
                     </form>
                   ) : (
@@ -208,7 +347,7 @@ export default async function HotelPage({
               </article>
             ))}
           </div>
-        ) : (
+        ) : tooSoon ? null : (
           <p className="mt-4 text-sm leading-7 text-muted">
             {stay ? t("fullyAllotted") : search("prompt")}
           </p>

@@ -26,7 +26,7 @@ export default async function RoomTypePage({
   return (
     <AdminShell
       title={roomTypeLabel(roomType.name, (code) => copy[code])}
-      crumbs={[{ href: "/admin/room-types", label: copy.roomTypes }]}
+      crumbs={[{ href: "/admin/settings?section=hotel", label: copy.hotelParameters }]}
     >
       <AdminError code={query.error} />
       <RoomTypeForm copy={copy} roomType={roomType} />

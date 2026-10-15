@@ -10,7 +10,8 @@ function connectionString() {
 
   const url = new URL(raw);
   url.searchParams.delete("channel_binding");
-  url.searchParams.set("sslmode", "verify-full");
+  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  url.searchParams.set("sslmode", loopback ? "disable" : "verify-full");
   return url.toString();
 }
 
@@ -223,9 +224,16 @@ async function migrate() {
   await ensureAgencyKind();
   await ensureSaleChannel();
   await ensureRoomCatalog();
+  await ensureHotelParameters();
   await ensureAdminUsers();
   await ensureCompanyProfile();
+  await ensureMailSettings();
+  await ensureMailTemplates();
+  await ensurePolicies();
   await ensureContracts();
+  await ensureBookingDesk();
+  await ensureBookingOperations();
+  await ensureClientCrm();
 }
 
 async function ensureAgencyKind() {
@@ -984,6 +992,8 @@ async function ensureCompanyProfile() {
       address_it TEXT NOT NULL DEFAULT ''
     )`,
   );
+  await addColumn("company_profile", "logo", "BYTEA");
+  await addColumn("company_profile", "logo_type", "TEXT NOT NULL DEFAULT ''");
   const existing = await pool().query(
     "SELECT id FROM company_profile WHERE id = 'default'",
   );
@@ -1003,6 +1013,125 @@ async function ensureCompanyProfile() {
       siteConfig.company.address.fr,
       siteConfig.company.address.it,
     ],
+  );
+}
+
+async function ensureMailSettings() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS mail_settings (
+      id TEXT PRIMARY KEY,
+      enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      host TEXT NOT NULL DEFAULT '',
+      port INTEGER NOT NULL DEFAULT 587,
+      security TEXT NOT NULL DEFAULT 'starttls',
+      username TEXT NOT NULL DEFAULT '',
+      password_cipher TEXT NOT NULL DEFAULT '',
+      from_name TEXT NOT NULL DEFAULT '',
+      from_email TEXT NOT NULL DEFAULT '',
+      reply_to TEXT NOT NULL DEFAULT '',
+      allow_private_cert BOOLEAN NOT NULL DEFAULT FALSE
+    )`,
+  );
+}
+
+async function ensurePolicies() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS policy_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      content_ar TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `ALTER TABLE policy_templates ADD COLUMN IF NOT EXISTS content_ar TEXT NOT NULL DEFAULT ''`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS reservation_policies (
+      id TEXT PRIMARY KEY,
+      allotment_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      content_ar TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `ALTER TABLE reservation_policies ADD COLUMN IF NOT EXISTS content_ar TEXT NOT NULL DEFAULT ''`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS reservation_policies_allotment
+     ON reservation_policies (allotment_id)`,
+  );
+  await pool().query(
+    `INSERT INTO policy_templates (id, name, content, content_ar, created_at)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      "policy-standard-stay",
+      "Standard terms",
+      [
+        "This booking follows the hotel contract for the stay dates.",
+        "",
+        "Confirmation",
+        "The reservation is confirmed only when Falco issues a written confirmation. A hold ends on the option date if it is not confirmed.",
+        "",
+        "Rates",
+        "Rates are in SAR per room. VAT is added only when the document shows a VAT line.",
+        "",
+        "Changes",
+        "Any change to the dates, the room type, or the number of rooms must be requested in writing and depends on availability. A rate difference may apply.",
+        "",
+        "Cancellation and no-show",
+        "Cancellation and no-show follow the contract terms for those dates. Rooms released after the option date may be charged.",
+        "",
+        "Arrival",
+        "The guest presents the hotel confirmation number on arrival. The hotel applies its own check-in and check-out times.",
+      ].join("\n"),
+      [
+        "يخضع هذا الحجز لعقد الفندق لتواريخ الإقامة.",
+        "",
+        "التأكيد",
+        "يُؤكد الحجز فقط عند إصدار فالكو تأكيداً خطياً. ينتهي الحجز المؤقت في تاريخ الخيار إذا لم يُؤكد.",
+        "",
+        "الأسعار",
+        "الأسعار بالريال السعودي للغرفة. تُضاف ضريبة القيمة المضافة فقط عندما يظهر بند الضريبة في المستند.",
+        "",
+        "التعديلات",
+        "أي تغيير في التواريخ أو نوع الغرفة أو عدد الغرف يُطلب خطياً ويخضع للتوفر. قد يُطبق فرق في السعر.",
+        "",
+        "الإلغاء وعدم الحضور",
+        "يتبع الإلغاء وعدم الحضور شروط العقد لتلك التواريخ. الغرف التي تُلغى بعد تاريخ الخيار قد تُحتسب.",
+        "",
+        "الوصول",
+        "يبرز الضيف رقم تأكيد الفندق عند الوصول. يطبق الفندق أوقات تسجيل الدخول والمغادرة الخاصة به.",
+      ].join("\n"),
+      new Date().toISOString(),
+    ],
+  );
+}
+
+async function ensureMailTemplates() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS mail_templates (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      subject_en TEXT NOT NULL DEFAULT '',
+      body_en TEXT NOT NULL DEFAULT '',
+      subject_ar TEXT NOT NULL DEFAULT '',
+      body_ar TEXT NOT NULL DEFAULT '',
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS mail_templates_kind ON mail_templates (kind)`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS mail_templates_one_default
+     ON mail_templates (kind) WHERE is_default`,
   );
 }
 
@@ -1053,6 +1182,36 @@ async function ensureContracts() {
   await addColumn("purchase_lines", "view", "TEXT NOT NULL DEFAULT ''");
   await addColumn("purchase_lines", "min_nights", "INTEGER NOT NULL DEFAULT 1");
   await addColumn("purchase_lines", "sale_mode", "TEXT NOT NULL DEFAULT 'book'");
+  await addColumn("purchase_lines", "name_ar", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("purchase_lines", "weekend_cost", "INTEGER NOT NULL DEFAULT 0");
+  await addColumn("purchase_lines", "weekend_price", "INTEGER");
+  await addColumn("purchase_lines", "is_primary", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("purchases", "contract_name", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("purchases", "contract_type", "TEXT NOT NULL DEFAULT 'block'");
+  await addColumn("purchases", "contract_cost", "INTEGER");
+  await addColumn("purchases", "priority", "INTEGER NOT NULL DEFAULT 1");
+  await addColumn("purchases", "supplier_type", "TEXT NOT NULL DEFAULT 'hotel_direct'");
+  await addColumn("purchases", "contact_hotel", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("purchases", "active", "BOOLEAN NOT NULL DEFAULT TRUE");
+  await addColumn("purchases", "rate_card", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("purchases", "meal_codes", "TEXT NOT NULL DEFAULT '[]'");
+  await addColumn("purchases", "meal_rates", "TEXT NOT NULL DEFAULT '{}'");
+  await addColumn("purchases", "view_names", "TEXT NOT NULL DEFAULT '[]'");
+  await addColumn("purchases", "view_rates", "TEXT NOT NULL DEFAULT '{}'");
+  await pool().query(
+    `UPDATE purchase_lines AS line
+     SET is_primary = TRUE
+     FROM (
+       SELECT DISTINCT ON (purchase_id) id
+       FROM purchase_lines
+       ORDER BY purchase_id, sort_order, id
+     ) AS first_line
+     WHERE line.id = first_line.id
+       AND NOT EXISTS (
+         SELECT 1 FROM purchase_lines marked
+         WHERE marked.purchase_id = line.purchase_id AND marked.is_primary
+       )`,
+  );
   await addColumn("allotment_lines", "offer_id", "TEXT");
   await addColumn("allotment_lines", "purchase_line_id", "TEXT");
   await addColumn("bookings", "offer_id", "TEXT");
@@ -1216,6 +1375,646 @@ async function ensureContracts() {
   await pool().query(
     `INSERT INTO schema_flags (name) VALUES ('contract_lines')
      ON CONFLICT (name) DO NOTHING`,
+  );
+}
+
+async function ensureBookingDesk() {
+  await addColumn("hotels", "reservation_email", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "reservation_phone", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "reservation_whatsapp", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "latitude", "DOUBLE PRECISION");
+  await addColumn("hotels", "longitude", "DOUBLE PRECISION");
+  await addColumn("hotels", "name_ar", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "description_ar", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "place_id", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "published_website", "BOOLEAN NOT NULL DEFAULT TRUE");
+  await addColumn("hotels", "published_desk", "BOOLEAN NOT NULL DEFAULT TRUE");
+  await addColumn("hotels", "min_advance_days", "INTEGER NOT NULL DEFAULT 0");
+  await addColumn("hotels", "cutoff_time", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("hotels", "pay_on_arrival", "BOOLEAN NOT NULL DEFAULT FALSE");
+
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contract_policies (
+      id TEXT PRIMARY KEY,
+      purchase_id TEXT NOT NULL REFERENCES purchases (id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      general_terms TEXT NOT NULL DEFAULT '',
+      cancellation_terms TEXT NOT NULL DEFAULT '',
+      payment_terms TEXT NOT NULL DEFAULT '',
+      release_days INTEGER NOT NULL DEFAULT 0,
+      refundable BOOLEAN NOT NULL DEFAULT TRUE,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contract_periods (
+      id TEXT PRIMARY KEY,
+      purchase_line_id TEXT NOT NULL REFERENCES purchase_lines (id) ON DELETE CASCADE,
+      policy_id TEXT REFERENCES contract_policies (id),
+      check_in TEXT NOT NULL,
+      check_out TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      cost_per_night INTEGER NOT NULL,
+      public_price_per_night INTEGER,
+      default_agency_price_per_night INTEGER,
+      min_nights INTEGER NOT NULL DEFAULT 1,
+      sale_mode TEXT NOT NULL DEFAULT 'book',
+      stop_sale BOOLEAN NOT NULL DEFAULT FALSE,
+      overbook_limit INTEGER NOT NULL DEFAULT 0,
+      hold_minutes INTEGER NOT NULL DEFAULT 1440,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS contract_periods_line_dates_idx
+     ON contract_periods (purchase_line_id, check_in, check_out)`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contract_period_rates (
+      id TEXT PRIMARY KEY,
+      contract_period_id TEXT NOT NULL REFERENCES contract_periods (id) ON DELETE CASCADE,
+      agency_id TEXT NOT NULL REFERENCES agencies (id),
+      price_per_night INTEGER NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS contract_period_rates_period_agency_key
+     ON contract_period_rates (contract_period_id, agency_id)`,
+  );
+
+  await addColumn(
+    "allotment_lines",
+    "contract_period_id",
+    "TEXT REFERENCES contract_periods (id)",
+  );
+  await addColumn(
+    "allotment_lines",
+    "board_snapshot",
+    "TEXT NOT NULL DEFAULT 'room_only'",
+  );
+  await addColumn(
+    "allotment_lines",
+    "view_snapshot",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  await addColumn(
+    "allotment_lines",
+    "terms_snapshot",
+    "JSONB NOT NULL DEFAULT '{}'::jsonb",
+  );
+  await addColumn("allotments", "sale_source", "TEXT NOT NULL DEFAULT 'contract'");
+  await addColumn("allotment_lines", "amount_basis", "TEXT NOT NULL DEFAULT 'night'");
+  await addColumn("allotment_lines", "rate_snapshot", "TEXT NOT NULL DEFAULT '{}'");
+  await addColumn("allotment_lines", "direct_hotel", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotment_lines", "direct_room", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "hold_until", "TEXT");
+  await addColumn("allotments", "terms_accepted_at", "TEXT");
+  await addColumn("allotments", "terms_accepted_by", "TEXT");
+  await addColumn("allotments", "terms_version", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "cancel_requested_at", "TEXT");
+  await addColumn("allotments", "cancel_request_reason", "TEXT NOT NULL DEFAULT ''");
+  await addColumn(
+    "allotments",
+    "supplier_status",
+    "TEXT NOT NULL DEFAULT 'not_requested'",
+  );
+  await pool().query(
+    `UPDATE allotments
+     SET supplier_status = 'cancelled'
+     WHERE supplier_status = 'declined'`,
+  );
+  await addColumn("allotments", "supplier_reference", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "supplier_sent_at", "TEXT");
+  await addColumn("allotments", "supplier_confirmed_at", "TEXT");
+  await addColumn("allotments", "supplier_notes", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "hotel_id", "TEXT REFERENCES hotels (id)");
+  await addColumn("allotments", "guest_name", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "penalty_amount", "INTEGER NOT NULL DEFAULT 0");
+  await addColumn("allotments", "pay_before", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("allotments", "pay_on_arrival", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("allotment_lines", "pay_before", "TEXT NOT NULL DEFAULT ''");
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS reservation_payments (
+      id TEXT PRIMARY KEY,
+      allotment_id TEXT NOT NULL REFERENCES allotments (id) ON DELETE CASCADE,
+      line_id TEXT REFERENCES allotment_lines (id) ON DELETE SET NULL,
+      code TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      method TEXT NOT NULL,
+      card_type TEXT NOT NULL DEFAULT '',
+      reference_no TEXT NOT NULL DEFAULT '',
+      amount INTEGER NOT NULL,
+      paid_on TEXT NOT NULL,
+      cheque_date TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      down_payment BOOLEAN NOT NULL DEFAULT FALSE,
+      posted BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  const lineStatus = await pool().query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'allotment_lines'
+       AND column_name = 'supplier_status'`,
+  );
+  await addColumn(
+    "allotment_lines",
+    "supplier_status",
+    "TEXT NOT NULL DEFAULT 'new'",
+  );
+  if (!lineStatus.rows[0]) {
+    await pool().query(
+      `UPDATE allotment_lines AS line
+       SET supplier_status = CASE allotment.supplier_status
+         WHEN 'requested' THEN 'waiting'
+         WHEN 'confirmed' THEN 'confirmed'
+         WHEN 'modified' THEN 'amended'
+         WHEN 'cancelled' THEN 'cancelled'
+         ELSE 'new'
+       END
+       FROM allotments AS allotment
+       WHERE allotment.id = line.allotment_id`,
+    );
+  }
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS reservation_events (
+      id TEXT PRIMARY KEY,
+      allotment_id TEXT NOT NULL REFERENCES allotments (id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS reservation_events_allotment_idx
+     ON reservation_events (allotment_id, created_at)`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS agency_carts (
+      id TEXT PRIMARY KEY,
+      agency_id TEXT NOT NULL UNIQUE REFERENCES agencies (id) ON DELETE CASCADE,
+      hotel_id TEXT NOT NULL REFERENCES hotels (id),
+      check_in TEXT NOT NULL,
+      check_out TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS agency_cart_lines (
+      id TEXT PRIMARY KEY,
+      cart_id TEXT NOT NULL REFERENCES agency_carts (id) ON DELETE CASCADE,
+      contract_period_id TEXT NOT NULL REFERENCES contract_periods (id) ON DELETE CASCADE,
+      quantity INTEGER NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS agency_cart_lines_cart_period_key
+     ON agency_cart_lines (cart_id, contract_period_id)`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS offer_photos (
+      id TEXT PRIMARY KEY,
+      offer_id TEXT NOT NULL REFERENCES offers (id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      sort_order BIGINT NOT NULL DEFAULT 0,
+      content_type TEXT NOT NULL DEFAULT 'image/jpeg',
+      bytes BYTEA
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS offer_photos_offer_url_key
+     ON offer_photos (offer_id, url)`,
+  );
+
+  const flagged = await pool().query<{ name: string }>(
+    `SELECT name FROM schema_flags WHERE name = 'booking_desk_v2'`,
+  );
+  if (flagged.rows[0]) return;
+
+  const purchases = await pool().query<{ id: string }>(
+    `SELECT id FROM purchases ORDER BY created_at, id`,
+  );
+  const createdAt = new Date().toISOString();
+  for (const purchase of purchases.rows) {
+    await pool().query(
+      `INSERT INTO contract_policies
+        (id, purchase_id, name, general_terms, cancellation_terms,
+         payment_terms, release_days, refundable, active, created_at)
+       SELECT $1, $2, 'Original contract terms', COALESCE(notes, ''), '', '',
+              0, TRUE, TRUE, $3
+       FROM purchases
+       WHERE id = $2
+         AND NOT EXISTS (
+           SELECT 1 FROM contract_policies WHERE purchase_id = $2
+         )`,
+      [crypto.randomUUID(), purchase.id, createdAt],
+    );
+  }
+
+  const lines = await pool().query<{
+    id: string;
+    purchase_id: string;
+    check_in: string;
+    check_out: string;
+    quantity: number;
+    cost_per_night: number;
+    public_price_per_night: number | null;
+    min_nights: number | null;
+    sale_mode: string | null;
+  }>(
+    `SELECT id, purchase_id, check_in, check_out, quantity, cost_per_night,
+            public_price_per_night, min_nights, sale_mode
+     FROM purchase_lines
+     ORDER BY sort_order, id`,
+  );
+  for (const line of lines.rows) {
+    const policy = await pool().query<{ id: string }>(
+      `SELECT id FROM contract_policies
+       WHERE purchase_id = $1 AND active = TRUE
+       ORDER BY created_at, id
+       LIMIT 1`,
+      [line.purchase_id],
+    );
+    await pool().query(
+      `INSERT INTO contract_periods
+        (id, purchase_line_id, policy_id, check_in, check_out, quantity,
+         cost_per_night, public_price_per_night, default_agency_price_per_night,
+         min_nights, sale_mode, stop_sale, overbook_limit, hold_minutes,
+         active, created_at)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10,
+              FALSE, 0, 1440, TRUE, $11
+       WHERE NOT EXISTS (
+         SELECT 1 FROM contract_periods WHERE purchase_line_id = $2
+       )`,
+      [
+        crypto.randomUUID(),
+        line.id,
+        policy.rows[0]?.id ?? null,
+        line.check_in,
+        line.check_out,
+        line.quantity,
+        line.cost_per_night,
+        line.public_price_per_night,
+        Number(line.min_nights ?? 1) || 1,
+        line.sale_mode === "request" ? "request" : "book",
+        createdAt,
+      ],
+    );
+  }
+
+  const rates = await pool().query<{
+    purchase_line_id: string;
+    agency_id: string;
+    price_per_night: number;
+  }>(
+    `SELECT purchase_line_id, agency_id, price_per_night
+     FROM contract_rates`,
+  );
+  for (const rate of rates.rows) {
+    const periods = await pool().query<{ id: string }>(
+      `SELECT id FROM contract_periods
+       WHERE purchase_line_id = $1 AND active = TRUE`,
+      [rate.purchase_line_id],
+    );
+    for (const period of periods.rows) {
+      await pool().query(
+        `INSERT INTO contract_period_rates
+          (id, contract_period_id, agency_id, price_per_night)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (contract_period_id, agency_id)
+         DO NOTHING`,
+        [crypto.randomUUID(), period.id, rate.agency_id, rate.price_per_night],
+      );
+    }
+  }
+
+  await pool().query(
+    `UPDATE allotment_lines AS line
+     SET contract_period_id = period.id
+     FROM allotments AS allotment, contract_periods AS period
+     WHERE allotment.id = line.allotment_id
+       AND period.purchase_line_id = line.purchase_line_id
+       AND period.check_in <= allotment.check_in
+       AND period.check_out >= allotment.check_out
+       AND line.contract_period_id IS NULL`,
+  );
+  await pool().query(
+    `UPDATE allotment_lines AS line
+     SET board_snapshot = COALESCE(NULLIF(offer.board, ''), 'room_only'),
+         view_snapshot = COALESCE(offer.view, '')
+     FROM offers AS offer
+     WHERE offer.id = line.offer_id`,
+  );
+  await pool().query(
+    `UPDATE allotment_lines AS line
+     SET terms_snapshot = jsonb_build_object(
+       'name', policy.name,
+       'generalTerms', policy.general_terms,
+       'cancellationTerms', policy.cancellation_terms,
+       'paymentTerms', policy.payment_terms,
+       'releaseDays', policy.release_days,
+       'refundable', policy.refundable
+     )
+     FROM contract_periods AS period
+     JOIN contract_policies AS policy ON policy.id = period.policy_id
+     WHERE period.id = line.contract_period_id
+       AND line.terms_snapshot = '{}'::jsonb`,
+  );
+  await pool().query(
+    `INSERT INTO offer_photos
+      (id, offer_id, url, sort_order, content_type, bytes)
+     SELECT md5(photo.id || ':' || room.offer_id), room.offer_id, photo.url,
+            photo.sort_order, photo.content_type, photo.bytes
+     FROM room_photos AS photo
+     JOIN rooms AS room ON room.id = photo.room_id
+     WHERE room.offer_id IS NOT NULL
+     ON CONFLICT (offer_id, url) DO NOTHING`,
+  );
+  await pool().query(
+    `INSERT INTO reservation_events
+      (id, allotment_id, kind, actor_type, actor_id, payload, created_at)
+     SELECT md5(allotment.id || ':created'), allotment.id, 'created', 'system',
+            NULL, jsonb_build_object('status', allotment.status), allotment.created_at
+     FROM allotments AS allotment
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  await pool().query(
+    `INSERT INTO schema_flags (name) VALUES ('booking_desk_v2')
+     ON CONFLICT (name) DO NOTHING`,
+  );
+}
+
+async function ensureBookingOperations() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS job_runs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      finished_at TEXT,
+      duration_ms INTEGER,
+      processed_count INTEGER NOT NULL DEFAULT 0,
+      error TEXT NOT NULL DEFAULT ''
+    )`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS job_runs_name_finished_idx
+     ON job_runs (name, finished_at)`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS agency_checkout_attempts (
+      token TEXT PRIMARY KEY,
+      agency_id TEXT NOT NULL REFERENCES agencies (id) ON DELETE CASCADE,
+      allotment_id TEXT REFERENCES allotments (id) ON DELETE SET NULL,
+      reservation_number TEXT,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contract_events (
+      id TEXT PRIMARY KEY,
+      purchase_id TEXT NOT NULL REFERENCES purchases (id) ON DELETE CASCADE,
+      contract_period_id TEXT,
+      kind TEXT NOT NULL,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE INDEX IF NOT EXISTS contract_events_purchase_idx
+     ON contract_events (purchase_id, created_at)`,
+  );
+  await pool().query(
+    `UPDATE allotments AS allotment
+     SET hold_until = booking.hold_until
+     FROM bookings AS booking
+     WHERE allotment.booking_id = booking.id
+       AND allotment.status = 'provisional'
+       AND (allotment.hold_until IS NULL OR btrim(allotment.hold_until) = '')
+       AND booking.status = 'pending'
+       AND booking.hold_until IS NOT NULL
+       AND btrim(booking.hold_until) <> ''`,
+  );
+  await pool().query(
+    `WITH doomed AS (
+       SELECT allotment.id
+       FROM allotments AS allotment
+       WHERE allotment.status = 'provisional'
+         AND (allotment.hold_until IS NULL OR btrim(allotment.hold_until) = '')
+         AND NOT EXISTS (
+           SELECT 1 FROM bookings AS booking
+           WHERE booking.id = allotment.booking_id
+             AND booking.status = 'pending'
+             AND booking.hold_until::timestamptz > NOW()
+         )
+     ),
+     updated AS (
+       UPDATE allotments
+       SET status = 'cancelled', hold_until = NULL
+       WHERE id IN (SELECT id FROM doomed)
+       RETURNING id
+     )
+     INSERT INTO reservation_events
+       (id, allotment_id, kind, actor_type, actor_id, payload, created_at)
+     SELECT md5(updated.id || ':orphan-hold'), updated.id, 'hold_expired',
+            'system', NULL, '{"reason":"orphan","stockEffect":"released"}'::jsonb,
+            NOW()::text
+     FROM updated
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  await pool().query(
+    `DO $$
+     BEGIN
+       ALTER TABLE allotments
+         ADD CONSTRAINT allotments_provisional_hold_until
+         CHECK (
+           status <> 'provisional'
+           OR (hold_until IS NOT NULL AND btrim(hold_until) <> '')
+         );
+     EXCEPTION
+       WHEN duplicate_object THEN NULL;
+     END $$`,
+  );
+}
+
+async function ensureHotelParameters() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS meal_types (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS meal_types_code_key
+     ON meal_types (lower(code))`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS view_types (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS view_types_name_key
+     ON view_types (lower(btrim(name)))`,
+  );
+  const createdAt = new Date().toISOString();
+  const meals = [
+    ["meal-room-only", "room_only", "No meals", 0],
+    ["meal-breakfast", "breakfast", "Breakfast", 1],
+    ["meal-half-board", "half_board", "Half board", 2],
+    ["meal-full-board", "full_board", "Full board", 3],
+  ] as const;
+  for (const [id, code, name, sortOrder] of meals) {
+    await pool().query(
+      `INSERT INTO meal_types (id, code, name, sort_order, created_at)
+       SELECT $1, $2, $3, $4, $5
+       WHERE NOT EXISTS (
+         SELECT 1 FROM meal_types WHERE lower(code) = lower($2)
+       )`,
+      [id, code, name, sortOrder, createdAt],
+    );
+  }
+  await addColumn(
+    "room_types",
+    "children_allowed",
+    "BOOLEAN NOT NULL DEFAULT FALSE",
+  );
+  await addColumn("room_types", "max_child_age", "INTEGER");
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS hotel_room_types (
+      hotel_id TEXT NOT NULL REFERENCES hotels (id) ON DELETE CASCADE,
+      room_type_id TEXT NOT NULL REFERENCES room_types (id) ON DELETE CASCADE,
+      PRIMARY KEY (hotel_id, room_type_id)
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS hotel_meals (
+      hotel_id TEXT NOT NULL REFERENCES hotels (id) ON DELETE CASCADE,
+      meal_type_id TEXT NOT NULL REFERENCES meal_types (id) ON DELETE RESTRICT,
+      PRIMARY KEY (hotel_id, meal_type_id)
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS hotel_views (
+      hotel_id TEXT NOT NULL REFERENCES hotels (id) ON DELETE CASCADE,
+      view_type_id TEXT NOT NULL REFERENCES view_types (id) ON DELETE RESTRICT,
+      PRIMARY KEY (hotel_id, view_type_id)
+    )`,
+  );
+}
+
+async function columnExists(table: string, column: string) {
+  const info = await pool().query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
+    [table, column],
+  );
+  return Boolean(info.rows[0]);
+}
+
+async function ensureClientCrm() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS client_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS client_groups_name_key
+     ON client_groups (lower(name))`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS commercials (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      percent INTEGER NOT NULL DEFAULT 0,
+      disabled BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS commercials_email_key
+     ON commercials (lower(email))`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS supplier_codes (
+      id TEXT PRIMARY KEY,
+      agency_id TEXT NOT NULL REFERENCES agencies (id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      external_code TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS supplier_codes_provider_key
+     ON supplier_codes (agency_id, lower(provider))`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contract_group_rates (
+      id TEXT PRIMARY KEY,
+      contract_period_id TEXT NOT NULL REFERENCES contract_periods (id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL REFERENCES client_groups (id),
+      price_per_night INTEGER NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS contract_group_rates_period_group_key
+     ON contract_group_rates (contract_period_id, group_id)`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS contact_reveals (
+      admin_id TEXT PRIMARY KEY REFERENCES admin_users (id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL DEFAULT '',
+      code_expires_at TEXT NOT NULL DEFAULT '',
+      revealed_until TEXT NOT NULL DEFAULT ''
+    )`,
+  );
+
+  const vatFlagExisted = await columnExists("agencies", "vat_not_required");
+  await addColumn("agencies", "name_ar", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("agencies", "stop_sale", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("agencies", "disabled", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("agencies", "vat_not_required", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn(
+    "agencies",
+    "group_id",
+    "TEXT REFERENCES client_groups (id)",
+  );
+  await addColumn("agencies", "is_supplier", "BOOLEAN NOT NULL DEFAULT FALSE");
+  await addColumn("agencies", "national_id", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("agencies", "identity_bytes", "BYTEA");
+  await addColumn("agencies", "identity_content_type", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("agencies", "identity_filename", "TEXT NOT NULL DEFAULT ''");
+  if (!vatFlagExisted) {
+    await pool().query(
+      `UPDATE agencies
+       SET vat_not_required = TRUE
+       WHERE kind = 'agency' AND btrim(vat_number) = ''`,
+    );
+  }
+  await addColumn("allotments", "commercial_id", "TEXT REFERENCES commercials (id)");
+  await addColumn("allotments", "commission_percent", "INTEGER");
+  await addColumn(
+    "purchases",
+    "supplier_agency_id",
+    "TEXT REFERENCES agencies (id)",
   );
 }
 

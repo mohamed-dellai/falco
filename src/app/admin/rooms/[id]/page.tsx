@@ -85,6 +85,7 @@ export default async function RoomAdminPage({
         room={room}
         hotel={hotel}
         purchased={purchased}
+        allotment={stock}
         held={held}
         open={open}
         sold={sold}

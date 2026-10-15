@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-auth";
-import { addHotelPhoto, addRoomPhoto } from "@/lib/inventory";
+import {
+  addHotelPhoto,
+  addOfferPhoto,
+} from "@/lib/inventory";
 
 export async function POST(request: Request) {
   if (!(await isAdmin())) {
@@ -10,10 +13,12 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const hotelId = String(form.get("hotelId") ?? "");
   const roomId = String(form.get("roomId") ?? "");
+  const offerId = String(form.get("offerId") ?? "");
   const file = form.get("photo");
+  const ownerCount = [hotelId, roomId, offerId].filter(Boolean).length;
   if (
-    (!hotelId && !roomId) ||
-    (hotelId && roomId) ||
+    ownerCount !== 1 ||
+    roomId ||
     !(file instanceof File) ||
     file.size === 0
   ) {
@@ -23,8 +28,8 @@ export async function POST(request: Request) {
   try {
     if (hotelId) {
       await addHotelPhoto(hotelId, file);
-    } else {
-      await addRoomPhoto(roomId, file);
+    } else if (offerId) {
+      await addOfferPhoto(offerId, file);
     }
     return NextResponse.json({ ok: true });
   } catch {

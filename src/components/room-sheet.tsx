@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { deleteAssignmentAction, deleteRoomAction, deleteRoomPhotoAction, updateRoomAction } from "@/app/admin/actions";
+import { updateRoomAction } from "@/app/admin/actions";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { adminFieldClass } from "@/components/admin-ui";
 import { CalendarSwitch, DateField, DualDate } from "@/components/calendar-date-field";
-import { NamedConfirm } from "@/components/named-confirm";
-import { PhotoUploader } from "@/components/photo-uploader";
 import { PurchaseStatusPill } from "@/components/purchase-form";
 import { fill } from "@/lib/admin-copy";
 import type { Assignment, PurchaseStatus } from "@/lib/inventory";
-import { formatDate, formatDateRange, formatMoney, moneyInput, nightsBetween } from "@/lib/money";
+import { formatDateRange, formatMoney, moneyInput, nightsBetween } from "@/lib/money";
 import {
   roomTypeLabel,
   roomTypeOptionLabel,
@@ -23,6 +21,7 @@ type RoomPurchase = {
   id: string;
   number: string;
   status: PurchaseStatus;
+  active: boolean;
   checkIn: string;
   checkOut: string;
   quantity: number;
@@ -57,6 +56,7 @@ export function RoomSheet({
   room,
   hotel,
   purchased,
+  allotment,
   held,
   open,
   sold,
@@ -85,6 +85,7 @@ export function RoomSheet({
     distanceToHaram: string;
   };
   purchased: boolean;
+  allotment: number;
   held: number;
   open: number;
   sold: number;
@@ -95,7 +96,6 @@ export function RoomSheet({
   const copy = useAdminCopy();
   const locale = useAdminLocale();
   const [tab, setTab] = useState<"details" | "purchases" | "holds" | "photos">("details");
-  const [pending, setPending] = useState(false);
   const [cost, setCost] = useState(moneyInput(room.costPerNight));
   const [publicPrice, setPublicPrice] = useState(
     room.publicPricePerNight == null ? "" : moneyInput(room.publicPricePerNight),
@@ -127,9 +127,7 @@ export function RoomSheet({
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     if (publicPrice.trim() && (publicHalalas === null || publicHalalas < 1)) {
       event.preventDefault();
-      return;
     }
-    setPending(true);
   }
 
   const tabs = [
@@ -143,25 +141,9 @@ export function RoomSheet({
     <div className="mx-auto grid max-w-5xl gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--desk-line)] bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="submit"
-            form="room-form"
-            disabled={pending}
-            className="desk-focus inline-flex h-9 items-center rounded-lg bg-[var(--desk-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--desk-primary-hover)] disabled:opacity-55"
-          >
-            {pending ? copy.saving : copy.saveRoom}
-          </button>
-          <NamedConfirm
-            title={copy.deleteRoomTitle}
-            body={fill(copy.deleteRoomBody, { room: typeName })}
-            confirm={copy.deleteRoom}
-            pendingLabel={copy.deleting}
-            cancelLabel={copy.keepRoom}
-            action={deleteRoomAction}
-            fields={{ id: room.id }}
-            trigger={copy.deleteRoom}
-            triggerClassName="desk-focus inline-flex h-9 items-center px-3 text-sm font-semibold text-[var(--desk-danger)]"
-          />
+          <span className="rounded-full bg-[var(--desk-warning-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--desk-warning)]">
+            {copy.closed} · historical record
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center rounded-lg bg-[var(--desk-canvas)] p-1 text-center">
@@ -279,6 +261,7 @@ export function RoomSheet({
           className={tab === "details" ? "grid gap-8 md:grid-cols-2" : "hidden"}
         >
             <input type="hidden" name="id" value={room.id} />
+            <fieldset disabled className="contents">
             <div className="grid gap-4">
               <label className="grid gap-1.5 text-sm font-semibold">
                 {copy.roomType}
@@ -367,19 +350,12 @@ export function RoomSheet({
                     {guests}
                   </p>
                 </div>
-                {!purchased && (
-                  <label className="grid gap-1.5 text-sm font-semibold">
-                    {copy.roomsHeld}
-                    <input
-                      name="quantity"
-                      type="number"
-                      min={1}
-                      required
-                      defaultValue={room.quantity}
-                      className={adminFieldClass}
-                    />
-                  </label>
-                )}
+                <div className="grid gap-1.5 text-sm font-semibold">
+                  {copy.roomsHeld}
+                  <p className="rounded-lg bg-[var(--desk-canvas)] px-3 py-2 font-normal tabular-nums">
+                    {allotment}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="grid content-start gap-4">
@@ -424,9 +400,7 @@ export function RoomSheet({
                   </span>
                 </div>
               </div>
-              {purchased && (
-                <p className="text-xs text-[var(--desk-muted)]">{copy.quantityCostPurchase}</p>
-              )}
+              <p className="text-xs text-[var(--desk-muted)]">{copy.quantityCostPurchase}</p>
               <label className="grid gap-1.5 text-sm font-semibold">
                 {copy.description}
                 <textarea
@@ -437,6 +411,7 @@ export function RoomSheet({
                 />
               </label>
             </div>
+            </fieldset>
           </form>
 
         {tab === "purchases" && (
@@ -485,7 +460,7 @@ export function RoomSheet({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <PurchaseStatusPill status={purchase.status} />
+                          <PurchaseStatusPill status={purchase.status} active={purchase.active} />
                         </td>
                       </tr>
                     );
@@ -544,22 +519,9 @@ export function RoomSheet({
                               {copy.openRecord}
                             </Link>
                           ) : (
-                            <NamedConfirm
-                              title={copy.releaseTitle}
-                              body={fill(copy.releaseBody, {
-                                agency: assignment.agencyName,
-                                room: typeName,
-                                hotel: hotel.name,
-                                checkIn: formatDate(assignment.checkIn, locale),
-                                checkOut: formatDate(assignment.checkOut, locale),
-                              })}
-                              confirm={copy.releaseAction}
-                              pendingLabel={copy.cancelling}
-                              cancelLabel={copy.keepAllotment}
-                              action={deleteAssignmentAction}
-                              fields={{ id: assignment.id, roomId: room.id }}
-                              trigger={copy.releaseAction}
-                            />
+                            <span className="text-[var(--desk-muted)]">
+                              {copy.closed}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -574,21 +536,14 @@ export function RoomSheet({
               <p className="mx-auto mt-1 max-w-md text-sm text-[var(--desk-muted)]">
                 {copy.allotRoomDescription}
               </p>
-              <Link
-                href={`/admin/allotments/new?room=${room.id}`}
-                className="mt-3 inline-flex h-9 items-center rounded-lg border border-[var(--desk-line)] px-4 text-sm font-semibold text-[var(--desk-primary)]"
-              >
-                {copy.allotRoom}
-              </Link>
             </div>
           )
         )}
 
         {tab === "photos" && (
           <div>
-            <PhotoUploader roomId={room.id} />
             {photos.length ? (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {photos.map((photo, index) => (
                   <figure
                     key={photo.id}
@@ -600,18 +555,6 @@ export function RoomSheet({
                       alt={fill(copy.photoAlt, { record: typeName, count: index + 1 })}
                       className="h-36 w-full object-cover"
                     />
-                    <div className="flex justify-center px-2 py-2">
-                      <NamedConfirm
-                        title={copy.removePhotoTitle}
-                        body={fill(copy.removePhotoBody, { record: typeName })}
-                        confirm={copy.removePhotoConfirm}
-                        pendingLabel={copy.removing}
-                        cancelLabel={copy.keepPhoto}
-                        action={deleteRoomPhotoAction}
-                        fields={{ roomId: room.id, photoId: photo.id }}
-                        trigger={copy.remove}
-                      />
-                    </div>
                   </figure>
                 ))}
               </div>

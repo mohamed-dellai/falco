@@ -18,18 +18,17 @@ import {
   listPurchases,
   purchaseAmount,
   purchaseSpan,
-  purchaseStatuses,
-  type PurchaseStatus,
 } from "@/lib/inventory";
 import { formatDateRange, formatMoney } from "@/lib/money";
 import { roomTypeLabel } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
-function asStatus(value: string | undefined) {
-  return purchaseStatuses.includes(value as PurchaseStatus)
-    ? (value as PurchaseStatus)
-    : undefined;
+const listFilters = ["", "onsale", "disabled", "archived"] as const;
+type ListFilter = (typeof listFilters)[number];
+
+function asFilter(value: string | undefined): ListFilter {
+  return listFilters.includes(value as ListFilter) ? (value as ListFilter) : "";
 }
 
 function filterHref(status: string, query: string) {
@@ -59,11 +58,17 @@ export default async function PurchasesPage({
   const locale = await getAdminLocale();
   const copy = adminCopy(locale);
   const query = await searchParams;
-  const status = asStatus(query.status);
-  const all = await listPurchases();
-  const filteredByStatus = status
-    ? all.filter((purchase) => purchase.status === status)
-    : all;
+  const status = asFilter(query.status);
+  const loaded = await listPurchases();
+  const live = loaded.filter((purchase) => purchase.status !== "cancelled");
+  const filteredByStatus =
+    status === "onsale"
+      ? live.filter((purchase) => purchase.status === "confirmed" && purchase.active)
+      : status === "disabled"
+        ? live.filter((purchase) => purchase.status === "confirmed" && !purchase.active)
+        : status === "archived"
+          ? loaded.filter((purchase) => purchase.status === "cancelled")
+          : live;
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
   const purchases = search
     ? filteredByStatus.filter((purchase) =>
@@ -84,10 +89,16 @@ export default async function PurchasesPage({
     : filteredByStatus;
   const filters = [
     ["", copy.all],
-    ["draft", copy.draft],
-    ["confirmed", copy.confirmed],
-    ["cancelled", copy.cancelled],
+    ["onsale", copy.onSale],
+    ["disabled", copy.contractDisabled],
+    ["archived", copy.archived],
   ] as const;
+  const counts: Record<ListFilter, number> = {
+    "": live.length,
+    onsale: live.filter((purchase) => purchase.status === "confirmed" && purchase.active).length,
+    disabled: live.filter((purchase) => purchase.status === "confirmed" && !purchase.active).length,
+    archived: loaded.filter((purchase) => purchase.status === "cancelled").length,
+  };
 
   return (
     <AdminShell
@@ -117,10 +128,7 @@ export default async function PurchasesPage({
             href: filterHref(value, query.q ?? ""),
             label,
             active: (status ?? "") === value,
-            count:
-              value === ""
-                ? all.length
-                : all.filter((item) => item.status === value).length,
+            count: counts[value],
           }))}
         />
       </div>
@@ -144,7 +152,7 @@ export default async function PurchasesPage({
                       </p>
                       <h2 className="mt-1 font-semibold">{purchase.hotelName}</h2>
                     </div>
-                    <PurchaseStatusPill status={purchase.status} />
+                    <PurchaseStatusPill status={purchase.status} active={purchase.active} />
                   </div>
                   <p className="mt-3 font-plex text-xs text-[var(--desk-muted)]">
                     {displayPeriod(purchase.lines, locale)}
@@ -209,7 +217,7 @@ export default async function PurchasesPage({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <PurchaseStatusPill status={purchase.status} />
+                          <PurchaseStatusPill status={purchase.status} active={purchase.active} />
                           {purchase.status === "cancelled" && (
                             <DeleteCancelledPurchase
                               id={purchase.id}

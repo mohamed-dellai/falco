@@ -39,7 +39,7 @@ export default async function HotelsPage({
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
   const hotels = search
     ? allHotels.filter((hotel) =>
-        [hotel.name, copy[hotel.city], hotel.address, hotel.distanceToHaram]
+        [hotel.name, hotel.nameAr, copy[hotel.city], hotel.address, hotel.distanceToHaram]
           .join(" ")
           .toLocaleLowerCase(locale)
           .includes(search),
@@ -86,6 +86,16 @@ export default async function HotelsPage({
                     {copy[hotel.city]} · {fill(copy.star, { count: hotel.stars })}
                     {hotel.distanceToHaram ? ` · ${hotel.distanceToHaram}` : ""}
                   </p>
+                  {(!hotel.publishedWebsite || !hotel.publishedDesk) && (
+                    <p className="mt-1 text-xs text-[var(--desk-muted)]">
+                      {[
+                        hotel.publishedWebsite ? "" : copy.hiddenWebsite,
+                        hotel.publishedDesk ? "" : copy.hiddenDesk,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
                   <p className="mt-3 border-t border-[var(--desk-line)] pt-3 text-xs text-[var(--desk-muted)]">
                     {countText(
                       roomCount,
@@ -119,6 +129,16 @@ export default async function HotelsPage({
                         >
                           {hotel.name}
                         </Link>
+                        {(!hotel.publishedWebsite || !hotel.publishedDesk) && (
+                          <p className="mt-1 text-xs text-[var(--desk-muted)]">
+                            {[
+                              hotel.publishedWebsite ? "" : copy.hiddenWebsite,
+                              hotel.publishedDesk ? "" : copy.hiddenDesk,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3">{copy[hotel.city]}</td>
                       <td className="px-4 py-3 text-end font-plex">

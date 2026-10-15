@@ -49,6 +49,29 @@ export function RoomTypeForm({
             className={adminFieldClass}
           />
         </label>
+        <div className="grid gap-4 sm:grid-cols-[auto_10rem] sm:items-end">
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              name="childrenAllowed"
+              type="checkbox"
+              defaultChecked={roomType?.childrenAllowed ?? false}
+              className="size-4"
+            />
+            {copy.childrenAllowed}
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold">
+            {copy.maxChildAge}
+            <input
+              name="maxChildAge"
+              type="number"
+              min={0}
+              max={17}
+              defaultValue={roomType?.maxChildAge ?? ""}
+              className={adminFieldClass}
+            />
+          </label>
+        </div>
+        <p className="-mt-2 text-sm text-[var(--desk-muted)]">{copy.maxChildAgeHint}</p>
         <label className="grid gap-1.5 text-sm font-semibold">
           {copy.description}
           <textarea

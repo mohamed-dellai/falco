@@ -14,12 +14,14 @@ type Upload = {
 };
 
 type PhotoUploaderProps =
-  { hotelId: string; roomId?: never } | { hotelId?: never; roomId: string };
+  | { hotelId: string; roomId?: never; offerId?: never }
+  | { hotelId?: never; roomId: string; offerId?: never }
+  | { hotelId?: never; roomId?: never; offerId: string };
 
 const photoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maximumPhotoSize = 5 * 1024 * 1024;
 
-export function PhotoUploader({ hotelId, roomId }: PhotoUploaderProps) {
+export function PhotoUploader({ hotelId, roomId, offerId }: PhotoUploaderProps) {
   const router = useRouter();
   const copy = useAdminCopy();
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -27,7 +29,8 @@ export function PhotoUploader({ hotelId, roomId }: PhotoUploaderProps) {
 
   function send(file: File, id: string) {
     const body = new FormData();
-    body.set(hotelId ? "hotelId" : "roomId", hotelId ?? roomId);
+    const field = hotelId ? "hotelId" : offerId ? "offerId" : "roomId";
+    body.set(field, hotelId ?? offerId ?? roomId ?? "");
     body.set("photo", file);
     const request = new XMLHttpRequest();
     request.open("POST", "/api/admin/hotel-photos");

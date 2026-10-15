@@ -78,7 +78,9 @@ export function CheckoutForm({
               ? "capacity"
               : result.code === "payment"
                 ? "payment"
-                : "unavailable",
+                : result.code === "window"
+                  ? "saleWindow"
+                  : "unavailable",
           ),
         );
         setPending(false);

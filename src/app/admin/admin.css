@@ -82,6 +82,12 @@
     outline-offset: 2px;
   }
 
+  .desk-field:disabled {
+    background: var(--desk-surface-muted);
+    color: var(--desk-text-soft);
+    cursor: not-allowed;
+  }
+
   .desk-table th {
     color: var(--desk-muted);
     font-size: 0.6875rem;

@@ -1,5 +1,5 @@
 import { cities, type City } from "@/lib/places";
-import { mealPlans, type MealPlan } from "@/lib/room-types";
+import { mealPlanCode, type MealPlan } from "@/lib/room-types";
 
 export const distanceCaps = [1, 3, 5] as const;
 export type DistanceCap = (typeof distanceCaps)[number];
@@ -12,7 +12,7 @@ export type CatalogFilters = {
   checkIn: string;
   checkOut: string;
   stars: number[];
-  boards: MealPlan[];
+  boards: string[];
   guests: number[];
   views: string[];
   distance: DistanceCap | null;
@@ -70,7 +70,8 @@ export function parseCatalogFilters(query: SearchQuery): CatalogFilters {
       ...new Set(
         many(query.board)
           .flatMap((item) => item.split(","))
-          .filter((item): item is MealPlan => mealPlans.includes(item as MealPlan)),
+          .map((item) => mealPlanCode(item))
+          .filter((item): item is MealPlan => item !== null),
       ),
     ],
     guests: numbers(query.guests, [1, 2, 3, 4, 5]),

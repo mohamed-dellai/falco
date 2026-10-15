@@ -1,34 +1,31 @@
 import Link from "next/link";
 import { AdminError, AdminShell } from "@/components/admin-shell";
-import { AllotmentForm } from "@/components/allotment-form";
+import { ReservationHeaderForm } from "@/components/reservation-header-form";
 import { AdminEmptyState, adminButtonClass } from "@/components/admin-ui";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
-import { listAgencies, listAllotmentRooms, listDeskRates } from "@/lib/inventory";
+import { listCommercials } from "@/lib/client-crm";
+import { clientIsOpen } from "@/lib/client-sale";
+import { listAgencies, listHotels } from "@/lib/inventory";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewAllotmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    error?: string;
-    remaining?: string;
-    room?: string;
-    agency?: string;
-    checkIn?: string;
-    checkOut?: string;
-  }>;
+  searchParams: Promise<{ error?: string; remaining?: string; agency?: string }>;
 }) {
   await requireAdmin();
-  const copy = adminCopy(await getAdminLocale());
+  const locale = await getAdminLocale();
+  const copy = adminCopy(locale);
   const query = await searchParams;
-  const [agencies, rooms, rates] = await Promise.all([
+  const [agencies, hotels, commercials] = await Promise.all([
     listAgencies(),
-    listAllotmentRooms(),
-    listDeskRates(),
+    listHotels(),
+    listCommercials(),
   ]);
+  const openAgencies = agencies.filter(clientIsOpen);
 
   return (
     <AdminShell
@@ -36,7 +33,7 @@ export default async function NewAllotmentPage({
       crumbs={[{ href: "/admin/allotments", label: copy.allotments }]}
     >
       <AdminError code={query.error} remaining={query.remaining} />
-      {!agencies.length ? (
+      {!openAgencies.length ? (
         <AdminEmptyState
           title={copy.noAgencies}
           description={copy.agencyBeforeAllotment}
@@ -46,25 +43,25 @@ export default async function NewAllotmentPage({
             </Link>
           }
         />
-      ) : !rooms.length ? (
+      ) : !hotels.length ? (
         <AdminEmptyState
           title={copy.noRoomsToAllot}
           description={copy.purchaseBeforeAllotment}
           action={
-            <Link href="/admin/purchases/new" className={adminButtonClass}>
-              {copy.newPurchase}
+            <Link href="/admin/hotels/new" className={adminButtonClass}>
+              {copy.newHotel}
             </Link>
           }
         />
       ) : (
-        <AllotmentForm
-          agencies={agencies}
-          rooms={rooms}
-          roomId={query.room}
-          agencyId={query.agency}
-          initialCheckIn={query.checkIn}
-          initialCheckOut={query.checkOut}
-          rates={rates}
+        <ReservationHeaderForm
+          allotment={null}
+          agencies={openAgencies}
+          hotels={hotels}
+          commercials={commercials.filter((rep) => !rep.disabled)}
+          copy={copy}
+          locale={locale}
+          defaultAgencyId={query.agency}
         />
       )}
     </AdminShell>

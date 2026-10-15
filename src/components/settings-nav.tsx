@@ -1,15 +1,19 @@
 import Link from "next/link";
 import type { AdminCopy } from "@/lib/admin-copy";
 
-export type SettingsSection = "company" | "accounts";
+export type SettingsSection = "company" | "accounts" | "hotel" | "mail" | "policies";
 
 const sections = [
   { id: "company", href: "/admin/settings" },
   { id: "accounts", href: "/admin/settings?section=accounts" },
+  { id: "hotel", href: "/admin/settings?section=hotel" },
+  { id: "mail", href: "/admin/settings?section=mail" },
+  { id: "policies", href: "/admin/settings?section=policies" },
 ] as const;
 
 export function settingsSection(value: string | undefined): SettingsSection {
-  return value === "accounts" ? "accounts" : "company";
+  if (value === "accounts" || value === "hotel" || value === "mail" || value === "policies") return value;
+  return "company";
 }
 
 export function SettingsNav({
@@ -22,6 +26,9 @@ export function SettingsNav({
   const labels: Record<SettingsSection, string> = {
     company: copy.company,
     accounts: copy.accounts,
+    hotel: copy.hotelParameters,
+    mail: copy.mailSection,
+    policies: copy.policiesSection,
   };
 
   return (

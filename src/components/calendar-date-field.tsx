@@ -120,7 +120,7 @@ export function DualDate({
     <span className={className}>
       <span className="block tabular-nums">{primary || "—"}</span>
       {secondary ? (
-        <span className="block text-[11px] leading-4 text-[var(--desk-muted)]">
+        <span className="block text-xs leading-4 text-[var(--desk-muted)]">
           {secondary}
         </span>
       ) : null}

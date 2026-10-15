@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   cancelPurchaseAction,
   deletePurchaseAction,
+  unarchivePurchaseAction,
   savePurchaseAction,
 } from "@/app/admin/actions";
 import {
@@ -12,7 +12,6 @@ import {
   AdminStatusPill,
   adminButtonClass,
   adminButtonDangerClass,
-  adminButtonSecondaryClass,
   adminFieldClass,
 } from "@/components/admin-ui";
 import {
@@ -23,14 +22,18 @@ import {
 import { NamedConfirm } from "@/components/named-confirm";
 import { useAdminCopy, useAdminLocale } from "@/components/admin-locale";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
-import type { Purchase, PurchaseStatus } from "@/lib/inventory";
+import type {
+  ContractType,
+  MealRate,
+  Purchase,
+  PurchaseStatus,
+  SupplierType,
+} from "@/lib/inventory";
 import {
   mealPlanLabel,
   mealPlans,
   roomTypeLabel,
-  saleModes,
   type MealPlan,
-  type SaleMode,
 } from "@/lib/room-types";
 import {
   formatDate,
@@ -43,27 +46,39 @@ type CatalogOption = {
   id: string;
   name: string;
   guests: number;
-  board: MealPlan;
-  view: string;
 };
 
-type DraftLine = {
-  key: string;
-  roomTypeId: string;
-  name: string;
-  description: string;
-  quantity: string;
-  capacity: string;
-  checkIn: string;
-  checkOut: string;
-  price: string;
-  publicPrice: string;
-  roomId?: string | null;
-  board: MealPlan;
-  view: string;
-  minNights: string;
-  saleMode: SaleMode;
+type MoneyDraft = {
+  weekdayCost: string;
+  weekendCost: string;
+  weekdayPrice: string;
+  weekendPrice: string;
 };
+
+type RateDraft = MoneyDraft & {
+  name: string;
+  nameAr: string;
+  quantity: string;
+};
+
+function emptyMoney(): MoneyDraft {
+  return {
+    weekdayCost: "0",
+    weekendCost: "0",
+    weekdayPrice: "",
+    weekendPrice: "",
+  };
+}
+
+function moneyDraft(rate?: MealRate): MoneyDraft {
+  if (!rate) return emptyMoney();
+  return {
+    weekdayCost: moneyInput(rate.weekdayCost),
+    weekendCost: moneyInput(rate.weekendCost),
+    weekdayPrice: rate.weekdayPrice == null ? "" : moneyInput(rate.weekdayPrice),
+    weekendPrice: rate.weekendPrice == null ? "" : moneyInput(rate.weekendPrice),
+  };
+}
 
 function boardLabels(copy: AdminCopy): Record<MealPlan, string> {
   return {
@@ -74,44 +89,21 @@ function boardLabels(copy: AdminCopy): Record<MealPlan, string> {
   };
 }
 
-function roomLabel(copy: AdminCopy, name: string) {
-  return roomTypeLabel(name, (type) => copy[type]);
-}
-
-function optionLabel(copy: AdminCopy, type: CatalogOption) {
-  return `${roomTypeLabel(type.name, (code) => copy[code])} · ${type.guests}`;
-}
-
-function cityName(copy: AdminCopy, city: string) {
-  if (city === "makkah" || city === "madinah" || city === "jeddah")
-    return copy[city];
-  return city;
-}
-
-export function PurchaseStatusPill({ status }: { status: PurchaseStatus }) {
-  const copy = useAdminCopy();
-  const statusLabel: Record<PurchaseStatus, string> = {
-    draft: copy.draft,
-    confirmed: copy.confirmed,
-    cancelled: copy.cancelled,
+function emptyRate(): RateDraft {
+  return {
+    name: "",
+    nameAr: "",
+    quantity: "1",
+    weekdayCost: "0",
+    weekendCost: "0",
+    weekdayPrice: "",
+    weekendPrice: "",
   };
-  return (
-    <AdminStatusPill
-      tone={
-        status === "confirmed"
-          ? "success"
-          : status === "cancelled"
-            ? "neutral"
-            : "warning"
-      }
-    >
-      {statusLabel[status]}
-    </AdminStatusPill>
-  );
 }
 
 function lineHalalas(price: string) {
   const normalized = price.replaceAll(",", "").trim();
+  if (!normalized) return 0;
   if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
   return Math.round(Number(normalized) * 100);
 }
@@ -122,56 +114,70 @@ function parsedQuantity(value: string) {
   return quantity;
 }
 
-function emptyLine(): DraftLine {
-  return {
-    key: crypto.randomUUID(),
-    roomTypeId: "",
-    name: "",
-    description: "",
-    quantity: "1",
-    capacity: "4",
-    checkIn: "",
-    checkOut: "",
-    price: "",
-    publicPrice: "",
-    board: "room_only",
-    view: "",
-    minNights: "1",
-    saleMode: "book",
-  };
+export function PurchaseStatusPill({
+  status,
+  active = true,
+}: {
+  status: PurchaseStatus;
+  active?: boolean;
+}) {
+  const copy = useAdminCopy();
+  const archived = status === "cancelled";
+  const disabled = status === "confirmed" && !active;
+  const label = archived
+    ? copy.archived
+    : status === "draft"
+      ? copy.draft
+      : disabled
+        ? copy.contractDisabled
+        : copy.onSale;
+  return (
+    <AdminStatusPill tone={archived ? "neutral" : disabled || status === "draft" ? "warning" : "success"}>
+      {label}
+    </AdminStatusPill>
+  );
 }
 
-function lineFromPurchase(purchase: Purchase): DraftLine[] {
-  return purchase.lines.map((line) => ({
-    key: line.id,
-    roomTypeId: line.roomTypeId ?? "",
-    name: line.roomName,
-    description: line.description,
-    quantity: String(line.quantity),
-    capacity: String(line.capacity),
-    checkIn: line.checkIn,
-    checkOut: line.checkOut,
-    price: moneyInput(line.costPerNight),
-    publicPrice:
-      line.publicPricePerNight == null
-        ? ""
-        : moneyInput(line.publicPricePerNight),
-    roomId: line.roomId,
-    board: line.board,
-    view: line.view,
-    minNights: String(line.minNights),
-    saleMode: line.saleMode,
-  }));
-}
-
-function lineIsFilled(line: DraftLine) {
-  return Boolean(
-    line.roomTypeId ||
-      line.name.trim() ||
-      line.price.trim() ||
-      line.publicPrice.trim() ||
-      line.checkIn ||
-      line.checkOut,
+function MoneyBox({
+  label,
+  name,
+  value,
+  onChange,
+  locked,
+  locale,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  locked: boolean;
+  locale: string;
+  placeholder: string;
+}) {
+  return (
+    <label className="grid gap-1.5 text-xs font-semibold text-[var(--desk-text)]">
+      <span>{label}</span>
+      {locked ? (
+        <span className="text-sm font-medium text-[var(--desk-ink)]">
+          {value.trim() ? formatMoney(lineHalalas(value) ?? 0, locale) : "—"}
+        </span>
+      ) : (
+        <span className="relative block">
+          <input
+            name={name}
+            inputMode="decimal"
+            value={value}
+            placeholder={placeholder}
+            onChange={(event) => onChange(event.target.value)}
+            className={`${adminFieldClass} pe-12 text-end`}
+          />
+          <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[var(--desk-muted)]">
+            SAR
+          </span>
+        </span>
+      )}
+    </label>
   );
 }
 
@@ -180,135 +186,357 @@ export function PurchaseForm({
   purchase,
   hotelId,
   roomTypes,
+  meals,
+  views,
+  hotelRooms,
+  hotelMeals,
+  hotelViews,
+  suppliers = [],
+  part = "all",
 }: {
   hotels: Array<{ id: string; name: string; city: string }>;
+  suppliers?: Array<{ id: string; name: string }>;
   purchase?: Purchase;
   hotelId?: string;
   roomTypes: CatalogOption[];
+  meals: Array<{ code: string; name: string }>;
+  views: string[];
+  hotelRooms: Array<{ hotelId: string; roomTypeId: string }>;
+  hotelMeals: Array<{ hotelId: string; code: string }>;
+  hotelViews: Array<{ hotelId: string; name: string }>;
+  part?: "all" | "header" | "rooms" | "board";
 }) {
   const copy = useAdminCopy();
   const locale = useAdminLocale();
-  const locked =
-    purchase?.status === "confirmed" || purchase?.status === "cancelled";
+  const locked = purchase?.status === "cancelled";
+  const primaryLine =
+    purchase?.lines.find((line) => line.primary) ?? purchase?.lines[0];
+  function mealText(code: string) {
+    const builtin = mealPlans.includes(code as MealPlan)
+      ? boardLabels(copy)[code as MealPlan]
+      : "";
+    return (
+      builtin ||
+      mealChoices.find((meal) => meal.code === code)?.name ||
+      mealPlanLabel(code, boardLabels(copy))
+    );
+  }
   const [hotel, setHotel] = useState(purchase?.hotelId ?? hotelId ?? "");
-  const [lines, setLines] = useState<DraftLine[]>(
-    purchase?.lines.length ? lineFromPurchase(purchase) : [emptyLine()],
+  const [contractName, setContractName] = useState(purchase?.contractName ?? "");
+  const [contractType, setContractType] = useState<ContractType>(
+    purchase?.contractType ?? "block",
   );
+  const [contractCost, setContractCost] = useState(
+    purchase?.contractCost == null ? "" : moneyInput(purchase.contractCost),
+  );
+  const [priority, setPriority] = useState(String(purchase?.priority ?? 1));
+  const [supplierType, setSupplierType] = useState<SupplierType>(
+    purchase?.supplierType ?? "hotel_direct",
+  );
+  const [supplierAgencyId, setSupplierAgencyId] = useState(
+    purchase?.supplierAgencyId ?? "",
+  );
+  const [contactHotel, setContactHotel] = useState(purchase?.contactHotel ?? false);
+  const [active, setActive] = useState(purchase?.active ?? true);
+  const [checkIn, setCheckIn] = useState(
+    purchase?.checkIn ?? primaryLine?.checkIn ?? "",
+  );
+  const [checkOut, setCheckOut] = useState(
+    purchase?.checkOut ?? primaryLine?.checkOut ?? "",
+  );
+  const [mainMeal, setMainMeal] = useState<string>(primaryLine?.board ?? "room_only");
+  const [selectedMeals, setSelectedMeals] = useState<string[]>(
+    purchase?.mealCodes.length
+      ? purchase.mealCodes
+      : primaryLine
+        ? [primaryLine.board]
+        : ["room_only"],
+  );
+  const [mealRates, setMealRates] = useState<Record<string, MoneyDraft>>(() => {
+    const saved: Record<string, MoneyDraft> = {};
+    for (const [code, rate] of Object.entries(purchase?.mealRates ?? {})) {
+      saved[code] = moneyDraft(rate);
+    }
+    return saved;
+  });
+  const [viewRates, setViewRates] = useState<Record<string, MoneyDraft>>(() => {
+    const saved: Record<string, MoneyDraft> = {};
+    for (const [name, rate] of Object.entries(purchase?.viewRates ?? {})) {
+      saved[name] = moneyDraft(rate);
+    }
+    return saved;
+  });
+  const [selectedViews, setSelectedViews] = useState<string[]>(
+    purchase?.viewNames.length
+      ? purchase.viewNames
+      : [...new Set((purchase?.lines ?? []).map((line) => line.view).filter(Boolean))],
+  );
+  const [primaryType, setPrimaryType] = useState(primaryLine?.roomTypeId ?? "");
+  const [primary, setPrimary] = useState<RateDraft>(
+    primaryLine
+      ? {
+          name: primaryLine.roomName,
+          nameAr: primaryLine.nameAr,
+          quantity: String(primaryLine.quantity),
+          weekdayCost: moneyInput(primaryLine.costPerNight),
+          weekendCost: moneyInput(primaryLine.weekendCost),
+          weekdayPrice:
+            primaryLine.publicPricePerNight == null
+              ? ""
+              : moneyInput(primaryLine.publicPricePerNight),
+          weekendPrice:
+            primaryLine.weekendPrice == null
+              ? ""
+              : moneyInput(primaryLine.weekendPrice),
+        }
+      : emptyRate(),
+  );
+  const [checked, setChecked] = useState<string[]>(
+    (purchase?.lines ?? [])
+      .filter((line) => line !== primaryLine && line.roomTypeId)
+      .map((line) => line.roomTypeId as string),
+  );
+  const [variables, setVariables] = useState<Record<string, RateDraft>>(() => {
+    const saved: Record<string, RateDraft> = {};
+    for (const line of purchase?.lines ?? []) {
+      if (!line.roomTypeId || line === primaryLine) continue;
+      saved[line.roomTypeId] = {
+        name: line.roomName,
+        nameAr: line.nameAr,
+        quantity: String(line.quantity),
+        weekdayCost: moneyInput(line.costPerNight),
+        weekendCost: moneyInput(line.weekendCost),
+        weekdayPrice:
+          line.publicPricePerNight == null
+            ? ""
+            : moneyInput(line.publicPricePerNight),
+        weekendPrice:
+          line.weekendPrice == null ? "" : moneyInput(line.weekendPrice),
+      };
+    }
+    return saved;
+  });
   const [formError, setFormError] = useState("");
   const [pending, setPending] = useState("");
 
-  const totals = useMemo(() => {
-    let amount = 0;
-    let rooms = 0;
-    for (const line of lines) {
-      const nights = nightsBetween(line.checkIn, line.checkOut);
-      const price = lineHalalas(line.price);
-      const quantity = parsedQuantity(line.quantity);
-      if (nights < 1 || price === null || quantity === null) continue;
-      rooms += quantity;
-      amount += price * nights * quantity;
-    }
-    return { amount, rooms };
-  }, [lines]);
+  const assignedRoomIds = useMemo(
+    () =>
+      new Set(
+        hotelRooms
+          .filter((link) => link.hotelId === hotel)
+          .map((link) => link.roomTypeId),
+      ),
+    [hotel, hotelRooms],
+  );
+  const assignedMealCodes = useMemo(
+    () =>
+      hotelMeals
+        .filter((link) => link.hotelId === hotel)
+        .map((link) => link.code),
+    [hotel, hotelMeals],
+  );
+  const assignedViewNames = useMemo(
+    () =>
+      new Set(
+        hotelViews
+          .filter((link) => link.hotelId === hotel)
+          .map((link) => link.name),
+      ),
+    [hotel, hotelViews],
+  );
 
-  function updateLine(key: string, patch: Partial<DraftLine>) {
-    setLines((current) =>
-      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+  useEffect(() => {
+    if (locked) return;
+    setPrimaryType((current) => (assignedRoomIds.has(current) ? current : ""));
+    setChecked((current) => {
+      const next = current.filter((id) => assignedRoomIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+    setSelectedMeals((current) => {
+      const next = current.filter((code) => assignedMealCodes.includes(code));
+      return next.length === current.length ? current : next;
+    });
+    setMainMeal((current) =>
+      assignedMealCodes.includes(current) ? current : assignedMealCodes[0] ?? "",
     );
+    setSelectedViews((current) => {
+      const next = current.filter((name) => assignedViewNames.has(name));
+      return next.length === current.length ? current : next;
+    });
+  }, [assignedMealCodes, assignedRoomIds, assignedViewNames, locked]);
+
+  const viewChoices = useMemo(() => {
+    if (!hotel) return [];
+    const pool = views.filter((view) => assignedViewNames.has(view));
+    if (!locked) return pool;
+    return [...new Set([...pool, ...selectedViews])];
+  }, [assignedViewNames, hotel, locked, selectedViews, views]);
+
+  const mealChoices = useMemo(() => {
+    if (!hotel) return [];
+    const pool = meals.filter((meal) => assignedMealCodes.includes(meal.code));
+    if (!locked) return pool;
+    const known = new Set(pool.map((meal) => meal.code));
+    const extras = meals.filter(
+      (meal) =>
+        !known.has(meal.code) &&
+        (selectedMeals.includes(meal.code) || meal.code === mainMeal),
+    );
+    return [...pool, ...extras];
+  }, [assignedMealCodes, hotel, locked, mainMeal, meals, selectedMeals]);
+
+  const catalog = useMemo(() => {
+    if (!hotel) return [];
+    return roomTypes.filter((type) => {
+      if (assignedRoomIds.has(type.id)) return true;
+      return locked && (type.id === primaryType || checked.includes(type.id));
+    });
+  }, [assignedRoomIds, checked, hotel, locked, primaryType, roomTypes]);
+
+  function toggle(list: string[], value: string, on: boolean) {
+    return on ? [...new Set([...list, value])] : list.filter((item) => item !== value);
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const intent =
       submitter instanceof HTMLButtonElement ? submitter.value : "draft";
-    const filled = lines.filter(lineIsFilled);
-    if (!hotel) {
+    if ((part === "all" || part === "header") && !hotel) {
       event.preventDefault();
       setFormError(copy.selectHotel);
       return;
     }
-    if (intent === "confirm" && filled.length === 0) {
+    const nights = nightsBetween(checkIn, checkOut);
+    if (
+      (part === "all" || part === "header") &&
+      (intent === "confirm" || intent === "save" || primaryType || checked.length) &&
+      (nights < 1 || nights > 1095)
+    ) {
+      event.preventDefault();
+      setFormError(nights > 1095 ? copy.spanError : copy.datesError);
+      return;
+    }
+    if ((intent === "confirm" || intent === "save") && !primaryType && checked.length === 0) {
       event.preventDefault();
       setFormError(copy.linesError);
       return;
     }
-    const broken = filled.find((line) => {
-      const capacity = Number(line.capacity);
-      const nights = nightsBetween(line.checkIn, line.checkOut);
-      const publicRaw = line.publicPrice.trim();
-      const publicHalalas = publicRaw ? lineHalalas(publicRaw) : null;
+    const roomRows = [
+      ...(primaryType ? [primary] : []),
+      ...checked.map((id) => variables[id] ?? emptyRate()),
+    ];
+    const pricedRows = [
+      ...selectedMeals.map((code) => mealRates[code] ?? emptyMoney()),
+      ...selectedViews.map((name) => viewRates[name] ?? emptyMoney()),
+    ];
+    const brokenMoney = (row: MoneyDraft) => {
+      const weekdayPrice = row.weekdayPrice.trim();
+      const weekendPrice = row.weekendPrice.trim();
       return (
-        !line.roomTypeId ||
-        parsedQuantity(line.quantity) === null ||
-        !Number.isInteger(capacity) ||
-        capacity < 1 ||
-        capacity > 20 ||
-        nights < 1 ||
-        nights > 1095 ||
-        lineHalalas(line.price) === null ||
-        (publicRaw !== "" && (publicHalalas === null || publicHalalas < 1))
+        lineHalalas(row.weekdayCost) === null ||
+        lineHalalas(row.weekendCost) === null ||
+        (weekdayPrice !== "" && (lineHalalas(weekdayPrice) ?? 0) < 1) ||
+        (weekendPrice !== "" && (lineHalalas(weekendPrice) ?? 0) < 1)
       );
-    });
+    };
+    const broken =
+      ((part === "all" || part === "rooms") &&
+        roomRows.some((row) => parsedQuantity(row.quantity) === null || brokenMoney(row))) ||
+      ((part === "all" || part === "board") && pricedRows.some(brokenMoney));
     if (broken) {
       event.preventDefault();
-      const nights = nightsBetween(broken.checkIn, broken.checkOut);
-      if (nights > 1095) {
-        setFormError(copy.spanError);
-      } else if (nights < 1) {
-        setFormError(copy.datesError);
-      } else {
-        setFormError(copy.roomLineError);
-      }
+      setFormError(copy.roomLineError);
       return;
     }
     setFormError("");
     setPending(intent);
   }
 
+  function rateFields(prefix: string, rate: MoneyDraft, onChange: (patch: Partial<MoneyDraft>) => void) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MoneyBox
+          label={copy.weekdayCost}
+          name={`${prefix}WeekdayCost`}
+          value={rate.weekdayCost}
+          locked={locked}
+          locale={locale}
+          placeholder={copy.moneyExample}
+          onChange={(weekdayCost) => onChange({ weekdayCost })}
+        />
+        <MoneyBox
+          label={copy.weekendCost}
+          name={`${prefix}WeekendCost`}
+          value={rate.weekendCost}
+          locked={locked}
+          locale={locale}
+          placeholder={copy.moneyExample}
+          onChange={(weekendCost) => onChange({ weekendCost })}
+        />
+        <MoneyBox
+          label={copy.weekdayPrice}
+          name={`${prefix}WeekdayPrice`}
+          value={rate.weekdayPrice}
+          locked={locked}
+          locale={locale}
+          placeholder={copy.moneyExample}
+          onChange={(weekdayPrice) => onChange({ weekdayPrice })}
+        />
+        <MoneyBox
+          label={copy.weekendPrice}
+          name={`${prefix}WeekendPrice`}
+          value={rate.weekendPrice}
+          locked={locked}
+          locale={locale}
+          placeholder={copy.moneyExample}
+          onChange={(weekendPrice) => onChange({ weekendPrice })}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-visible rounded-2xl border border-[var(--desk-line)] bg-white">
       <div className="sticky top-[4.5rem] z-10 flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[var(--desk-line)] bg-white/95 px-4 py-3 backdrop-blur lg:static">
         <div className="flex flex-wrap gap-2">
-          {!locked && (
-            <>
-              <button
-                type="submit"
-                form="purchase-form"
-                name="intent"
-                value="confirm"
-                disabled={pending !== ""}
-                className={`${adminButtonClass} min-w-40`}
-              >
-                {pending === "confirm" ? copy.confirming : copy.confirmPurchase}
-              </button>
-              <button
-                type="submit"
-                form="purchase-form"
-                name="intent"
-                value="draft"
-                disabled={pending !== ""}
-                className={`${adminButtonSecondaryClass} min-w-32`}
-              >
-                {pending === "draft" ? copy.saving : copy.saveDraft}
-              </button>
-            </>
-          )}
           {purchase?.status === "confirmed" && (
+            <button
+              type="submit"
+              form="purchase-form"
+              name="intent"
+              value="revise"
+              disabled={pending !== ""}
+              className={`${adminButtonClass} min-w-32`}
+            >
+              {pending === "revise" ? copy.saving : copy.saveContract}
+            </button>
+          )}
+          {!locked && purchase?.status !== "confirmed" && (
+            <button
+              type="submit"
+              form="purchase-form"
+              name="intent"
+              value="save"
+              disabled={pending !== ""}
+              className={`${adminButtonClass} min-w-32`}
+            >
+              {pending === "save" ? copy.saving : copy.saveContract}
+            </button>
+          )}
+          {(part === "all" || part === "header") && purchase?.status === "confirmed" && (
             <NamedConfirm
-              title={copy.cancelPurchaseTitle}
-              body={fill(copy.cancelPurchaseBody, {
-                number: purchase.number,
-              })}
-              confirm={copy.cancelAction}
-              pendingLabel={copy.cancelling}
+              title={copy.archivePurchaseTitle}
+              body={fill(copy.archivePurchaseBody, { number: purchase.number })}
+              confirm={copy.archiveContract}
+              pendingLabel={copy.archiving}
               cancelLabel={copy.keepPurchase}
               action={cancelPurchaseAction}
               fields={{ id: purchase.id }}
-              trigger={copy.cancelAction}
+              trigger={copy.archiveContract}
               triggerClassName={adminButtonDangerClass}
             />
           )}
-          {purchase?.status === "draft" && (
+          {(part === "all" || part === "header") && purchase?.status === "draft" && (
             <NamedConfirm
               title={copy.deleteDraftTitle}
               body={fill(copy.deleteDraftBody, { number: purchase.number })}
@@ -321,18 +549,27 @@ export function PurchaseForm({
               triggerClassName={adminButtonDangerClass}
             />
           )}
-          {purchase?.status === "cancelled" && (
-            <DeleteCancelledPurchase id={purchase.id} number={purchase.number} />
+          {(part === "all" || part === "header") && purchase?.status === "cancelled" && (
+            <>
+              <form action={unarchivePurchaseAction}>
+                <input type="hidden" name="id" value={purchase.id} />
+                <button type="submit" className={`${adminButtonClass} min-w-32`}>
+                  {copy.unarchiveContract}
+                </button>
+              </form>
+              <DeleteCancelledPurchase id={purchase.id} number={purchase.number} />
+            </>
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span
-            aria-live="polite"
-            className="font-plex text-xs tabular-nums text-[var(--desk-muted)]"
-          >
-            {copy.total} · {formatMoney(totals.amount, locale)}
+          {(part === "all" || part === "header") && (
+          <span className="font-plex text-xs tabular-nums text-[var(--desk-muted)]">
+            {copy.contractCost} · {formatMoney(lineHalalas(contractCost) ?? 0, locale)}
           </span>
-          <PurchaseStatusPill status={purchase?.status ?? "draft"} />
+          )}
+          {purchase && (
+            <PurchaseStatusPill status={purchase.status} active={purchase.active} />
+          )}
         </div>
       </div>
 
@@ -340,52 +577,27 @@ export function PurchaseForm({
         id="purchase-form"
         action={savePurchaseAction}
         onSubmit={onSubmit}
-        className="grid gap-5 p-4 sm:p-5"
+        className="grid gap-6 p-4 sm:p-5"
       >
         {purchase && <input type="hidden" name="id" value={purchase.id} />}
+        {part !== "all" && <input type="hidden" name="section" value={part} />}
+        {part !== "all" && part !== "header" && purchase && (
+          <input type="hidden" name="hotelId" value={purchase.hotelId} />
+        )}
         {formError && (
-          <p
-            role="alert"
-            className="rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]"
-          >
+          <p role="alert" className="rounded-xl border border-[var(--desk-danger-line)] bg-[var(--desk-danger-soft)] px-3 py-2 text-sm text-[var(--desk-danger)]">
             {formError}
           </p>
         )}
-
-        <AdminField label={copy.hotel} className="max-w-md">
-          {locked ? (
-            <span className="flex min-h-10 items-center text-sm font-medium text-[var(--desk-text)]">
-              {purchase?.hotelName}
-              {purchase ? ` — ${cityName(copy, purchase.hotelCity)}` : ""}
-            </span>
-          ) : (
-            <select
-              name="hotelId"
-              required
-              value={hotel}
-              onChange={(event) => setHotel(event.target.value)}
-              className={adminFieldClass}
-            >
-              <option value="">{copy.selectHotel}</option>
-              {hotels.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                  {item.city ? ` — ${cityName(copy, item.city)}` : ""}
-                </option>
-              ))}
-            </select>
-          )}
-        </AdminField>
-
+        {part === "all" && (
         <p className="text-xs leading-5 text-[var(--desk-muted)]">
           {purchase
-            ? `${purchase.number} · ${fill(copy.orderedOn, {
-                date: formatDate(purchase.createdAt, locale),
-              })}. `
+            ? `${purchase.number} · ${fill(copy.orderedOn, { date: formatDate(purchase.createdAt, locale) })}. `
             : `${copy.numberAssigned} `}
           {copy.purchaseLineHelp}
         </p>
-        {!locked && (
+        )}
+        {(part === "all" || part === "header") && !locked && (
           <CalendarSwitch
             label={copy.calendar}
             normal={copy.normalCalendar}
@@ -393,341 +605,372 @@ export function PurchaseForm({
           />
         )}
 
-        <div className="min-w-0 overflow-x-auto">
-          <table className="block w-full border-collapse text-start text-sm lg:table">
-            <thead className="hidden bg-[var(--desk-canvas)] lg:table-header-group">
-              <tr>
-                <th className="px-2 py-2">{copy.rooms}</th>
-                <th className="px-2 py-2">{copy.details}</th>
-                <th className="px-2 py-2 text-end">{copy.qty}</th>
-                <th className="px-2 py-2 text-end">{copy.sleeps}</th>
-                <th className="px-2 py-2">{copy.from}</th>
-                <th className="px-2 py-2">{copy.to}</th>
-                <th className="px-2 py-2 text-end">{copy.pricePerNight}</th>
-                <th className="px-2 py-2 text-end">{copy.publicPriceNight}</th>
-                <th className="px-2 py-2 text-end">{copy.amount}</th>
-                {!locked && <th className="w-8 px-2 py-2" />}
-              </tr>
-            </thead>
-            <tbody className="grid gap-3 lg:table-row-group">
-              {lines.map((line) => {
-                const nights = nightsBetween(line.checkIn, line.checkOut);
-                const price = lineHalalas(line.price);
-                const quantity = parsedQuantity(line.quantity);
-                const amount =
-                  nights > 0 && price !== null && quantity !== null
-                    ? price * nights * quantity
-                    : 0;
-                return (
-                  <tr
-                    key={line.key}
-                    className="block rounded-xl border border-[var(--desk-line)] p-3 lg:table-row lg:rounded-none lg:border-x-0 lg:border-b-0 lg:p-0"
+        {(part === "all" || part === "header") && (
+        <section className="grid gap-3 rounded-xl border border-[var(--desk-line)] p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminField label={copy.contractName}>
+              {locked ? (
+                <span className="text-sm">{contractName || "—"}</span>
+              ) : (
+                <input name="contractName" value={contractName} placeholder={copy.contractNameExample} onChange={(event) => setContractName(event.target.value)} className={adminFieldClass} />
+              )}
+            </AdminField>
+            <AdminField label={copy.contractType}>
+              {locked ? (
+                <span className="text-sm">{contractType === "request" ? copy.contractRequest : copy.contractBlock}</span>
+              ) : (
+                <select name="contractType" value={contractType} onChange={(event) => setContractType(event.target.value as ContractType)} className={adminFieldClass}>
+                  <option value="block">{copy.contractBlock}</option>
+                  <option value="request">{copy.contractRequest}</option>
+                </select>
+              )}
+            </AdminField>
+            <AdminField label={copy.contractCost}>
+              {locked ? (
+                <span className="text-sm">{contractCost.trim() ? formatMoney(lineHalalas(contractCost) ?? 0, locale) : "—"}</span>
+              ) : (
+                <input name="contractCost" inputMode="decimal" value={contractCost} placeholder={copy.moneyExample} onChange={(event) => setContractCost(event.target.value)} className={adminFieldClass} />
+              )}
+            </AdminField>
+            <AdminField label={copy.contractPriority}>
+              {locked ? (
+                <span className="text-sm">{priority}</span>
+              ) : (
+                <input name="priority" type="number" min={1} max={99} value={priority} onChange={(event) => setPriority(event.target.value)} className={adminFieldClass} />
+              )}
+            </AdminField>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminField label={copy.hotel}>
+              {locked ? (
+                <span className="text-sm">{purchase?.hotelName}</span>
+              ) : (
+                <select name="hotelId" required value={hotel} onChange={(event) => setHotel(event.target.value)} className={adminFieldClass}>
+                  <option value="">{copy.selectHotel}</option>
+                  {hotels.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              )}
+            </AdminField>
+            <AdminField label={copy.supplierType}>
+              {locked ? (
+                <span className="text-sm">{supplierType === "wholesaler" ? copy.supplierWholesaler : copy.supplierHotelDirect}</span>
+              ) : (
+                <select name="supplierType" value={supplierType} onChange={(event) => setSupplierType(event.target.value as SupplierType)} className={adminFieldClass}>
+                  <option value="hotel_direct">{copy.supplierHotelDirect}</option>
+                  <option value="wholesaler">{copy.supplierWholesaler}</option>
+                </select>
+              )}
+            </AdminField>
+            {supplierType === "wholesaler" && (
+              <AdminField label={copy.supplierCompany}>
+                {locked ? (
+                  <span className="text-sm">
+                    {suppliers.find((supplier) => supplier.id === purchase?.supplierAgencyId)?.name ||
+                      copy.noSupplierCompany}
+                  </span>
+                ) : (
+                  <select
+                    name="supplierAgencyId"
+                    value={supplierAgencyId}
+                    onChange={(event) => setSupplierAgencyId(event.target.value)}
+                    className={adminFieldClass}
                   >
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.roomType}
-                      </span>
-                      {locked ? (
-                        line.roomId ? (
-                          <Link
-                            href={`/admin/rooms/${line.roomId}`}
-                            className="font-medium text-[var(--desk-primary)] hover:underline"
-                          >
-                            {roomLabel(copy, line.name)}
-                          </Link>
-                        ) : (
-                          roomLabel(copy, line.name)
-                        )
-                      ) : (
-                        <select
-                          name="lineRoomType"
-                          value={line.roomTypeId}
-                          onChange={(event) => {
-                            const picked = roomTypes.find(
-                              (type) => type.id === event.target.value,
-                            );
-                            updateLine(line.key, {
-                              roomTypeId: event.target.value,
-                              name: picked?.name ?? "",
-                              capacity: picked
-                                ? String(picked.guests)
-                                : line.capacity,
-                            });
-                          }}
-                          className={adminFieldClass}
-                        >
-                          <option value="">{copy.selectRoom}</option>
-                          {roomTypes.map((type) => (
-                            <option key={type.id} value={type.id}>
-                              {optionLabel(copy, type)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.details}
-                      </span>
-                      {locked ? (
-                        <span className="text-[var(--desk-text-soft)]">
-                          {line.description}
-                          <span className="mt-1 block text-xs">
-                            {mealPlanLabel(line.board, boardLabels(copy))}
-                            {line.view.trim() ? ` · ${line.view.trim()}` : ""}
-                            {` · ${copy.minNights} ${line.minNights}`}
-                            {` · ${line.saleMode === "request" ? copy.requestBooking : copy.bookNow}`}
-                          </span>
-                        </span>
-                      ) : (
-                        <div className="grid gap-2">
-                          <input
-                            name="lineDescription"
-                            value={line.description}
-                            placeholder={copy.roomDetailsExample}
-                            onChange={(event) =>
-                              updateLine(line.key, {
-                                description: event.target.value,
-                              })
-                            }
-                            className={adminFieldClass}
-                          />
-                          <select
-                            name="lineBoard"
-                            value={line.board}
-                            onChange={(event) =>
-                              updateLine(line.key, {
-                                board: event.target.value as MealPlan,
-                              })
-                            }
-                            className={adminFieldClass}
-                          >
-                            {mealPlans.map((board) => (
-                              <option key={board} value={board}>
-                                {mealPlanLabel(board, boardLabels(copy))}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            name="lineView"
-                            value={line.view}
-                            maxLength={80}
-                            placeholder={copy.typeView}
-                            onChange={(event) =>
-                              updateLine(line.key, { view: event.target.value })
-                            }
-                            className={adminFieldClass}
-                          />
-                          <label className="grid gap-1 text-xs font-semibold text-[var(--desk-muted)]">
-                            {copy.minNights}
-                            <input
-                              name="lineMinNights"
-                              type="number"
-                              min={1}
-                              max={120}
-                              value={line.minNights}
-                              onChange={(event) =>
-                                updateLine(line.key, {
-                                  minNights: event.target.value,
-                                })
-                              }
-                              className={adminFieldClass}
-                            />
-                          </label>
-                          <select
-                            name="lineSaleMode"
-                            value={line.saleMode}
-                            onChange={(event) =>
-                              updateLine(line.key, {
-                                saleMode: event.target.value as SaleMode,
-                              })
-                            }
-                            className={adminFieldClass}
-                          >
-                            {saleModes.map((mode) => (
-                              <option key={mode} value={mode}>
-                                {mode === "request" ? copy.requestBooking : copy.bookNow}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.qty}
-                      </span>
-                      {locked ? (
-                        <span className="tabular-nums">{line.quantity}</span>
-                      ) : (
-                        <input
-                          name="lineQuantity"
-                          type="number"
-                          min={1}
-                          max={5000}
-                          value={line.quantity}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              quantity: event.target.value,
-                            })
-                          }
-                          className={`${adminFieldClass} w-full text-end lg:w-16`}
-                        />
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.sleeps}
-                      </span>
-                      <span className="tabular-nums">
-                        {line.capacity || "—"}
-                      </span>
-                    </td>
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.from}
-                      </span>
-                      {locked ? (
-                        <DualDate iso={line.checkIn} locale={locale} />
-                      ) : (
-                        <DateField
-                          name="lineCheckIn"
-                          label={copy.from}
-                          locale={locale}
-                          value={line.checkIn}
-                          onChange={(checkIn) =>
-                            updateLine(line.key, { checkIn })
-                          }
-                        />
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 lg:table-cell lg:px-2">
-                      <span className="mb-1 block text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.to}
-                      </span>
-                      {locked ? (
-                        <DualDate iso={line.checkOut} locale={locale} />
-                      ) : (
-                        <DateField
-                          name="lineCheckOut"
-                          label={copy.to}
-                          locale={locale}
-                          value={line.checkOut}
-                          onChange={(checkOut) =>
-                            updateLine(line.key, { checkOut })
-                          }
-                        />
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.pricePerNight}
-                      </span>
-                      {locked ? (
-                        <span className="tabular-nums">
-                          {formatMoney(lineHalalas(line.price) ?? 0, locale)}
-                        </span>
-                      ) : (
-                        <input
-                          name="linePrice"
-                          inputMode="decimal"
-                          value={line.price}
-                          placeholder="0.00"
-                          onChange={(event) =>
-                            updateLine(line.key, { price: event.target.value })
-                          }
-                          className={`${adminFieldClass} w-full text-end lg:w-28`}
-                        />
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 text-end lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.publicPriceNight}
-                      </span>
-                      {locked ? (
-                        <span className="tabular-nums">
-                          {line.publicPrice.trim()
-                            ? formatMoney(lineHalalas(line.publicPrice) ?? 0, locale)
-                            : "—"}
-                        </span>
-                      ) : (
-                        <input
-                          name="linePublicPrice"
-                          inputMode="decimal"
-                          value={line.publicPrice}
-                          title={copy.publicPriceHint}
-                          onChange={(event) =>
-                            updateLine(line.key, {
-                              publicPrice: event.target.value,
-                            })
-                          }
-                          className={`${adminFieldClass} w-full text-end lg:w-36`}
-                        />
-                      )}
-                    </td>
-                    <td className="block px-0 py-2 text-end font-plex lg:table-cell lg:px-2">
-                      <span className="me-2 text-xs font-semibold text-[var(--desk-muted)] lg:hidden">
-                        {copy.amount}
-                      </span>
-                      {nights > 0 ? formatMoney(amount, locale) : "—"}
-                    </td>
-                    {!locked && (
-                      <td className="px-2 py-2 text-end">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setLines((current) =>
-                              current.filter((item) => item.key !== line.key),
-                            )
-                          }
-                          className="desk-focus rounded text-xs font-semibold text-[var(--desk-danger)]"
-                        >
-                          {copy.removeLine}
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {!locked && (
-          <button
-            type="button"
-            onClick={() => setLines((current) => [...current, emptyLine()])}
-            className="desk-focus w-fit rounded-lg text-sm font-semibold text-[var(--desk-primary)]"
-          >
-            {copy.addLine}
-          </button>
+                    <option value="">{copy.noSupplierCompany}</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </AdminField>
+            )}
+            <AdminField label={copy.checkIn}>
+              {locked ? <DualDate iso={checkIn} locale={locale} /> : (
+                <DateField name="checkIn" label={copy.checkIn} locale={locale} value={checkIn} onChange={setCheckIn} />
+              )}
+            </AdminField>
+            <AdminField label={copy.checkOut}>
+              {locked ? <DualDate iso={checkOut} locale={locale} /> : (
+                <DateField name="checkOut" label={copy.checkOut} locale={locale} value={checkOut} onChange={setCheckOut} />
+              )}
+            </AdminField>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm font-semibold">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="active" value="on" checked={active} disabled={locked} onChange={(event) => setActive(event.target.checked)} />
+              {copy.contractActive}
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="contactHotel" value="on" checked={contactHotel} disabled={locked} onChange={(event) => setContactHotel(event.target.checked)} />
+              {copy.contactHotel}
+            </label>
+          </div>
+        </section>
         )}
 
-        <AdminField label={copy.notes}>
-          {locked ? (
-            <p className="text-sm font-normal text-[var(--desk-text)]">
-              {purchase?.notes || "—"}
+        {(part === "all" || part === "rooms") && (
+        <>
+        <section className="grid gap-3 rounded-xl border border-[var(--desk-line)] p-4">
+          <h2 className="text-sm font-semibold">{copy.mainRoom}</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminField label={copy.roomType}>
+              {locked ? (
+                <span className="text-sm">{roomTypeLabel(primary.name, (code) => copy[code])}</span>
+              ) : (
+                <select
+                  name="primaryRoomType"
+                  value={primaryType}
+                  onChange={(event) => {
+                    const picked = catalog.find((type) => type.id === event.target.value);
+                    setPrimaryType(event.target.value);
+                    if (picked && !primary.name.trim()) {
+                      setPrimary((current) => ({ ...current, name: picked.name }));
+                    }
+                  }}
+                  className={adminFieldClass}
+                >
+                  <option value="">{copy.selectRoom}</option>
+                  {catalog.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {roomTypeLabel(type.name, (code) => copy[code])} · {type.guests}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </AdminField>
+            <AdminField label={copy.englishName}>
+              {locked ? <span className="text-sm">{primary.name || "—"}</span> : (
+                <input name="primaryName" value={primary.name} placeholder={copy.roomNameExample} onChange={(event) => setPrimary({ ...primary, name: event.target.value })} className={adminFieldClass} />
+              )}
+            </AdminField>
+            <AdminField label={copy.arabicName}>
+              {locked ? <span className="text-sm">{primary.nameAr || "—"}</span> : (
+                <input name="primaryNameAr" dir="auto" value={primary.nameAr} placeholder={copy.arabicNameExample} onChange={(event) => setPrimary({ ...primary, nameAr: event.target.value })} className={adminFieldClass} />
+              )}
+            </AdminField>
+            <AdminField label={copy.stockRooms}>
+              {locked ? <span className="text-sm">{primary.quantity}</span> : (
+                <input name="primaryQuantity" type="number" min={1} max={5000} value={primary.quantity} onChange={(event) => setPrimary({ ...primary, quantity: event.target.value })} className={adminFieldClass} />
+              )}
+            </AdminField>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminField label={copy.mainMeal}>
+              {locked ? <span className="text-sm">{mealText(mainMeal)}</span> : mealChoices.length ? (
+                <select name="mainMeal" value={mainMeal} onChange={(event) => setMainMeal(event.target.value)} className={adminFieldClass}>
+                  {mealChoices.map((meal) => (
+                    <option key={meal.code} value={meal.code}>{mealText(meal.code)}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm font-normal text-[var(--desk-muted)]">
+                  {hotel ? copy.noAssignedMeals : copy.selectHotel}
+                </p>
+              )}
+            </AdminField>
+          </div>
+          <div className="grid gap-2">
+            <div>
+              <h3 className="text-sm font-semibold">{copy.nightlyRates}</h3>
+              <p className="mt-1 text-xs text-[var(--desk-muted)]">{copy.nightlyRatesHint}</p>
+            </div>
+            {rateFields("primary", primary, (patch) => setPrimary({ ...primary, ...patch }))}
+          </div>
+        </section>
+
+        <section className="grid gap-3 rounded-xl border border-[var(--desk-line)] p-4">
+          <div>
+            <h2 className="text-sm font-semibold">{copy.roomVariables}</h2>
+            <p className="mt-1 text-xs text-[var(--desk-muted)]">{copy.roomVariablesHint}</p>
+          </div>
+          {!catalog.length ? (
+            <p className="text-sm text-[var(--desk-muted)]">
+              {hotel ? copy.noAssignedRooms : copy.selectHotel}
             </p>
           ) : (
-            <textarea
-              name="notes"
-              defaultValue={purchase?.notes ?? ""}
-              placeholder={copy.notesExample}
-              className={`${adminFieldClass} !h-auto min-h-20 py-2`}
-            />
+          <div className="flex flex-wrap gap-3">
+            {catalog.filter((type) => type.id !== primaryType).map((type) => {
+              const on = checked.includes(type.id);
+              return (
+                <label key={type.id} className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    name="variableRoomType"
+                    value={type.id}
+                    checked={on}
+                    disabled={locked}
+                    onChange={(event) => {
+                      setChecked((current) => toggle(current, type.id, event.target.checked));
+                      if (event.target.checked && !variables[type.id]) {
+                        setVariables((current) => ({
+                          ...current,
+                          [type.id]: { ...emptyRate(), name: type.name },
+                        }));
+                      }
+                    }}
+                  />
+                  {roomTypeLabel(type.name, (code) => copy[code])}
+                </label>
+              );
+            })}
+          </div>
+          )}
+          {checked.filter((id) => id !== primaryType).map((id) => {
+            const type = catalog.find((item) => item.id === id);
+            const rate = variables[id] ?? emptyRate();
+            return (
+              <div key={id} className="grid gap-3 rounded-lg bg-[var(--desk-canvas)] p-3">
+                <p className="text-sm font-semibold">
+                  {type ? roomTypeLabel(type.name, (code) => copy[code]) : id}
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <AdminField label={copy.englishName}>
+                    {locked ? <span className="text-sm">{rate.name}</span> : (
+                      <input name={`variable_${id}_Name`} value={rate.name} placeholder={copy.roomNameExample} onChange={(event) => setVariables({ ...variables, [id]: { ...rate, name: event.target.value } })} className={adminFieldClass} />
+                    )}
+                  </AdminField>
+                  <AdminField label={copy.arabicName}>
+                    {locked ? <span className="text-sm">{rate.nameAr || "—"}</span> : (
+                      <input name={`variable_${id}_NameAr`} dir="auto" value={rate.nameAr} placeholder={copy.arabicNameExample} onChange={(event) => setVariables({ ...variables, [id]: { ...rate, nameAr: event.target.value } })} className={adminFieldClass} />
+                    )}
+                  </AdminField>
+                  <AdminField label={copy.stockRooms}>
+                    {locked ? <span className="text-sm">{rate.quantity}</span> : (
+                      <input name={`variable_${id}_Quantity`} type="number" min={1} max={5000} value={rate.quantity} onChange={(event) => setVariables({ ...variables, [id]: { ...rate, quantity: event.target.value } })} className={adminFieldClass} />
+                    )}
+                  </AdminField>
+                </div>
+                {rateFields(`variable_${id}_`, rate, (patch) =>
+                  setVariables({ ...variables, [id]: { ...rate, ...patch } }),
+                )}
+              </div>
+            );
+          })}
+        </section>
+        </>
+        )}
+
+        {(part === "all" || part === "board") && (
+        <section className="grid gap-4 rounded-xl border border-[var(--desk-line)] p-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h2 className="text-sm font-semibold">{copy.contractMeals}</h2>
+              <p className="mt-1 text-xs text-[var(--desk-muted)]">{copy.mealRatesHint}</p>
+              {mealChoices.length ? (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {mealChoices.map((meal) => (
+                    <label key={meal.code} className="flex items-center gap-2 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        name="mealCode"
+                        value={meal.code}
+                        checked={selectedMeals.includes(meal.code)}
+                        disabled={locked}
+                        onChange={(event) => {
+                          const on = event.target.checked;
+                          setSelectedMeals((current) => toggle(current, meal.code, on));
+                          if (on) {
+                            setMealRates((current) =>
+                              current[meal.code]
+                                ? current
+                                : { ...current, [meal.code]: emptyMoney() },
+                            );
+                          }
+                        }}
+                      />
+                      {mealText(meal.code)}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[var(--desk-muted)]">
+                  {hotel ? copy.noAssignedMeals : copy.selectHotel}
+                </p>
+              )}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">{copy.contractViews}</h2>
+              <p className="mt-1 text-xs text-[var(--desk-muted)]">{copy.viewRatesHint}</p>
+              {viewChoices.length ? (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {viewChoices.map((view) => (
+                    <label key={view} className="flex items-center gap-2 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        name="viewName"
+                        value={view}
+                        checked={selectedViews.includes(view)}
+                        disabled={locked}
+                        onChange={(event) => {
+                          const on = event.target.checked;
+                          setSelectedViews((current) => toggle(current, view, on));
+                          if (on) {
+                            setViewRates((current) =>
+                              current[view] ? current : { ...current, [view]: emptyMoney() },
+                            );
+                          }
+                        }}
+                      />
+                      {view}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[var(--desk-muted)]">
+                  {hotel ? copy.noAssignedViews : copy.selectHotel}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-3">
+            {selectedMeals
+              .filter((code) => mealChoices.some((meal) => meal.code === code))
+              .map((code) => {
+                const rate = mealRates[code] ?? emptyMoney();
+                return (
+                  <div key={code} className="grid gap-2 rounded-lg bg-[var(--desk-canvas)] p-3">
+                    <p className="text-sm font-semibold">{mealText(code)}</p>
+                    {rateFields(`mealRate.${code}.`, rate, (patch) =>
+                      setMealRates((current) => ({
+                        ...current,
+                        [code]: { ...rate, ...patch },
+                      })),
+                    )}
+                  </div>
+                );
+              })}
+            {selectedViews
+              .filter((name) => viewChoices.includes(name))
+              .map((name) => {
+                const rate = viewRates[name] ?? emptyMoney();
+                return (
+                  <div key={name} className="grid gap-2 rounded-lg bg-[var(--desk-canvas)] p-3">
+                    <p className="text-sm font-semibold">{name}</p>
+                    {rateFields(`viewRate.${name}.`, rate, (patch) =>
+                      setViewRates((current) => ({
+                        ...current,
+                        [name]: { ...rate, ...patch },
+                      })),
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+        )}
+
+        {(part === "all" || part === "header") && (
+        <AdminField label={copy.notes}>
+          {locked ? (
+            <p className="text-sm font-normal">{purchase?.notes || "—"}</p>
+          ) : (
+            <textarea name="notes" defaultValue={purchase?.notes ?? ""} placeholder={copy.notesExample} className={`${adminFieldClass} !h-auto min-h-20 py-2`} />
           )}
         </AdminField>
-
-        <dl className="ms-auto grid w-full max-w-xs gap-2 rounded-xl bg-[var(--desk-canvas)] p-4 text-sm">
-          <div className="flex justify-between gap-6">
-            <dt className="text-[var(--desk-muted)]">{copy.rooms}</dt>
-            <dd className="font-plex">{totals.rooms}</dd>
-          </div>
-          <div className="flex justify-between gap-6 border-t border-[var(--desk-line)] pt-2 text-base font-semibold">
-            <dt>{copy.total}</dt>
-            <dd className="font-plex">{formatMoney(totals.amount, locale)}</dd>
-          </div>
-        </dl>
+        )}
       </form>
     </div>
   );

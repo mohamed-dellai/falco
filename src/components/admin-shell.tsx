@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   AlertCircle,
   BedDouble,
   Bell,
+  ChartNoAxesCombined,
+  BadgePercent,
+  Folders,
   Users,
-  Layers,
   Settings,
   ExternalLink,
   Hotel,
@@ -36,6 +38,12 @@ import {
 } from "@/components/admin-ui";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 
+type NavChild = {
+  href: string;
+  label: keyof AdminCopy;
+  kind: "prefix" | "records" | "requests";
+};
+
 type NavItem = {
   href: string;
   label: keyof AdminCopy;
@@ -45,6 +53,7 @@ type NavItem = {
     "aria-hidden"?: boolean;
   }>;
   exact?: boolean;
+  children?: NavChild[];
 };
 
 const overviewLink: NavItem = {
@@ -58,15 +67,23 @@ const hotelLink: NavItem = {
   label: "hotels",
   icon: Hotel,
 };
-const roomTypeLink: NavItem = {
-  href: "/admin/room-types",
-  label: "roomTypes",
-  icon: Layers,
-};
 const allotmentLink: NavItem = {
   href: "/admin/allotments",
   label: "allotments",
   icon: BedDouble,
+  children: [
+    { href: "/admin/allotments", label: "allotments", kind: "records" },
+    { href: "/admin/allotments?channel=b2b", label: "requests", kind: "requests" },
+    { href: "/admin/allotments/actions", label: "reservationNavActions", kind: "prefix" },
+    { href: "/admin/allotments/follow-up", label: "reservationNavFollow", kind: "prefix" },
+    { href: "/admin/allotments/charts", label: "reservationNavCharts", kind: "prefix" },
+    { href: "/admin/allotments/mailing", label: "reservationNavMail", kind: "prefix" },
+  ],
+};
+const reportsLink: NavItem = {
+  href: "/admin/reports",
+  label: "reports",
+  icon: ChartNoAxesCombined,
 };
 const navigationGroups: Array<{
   label: keyof AdminCopy;
@@ -74,13 +91,12 @@ const navigationGroups: Array<{
 }> = [
   {
     label: "deskGroup",
-    items: [overviewLink, allotmentLink],
+    items: [overviewLink, allotmentLink, reportsLink],
   },
   {
     label: "inventoryGroup",
     items: [
       hotelLink,
-      roomTypeLink,
       {
         href: "/admin/purchases",
         label: "purchases",
@@ -95,6 +111,16 @@ const navigationGroups: Array<{
         href: "/admin/agencies",
         label: "agencies",
         icon: Users,
+      },
+      {
+        href: "/admin/commercials",
+        label: "commercials",
+        icon: BadgePercent,
+      },
+      {
+        href: "/admin/client-groups",
+        label: "clientGroups",
+        icon: Folders,
       },
     ],
   },
@@ -132,15 +158,33 @@ export function adminErrorMessage(
   if (code === "photo") return copy.photoError;
   if (code === "quantity")
     return fill(copy.quantityError, { count: remaining ?? 0 });
+  if (code === "request") return copy.contractRequestError;
+  if (code === "hotel") return copy.hotelError;
+  if (code === "delivery") return copy.mailDeliveryError;
   if (code === "dates") return copy.datesError;
   if (code === "window") return copy.saleWindowError;
   if (code === "dates-sold") return copy.datesSoldError;
   if (code === "duplicate") return copy.duplicateRoomError;
   if (code === "span") return copy.spanError;
   if (code === "lines") return copy.linesError;
+  if (code === "empty") return copy.emptyOffersError;
+  if (code === "publish") return copy.publishNeedsOffers;
   if (code === "allotment-lines") return copy.allotmentLinesError;
+  if (code === "terms") return copy.termsAcceptanceError;
   if (code === "agency") return copy.agencyError;
+  if (code === "client") return copy.clientBlocked;
+  if (code === "vat") return copy.vatRequired;
+  if (code === "mail") return copy.revealMail;
+  if (code === "mail-auth") return copy.mailAuthError;
+  if (code === "mail-connect") return copy.mailConnectError;
+  if (code === "mail-tls") return copy.mailTlsError;
+  if (code === "mail-missing") return copy.mailMissing;
+  if (code === "mail-failed") return copy.mailFailed;
+  if (code === "mail-template-last") return copy.mailTemplateLast;
+  if (code === "code") return copy.codeWrong;
+  if (code === "group") return copy.groupInUse;
   if (code === "cancel") return copy.cancelError;
+  if (code === "sold") return copy.contractSoldError;
   if (code === "purchased") return copy.purchasedError;
   if (code === "allotted") return copy.allottedError;
   if (code === "booked") return copy.bookedError;
@@ -148,6 +192,8 @@ export function adminErrorMessage(
   if (code === "purchase") return copy.purchaseError;
   if (code === "allotment") return copy.allotmentError;
   if (code === "room-type") return copy.roomTypeInUse;
+  if (code === "duplicate") return copy.catalogDuplicate;
+  if (code === "catalog") return copy.catalogInUse;
   if (code === "email") return copy.emailTaken;
   if (code === "password") return copy.passwordShort;
   if (code === "mismatch") return copy.passwordMismatch;
@@ -180,7 +226,7 @@ export function AdminShell({
 
   return (
     <div className="admin-desk min-h-screen lg:ps-16">
-      <aside className="group/rail fixed inset-y-0 start-0 z-40 hidden w-16 flex-col justify-between border-e border-[var(--desk-line)] bg-white px-3 py-4 transition-[width] duration-300 ease-out hover:w-56 motion-reduce:transition-none lg:flex">
+      <aside className="group/rail fixed inset-y-0 start-0 z-40 hidden w-16 flex-col justify-between border-e border-[var(--desk-line)] bg-white px-3 py-4 transition-[width] duration-300 ease-out hover:w-64 focus-within:w-64 motion-reduce:transition-none lg:flex">
         <div className="flex w-full flex-col gap-5">
           <Link
             href="/admin"
@@ -411,20 +457,59 @@ function useFreshRequests() {
   return fresh;
 }
 
+function childActive(pathname: string, search: string, child: NavChild) {
+  const channel = new URLSearchParams(search).get("channel");
+  if (child.kind === "requests") {
+    return pathname === "/admin/allotments" && channel === "b2b";
+  }
+  if (child.kind === "prefix") {
+    return pathname === child.href || pathname.startsWith(`${child.href}/`);
+  }
+  if (pathname === child.href) return channel !== "b2b";
+  if (pathname === `${child.href}/new`) return true;
+  if (!pathname.startsWith(`${child.href}/`)) return false;
+  const section = pathname.slice(child.href.length + 1).split("/")[0];
+  return !["actions", "follow-up", "charts", "mailing"].includes(section);
+}
+
 function AdminNav({ fresh }: { fresh: number }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
   const copy = useAdminCopy();
   const items = navigationGroups.flatMap((group) => group.items);
 
   return (
     <nav aria-label={copy.mainNavigation} className="flex w-full flex-col gap-1.5">
       {items.map((item) => (
-        <DesktopNavLink
-          key={item.href}
-          item={item}
-          active={isActive(pathname, item)}
-          fresh={fresh}
-        />
+        <div key={item.href} className="group/item">
+          <DesktopNavLink
+            item={item}
+            active={isActive(pathname, item)}
+            fresh={fresh}
+          />
+          {item.children ? (
+            <ul className="grid max-h-0 gap-0.5 overflow-hidden opacity-0 transition-all duration-300 group-hover/item:max-h-96 group-hover/item:pb-2 group-hover/item:opacity-100 group-focus-within/item:max-h-96 group-focus-within/item:pb-2 group-focus-within/item:opacity-100 motion-reduce:transition-none">
+              {item.children.map((child) => {
+                const active = childActive(pathname, search, child);
+                return (
+                  <li key={child.href}>
+                    <Link
+                      href={child.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`desk-focus block truncate rounded-md py-1.5 ps-12 pe-2 text-xs font-bold text-black ${
+                        active
+                          ? "bg-[var(--desk-primary-soft)]"
+                          : "hover:bg-[var(--desk-surface-muted)]"
+                      }`}
+                    >
+                      {copy[child.label]}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
       ))}
     </nav>
   );
@@ -446,10 +531,10 @@ function DesktopNavLink({
       href={item.href}
       title={copy[item.label]}
       aria-current={active ? "page" : undefined}
-      className={`desk-focus flex h-10 w-full items-center overflow-hidden rounded-lg transition-colors ${
+      className={`desk-focus flex h-10 w-full items-center overflow-hidden rounded-lg text-black transition-colors ${
         active
-          ? "bg-[var(--desk-primary-soft)] text-[var(--desk-primary)]"
-          : "text-[var(--desk-muted)] hover:bg-[var(--desk-surface-muted)] hover:text-[var(--desk-ink)]"
+          ? "bg-[var(--desk-primary-soft)]"
+          : "hover:bg-[var(--desk-surface-muted)]"
       }`}
     >
       <span className="relative grid size-10 shrink-0 place-items-center">
@@ -465,7 +550,7 @@ function DesktopNavLink({
 
 function RailLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="ms-0 max-w-0 overflow-hidden text-sm font-semibold whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover/rail:ms-3 group-hover/rail:max-w-40 group-hover/rail:opacity-100 motion-reduce:transition-none">
+    <span className="ms-0 max-w-0 overflow-hidden text-sm font-semibold whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover/rail:ms-3 group-hover/rail:max-w-48 group-hover/rail:opacity-100 group-focus-within/rail:ms-3 group-focus-within/rail:max-w-48 group-focus-within/rail:opacity-100 motion-reduce:transition-none">
       {children}
     </span>
   );
@@ -487,11 +572,20 @@ function MobileNavigation({ fresh }: { fresh: number }) {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  const moreItems = navigationGroups
-    .flatMap((group) => group.items)
-    .filter(
-      (item) => !mobilePrimary.some((primary) => primary.href === item.href),
-    );
+  const moreItems = navigationGroups.flatMap((group) =>
+    group.items.flatMap((item) => {
+      const primary = mobilePrimary.some((entry) => entry.href === item.href);
+      const children = (item.children ?? []).map((child) => ({
+        href: child.href,
+        label: child.label,
+        icon: item.icon,
+        kind: child.kind,
+      }));
+      if (primary) return children;
+      return [{ href: item.href, label: item.label, icon: item.icon, kind: "prefix" as const }, ...children];
+    }),
+  );
+  const search = useSearchParams().toString();
 
   return (
     <>
@@ -507,10 +601,8 @@ function MobileNavigation({ fresh }: { fresh: number }) {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`desk-focus relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold ${
-                active
-                  ? "bg-[var(--desk-primary-soft)] text-[var(--desk-primary)]"
-                  : "text-[var(--desk-muted)]"
+              className={`desk-focus relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold text-black ${
+                active ? "bg-[var(--desk-primary-soft)]" : ""
               }`}
             >
               <Icon aria-hidden={true} size={19} />
@@ -527,7 +619,7 @@ function MobileNavigation({ fresh }: { fresh: number }) {
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={dialogId}
-          className="desk-focus flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold text-[var(--desk-muted)]"
+          className="desk-focus flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-semibold text-black"
         >
           <MoreHorizontal aria-hidden="true" size={19} />
           {copy.more}
@@ -562,17 +654,18 @@ function MobileNavigation({ fresh }: { fresh: number }) {
           <nav className="mt-3 grid gap-1">
             {moreItems.map((item) => {
               const Icon = item.icon;
-              const active = isActive(pathname, item);
+              const active =
+                "kind" in item
+                  ? childActive(pathname, search, item)
+                  : isActive(pathname, item);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`desk-focus flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold ${
-                    active
-                      ? "bg-[var(--desk-surface-muted)] text-[var(--desk-ink)]"
-                      : "text-[var(--desk-muted)]"
+                  className={`desk-focus flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-black ${
+                    active ? "bg-[var(--desk-surface-muted)]" : ""
                   }`}
                 >
                   <Icon aria-hidden={true} size={19} />
@@ -585,7 +678,7 @@ function MobileNavigation({ fresh }: { fresh: number }) {
             <LanguageSwitch tone="light" />
             <Link
               href={`/${locale}`}
-              className="desk-focus mt-2 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[var(--desk-muted)]"
+              className="desk-focus mt-2 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-black"
             >
               <ExternalLink aria-hidden="true" size={18} />
               {copy.publicSite}

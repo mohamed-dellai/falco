@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  serverExternalPackages: ["nodemailer", "qrcode"],
   experimental: {
     serverActions: {
       bodySizeLimit: "8mb",

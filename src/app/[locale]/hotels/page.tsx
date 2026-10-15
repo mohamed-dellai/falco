@@ -5,15 +5,17 @@ import { AgencyHotelList } from "@/components/agency-hotel-list";
 import { HotelCatalog } from "@/components/agency-hotel-browser";
 import { Link } from "@/i18n/navigation";
 import { localeAlternates, type Locale } from "@/i18n/routing";
-import { currentAgency } from "@/lib/agency-auth";
+import { agencyPortalName, currentAgency } from "@/lib/agency-auth";
 import {
   catalogViews,
   filterCatalog,
   parseCatalogFilters,
   type SearchQuery,
 } from "@/lib/hotel-filters";
+import { listMealTypes, mealLabel } from "@/lib/hotel-parameters";
 import { listAgencyCatalog, parseStay, withAgencyRates } from "@/lib/inventory";
 import { todayInRiyadh } from "@/lib/money";
+import type { MealPlan } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,16 @@ export default async function HotelsPage({
   setRequestLocale(locale);
   const t = await getTranslations("Hotels");
   const filters = parseCatalogFilters(query);
+  const mealTypes = await listMealTypes();
+  const boards = mealTypes.map((meal) => ({
+    code: meal.code as MealPlan,
+    label: mealLabel(meal, {
+      room_only: t("roomOnly"),
+      breakfast: t("breakfastBoard"),
+      half_board: t("halfBoard"),
+      full_board: t("fullBoard"),
+    }),
+  }));
   const stay = parseStay(filters.checkIn, filters.checkOut);
   const agency = await currentAgency();
   const listed = await listAgencyCatalog(stay);
@@ -65,13 +77,21 @@ export default async function HotelsPage({
         </p>
         <div className="mt-6 flex items-center gap-4 text-sm">
           {agency ? (
-            <form action={agencySignOutAction} className="flex items-center gap-3">
-              <input type="hidden" name="locale" value={locale} />
-              <span>{t("signedIn", { name: agency.name })}</span>
-              <button type="submit" className="font-semibold text-primary underline">
-                {t("signOut")}
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center gap-4">
+              <span>{t("signedIn", { name: agencyPortalName(agency, locale) })}</span>
+              <Link href="/hotels/basket" className="font-semibold text-primary underline">
+                {t("basket")}
+              </Link>
+              <Link href="/hotels/reservations" className="font-semibold text-primary underline">
+                {t("reservations")}
+              </Link>
+              <form action={agencySignOutAction}>
+                <input type="hidden" name="locale" value={locale} />
+                <button type="submit" className="font-semibold text-primary underline">
+                  {t("signOut")}
+                </button>
+              </form>
+            </div>
           ) : (
             <Link href="/hotels/login" className="font-semibold text-primary underline">
               {t("signIn")}
@@ -80,8 +100,10 @@ export default async function HotelsPage({
         </div>
         <div className="mt-8">
           <HotelCatalog
+            key={JSON.stringify(filters)}
             filters={filters}
             views={catalogViews(catalog)}
+            boards={boards}
             minDate={todayInRiyadh()}
             count={hotels.length}
           >

@@ -60,7 +60,7 @@ export function CompanyForm({
 }) {
   return (
     <AdminPanel>
-      <form id="company" action={saveCompanyAction} className="grid gap-5">
+      <form id="company" action={saveCompanyAction} encType="multipart/form-data" className="grid gap-5">
         <FieldGroup title={copy.settingsIdentity}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={copy.companyName}>
@@ -82,6 +82,24 @@ export function CompanyForm({
               />
             </Field>
           </div>
+        </FieldGroup>
+        <FieldGroup title={copy.companyLogo} hint={copy.companyLogoHint}>
+          {company.hasLogo ? (
+            // The logo route is same-origin and only answers a signed-in desk session.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/admin/company/logo"
+              alt=""
+              className="h-16 w-16 rounded-lg border border-[var(--desk-line)] bg-white object-contain"
+            />
+          ) : null}
+          <input name="logo" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" className="text-sm" />
+          {company.hasLogo ? (
+            <label className="flex items-center gap-2 text-sm font-semibold text-[var(--desk-ink)]">
+              <input name="removeLogo" type="checkbox" />
+              {copy.companyLogoRemove}
+            </label>
+          ) : null}
         </FieldGroup>
         <FieldGroup title={copy.settingsContact} hint={copy.companyPublicHint}>
           <div className="grid gap-4 sm:grid-cols-2">

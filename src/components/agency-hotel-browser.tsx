@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, SlidersHorizontal, Star } from "lucide-react";
-import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarSwitch, DateField } from "@/components/calendar-date-field";
 import { useRouter } from "@/i18n/navigation";
@@ -12,7 +12,7 @@ import {
 } from "@/lib/hotel-filters";
 import { cities, type City } from "@/lib/places";
 import { nightsBetween } from "@/lib/money";
-import { mealPlans, type MealPlan } from "@/lib/room-types";
+import type { MealPlan } from "@/lib/room-types";
 
 const maxStayNights = 120;
 const fieldClass =
@@ -29,12 +29,14 @@ function nextDate(value: string) {
 export function HotelCatalog({
   filters,
   views,
+  boards,
   minDate,
   count,
   children,
 }: {
   filters: CatalogFilters;
   views: string[];
+  boards: Array<{ code: MealPlan; label: string }>;
   minDate: string;
   count: number;
   children: ReactNode;
@@ -49,10 +51,6 @@ export function HotelCatalog({
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setDraft(filters);
-  }, [filters]);
 
   function apply(next: CatalogFilters, hash = "") {
     startTransition(() => {
@@ -91,7 +89,7 @@ export function HotelCatalog({
     apply({ ...filters, stars });
   }
 
-  function toggleBoard(board: MealPlan) {
+  function toggleBoard(board: string) {
     const boards = filters.boards.includes(board)
       ? filters.boards.filter((item) => item !== board)
       : [...filters.boards, board];
@@ -112,12 +110,6 @@ export function HotelCatalog({
     apply({ ...filters, views });
   }
 
-  const boardLabel: Record<MealPlan, string> = {
-    room_only: t("roomOnly"),
-    breakfast: t("breakfastBoard"),
-    half_board: t("halfBoard"),
-    full_board: t("fullBoard"),
-  };
   const activeFilters =
     filters.stars.length +
     filters.boards.length +
@@ -178,15 +170,15 @@ export function HotelCatalog({
       <fieldset className="mt-6 border-t border-line pt-5">
         <legend className="text-sm font-extrabold text-ink">{t("mealsLabel")}</legend>
         <div className="mt-3 grid gap-2">
-          {mealPlans.map((board) => (
-            <label key={board} className="flex items-center gap-2 text-sm text-ink">
+          {boards.map((board) => (
+            <label key={board.code} className="flex items-center gap-2 text-sm text-ink">
               <input
                 type="checkbox"
-                checked={filters.boards.includes(board)}
-                onChange={() => toggleBoard(board)}
+                checked={filters.boards.includes(board.code)}
+                onChange={() => toggleBoard(board.code)}
                 className="size-4 accent-gold"
               />
-              {boardLabel[board]}
+              {board.label}
             </label>
           ))}
         </div>

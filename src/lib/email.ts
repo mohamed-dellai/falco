@@ -1,3 +1,5 @@
+import { deliverBySmtp, type OutboundMail } from "@/lib/mail";
+
 type SubmissionKind = "quote" | "agency";
 
 type SubmissionPayload = Record<string, string | number | null | undefined>;
@@ -23,14 +25,7 @@ export async function deliverSubmission(
   payload: SubmissionPayload,
   reference: string,
 ) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.FORM_FROM_EMAIL;
   const to = process.env.FORM_TO_EMAIL ?? "Falco.services2026@gmail.com";
-
-  if (!apiKey || !from) {
-    throw new Error("FORM_DELIVERY_NOT_CONFIGURED");
-  }
-
   const title =
     kind === "quote"
       ? `New traveller quote — ${reference}`
@@ -45,24 +40,12 @@ export async function deliverSubmission(
     )
     .map(([key, value]) => `${labels[key] ?? key}: ${String(value)}`);
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      reply_to: payload.email,
-      subject: title,
-      text: [`Reference: ${reference}`, "", ...lines].join("\n"),
-    }),
+  await deliver({
+    to: [to],
+    replyTo: typeof payload.email === "string" ? payload.email : undefined,
+    subject: title,
+    text: [`Reference: ${reference}`, "", ...lines].join("\n"),
   });
-
-  if (!response.ok) {
-    throw new Error(`FORM_DELIVERY_FAILED_${response.status}`);
-  }
 }
 
 export async function deliverBooking(payload: {
@@ -79,11 +62,7 @@ export async function deliverBooking(payload: {
   travellers: number;
   total: number;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.FORM_FROM_EMAIL;
   const to = process.env.FORM_TO_EMAIL ?? "Falco.services2026@gmail.com";
-  if (!apiKey || !from) throw new Error("FORM_DELIVERY_NOT_CONFIGURED");
-
   const amount = (payload.total / 100).toFixed(2);
   const text = [
     `Reference: ${payload.reference}`,
@@ -99,6 +78,27 @@ export async function deliverBooking(payload: {
     `Total: SAR ${amount}`,
   ].join("\n");
 
+  await deliver({
+    to: [payload.email, to],
+    replyTo: to,
+    subject: `Booking confirmed — ${payload.reference}`,
+    text,
+  });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+async function deliver(message: OutboundMail) {
+  if (await deliverBySmtp(message)) return;
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.FORM_FROM_EMAIL;
+  if (!apiKey || !from) throw new Error("FORM_DELIVERY_NOT_CONFIGURED");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -107,11 +107,37 @@ export async function deliverBooking(payload: {
     },
     body: JSON.stringify({
       from,
-      to: [payload.email, to],
-      reply_to: to,
-      subject: `Booking confirmed — ${payload.reference}`,
-      text,
+      to: message.to,
+      cc: message.cc?.length ? message.cc : undefined,
+      reply_to: message.replyTo,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+      attachments: message.attachments?.map((file) => ({
+        filename: file.filename,
+        content: file.content.toString("base64"),
+      })),
     }),
   });
   if (!response.ok) throw new Error(`FORM_DELIVERY_FAILED_${response.status}`);
+}
+
+export async function deliverDeskMail(message: OutboundMail) {
+  await deliver(message);
+}
+
+export async function deliverAdminCode(input: { to: string; code: string }) {
+  const text = [
+    "Falco desk code",
+    "",
+    `Your code is ${input.code}.`,
+    "It expires in 10 minutes.",
+    "It opens client contact details on this desk only.",
+  ].join("\n");
+  await deliver({
+    to: [input.to],
+    subject: "Falco desk code",
+    text,
+    html: `<p style="font-family:Arial,sans-serif;color:#172d47">Your Falco desk code is <strong>${escapeHtml(input.code)}</strong>. It expires in 10 minutes.</p>`,
+  });
 }

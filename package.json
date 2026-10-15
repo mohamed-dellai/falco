@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:integration": "vitest run tests/booking-desk.integration.test.ts",
+    "verify:data": "node scripts/verify-protected-records.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -17,11 +19,14 @@
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@vercel/blob": "^2.8.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.48.0",
     "multi-calendar-datepicker": "^1.1.0",
     "next": "16.3.6",
     "next-intl": "^4.14.7",
+    "nodemailer": "^10.1.1",
     "pg": "^8.23.1",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.88.0",
@@ -30,7 +35,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -38,6 +45,7 @@
     "eslint-config-next": "16.3.6",
     "prettier": "^3.9.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

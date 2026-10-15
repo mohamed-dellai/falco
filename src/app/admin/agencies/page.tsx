@@ -9,10 +9,16 @@ import {
   AdminTableFrame,
   adminButtonClass,
 } from "@/components/admin-ui";
-import { requireAdmin } from "@/lib/admin-auth";
+import {
+  requestContactRevealAction,
+  verifyContactRevealAction,
+} from "@/app/admin/actions";
+import { currentAdmin, requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, countText, fill } from "@/lib/admin-copy";
+import { contactRevealed } from "@/lib/contact-reveal";
 import { getAdminLocale } from "@/lib/admin-locale";
 import { listAgencies, type ClientKind } from "@/lib/inventory";
+import { AdminNotice, adminFieldClass } from "@/components/admin-ui";
 
 export const dynamic = "force-dynamic";
 
@@ -36,15 +42,28 @@ function kindLabel(kind: ClientKind, copy: ReturnType<typeof adminCopy>) {
   return kind === "individual" ? copy.individual : copy.agency;
 }
 
+function contactValue(value: string, revealed: boolean) {
+  if (!value) return "—";
+  return revealed ? value : "••••";
+}
+
 export default async function AgenciesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; q?: string; kind?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    q?: string;
+    kind?: string;
+    sent?: string;
+    revealed?: string;
+  }>;
 }) {
   await requireAdmin();
   const locale = await getAdminLocale();
   const copy = adminCopy(locale);
   const query = await searchParams;
+  const admin = await currentAdmin();
+  const revealed = admin ? await contactRevealed(admin.id) : false;
   const kind = asClientFilter(query.kind);
   const allClients = await listAgencies();
   const search = query.q?.trim().toLocaleLowerCase(locale) ?? "";
@@ -58,8 +77,7 @@ export default async function AgenciesPage({
           kindLabel(client.kind, copy),
           client.country,
           client.contactName,
-          client.email,
-          client.phone,
+          ...(revealed ? [client.email, client.phone] : []),
           client.commercialRegistration,
           client.vatNumber,
         ]
@@ -85,6 +103,32 @@ export default async function AgenciesPage({
       }
     >
       <AdminError code={query.error} />
+      {query.sent && <AdminNotice tone="success">{copy.codeSent}</AdminNotice>}
+      {query.revealed && <AdminNotice tone="success">{copy.revealOpen}</AdminNotice>}
+      <form className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--desk-line)] bg-white p-4">
+        <p className="min-w-0 flex-1 text-sm text-[var(--desk-muted)]">
+          {revealed ? copy.revealOpen : copy.contactHidden}
+        </p>
+        <input type="hidden" name="kind" value={kind} />
+        <input type="hidden" name="q" value={query.q ?? ""} />
+        {revealed ? null : (
+          <>
+            <button formAction={requestContactRevealAction} className={adminButtonClass}>
+              {copy.requestCode}
+            </button>
+            <input
+              name="code"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder={copy.enterCode}
+              className={`${adminFieldClass} max-w-40`}
+            />
+            <button formAction={verifyContactRevealAction} className={adminButtonClass}>
+              {copy.verifyCode}
+            </button>
+          </>
+        )}
+      </form>
       <div className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
         <AdminSearchForm
           action="/admin/agencies"
@@ -127,11 +171,19 @@ export default async function AgenciesPage({
               >
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="font-semibold">{client.name}</h2>
-                  <AdminStatusPill
-                    tone={client.kind === "individual" ? "neutral" : "info"}
-                  >
-                    {kindLabel(client.kind, copy)}
-                  </AdminStatusPill>
+                  <span className="flex flex-wrap justify-end gap-1">
+                    <AdminStatusPill
+                      tone={client.kind === "individual" ? "neutral" : "info"}
+                    >
+                      {kindLabel(client.kind, copy)}
+                    </AdminStatusPill>
+                    {client.stopSale && (
+                      <AdminStatusPill tone="warning">{copy.stopSaleClient}</AdminStatusPill>
+                    )}
+                    {client.disabled && (
+                      <AdminStatusPill tone="danger">{copy.clientDisabled}</AdminStatusPill>
+                    )}
+                  </span>
                 </div>
                 <p className="mt-1 text-sm text-[var(--desk-muted)]">
                   {client.country || "—"}
@@ -168,13 +220,13 @@ export default async function AgenciesPage({
                   <div className="flex justify-between gap-3">
                     <dt className="text-[var(--desk-muted)]">{copy.email}</dt>
                     <dd className="truncate text-end font-medium">
-                      {client.email || "—"}
+                      {contactValue(client.email, revealed)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-[var(--desk-muted)]">{copy.phone}</dt>
                     <dd className="text-end font-medium font-plex text-xs">
-                      {client.phone || "—"}
+                      {contactValue(client.phone, revealed)}
                     </dd>
                   </div>
                 </dl>
@@ -208,6 +260,16 @@ export default async function AgenciesPage({
                         >
                           {client.name}
                         </Link>
+                        {(client.stopSale || client.disabled) && (
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {client.stopSale && (
+                              <AdminStatusPill tone="warning">{copy.stopSaleClient}</AdminStatusPill>
+                            )}
+                            {client.disabled && (
+                              <AdminStatusPill tone="danger">{copy.clientDisabled}</AdminStatusPill>
+                            )}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <AdminStatusPill
@@ -232,9 +294,9 @@ export default async function AgenciesPage({
                           ? "—"
                           : client.vatNumber || "—"}
                       </td>
-                      <td className="px-4 py-3">{client.email || "—"}</td>
+                      <td className="px-4 py-3">{contactValue(client.email, revealed)}</td>
                       <td className="px-4 py-3 font-plex text-xs">
-                        {client.phone || "—"}
+                        {contactValue(client.phone, revealed)}
                       </td>
                     </tr>
                   ))}

@@ -1,4 +1,5 @@
 import { query, execute } from "@/lib/db";
+import { readLogo } from "@/lib/logo-image";
 import { siteConfig } from "@/lib/site";
 import type { Locale } from "@/i18n/routing";
 
@@ -11,6 +12,7 @@ export type CompanyProfile = {
   commercialRegistration: string;
   vatNumber: string;
   address: Record<Locale, string>;
+  hasLogo: boolean;
 };
 
 type CompanyRow = {
@@ -25,6 +27,7 @@ type CompanyRow = {
   address_ar: string;
   address_fr: string;
   address_it: string;
+  has_logo: boolean;
 };
 
 export function companyDefaults(): CompanyProfile {
@@ -37,6 +40,7 @@ export function companyDefaults(): CompanyProfile {
     commercialRegistration: "",
     vatNumber: "",
     address: { ...siteConfig.company.address },
+    hasLogo: false,
   };
 }
 
@@ -55,13 +59,15 @@ function mapCompany(row: CompanyRow): CompanyProfile {
       fr: row.address_fr,
       it: row.address_it,
     },
+    hasLogo: row.has_logo,
   };
 }
 
 export async function getCompanyProfile() {
   const rows = await query<CompanyRow>(
     `SELECT name, legal_name, email, phone_display, whatsapp, commercial_registration, vat_number,
-            address_en, address_ar, address_fr, address_it
+            address_en, address_ar, address_fr, address_it,
+            (COALESCE(logo_type, '') <> '') AS has_logo
      FROM company_profile WHERE id = 'default'`,
   );
   return rows[0] ? mapCompany(rows[0]) : companyDefaults();
@@ -103,6 +109,7 @@ export function companyDraft(input: CompanyProfile) {
     commercialRegistration: input.commercialRegistration.trim().slice(0, 40),
     vatNumber: input.vatNumber.trim().slice(0, 40),
     address,
+    hasLogo: false,
   } satisfies CompanyProfile;
 }
 
@@ -141,4 +148,45 @@ export async function saveCompanyProfile(input: CompanyProfile) {
     ],
   );
   return true;
+}
+
+function logoBytes(value: unknown) {
+  if (!value) return null;
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  if (typeof value === "string") {
+    const hex = value.startsWith("\\x") ? value.slice(2) : value;
+    return Buffer.from(hex, "hex");
+  }
+  return null;
+}
+
+export async function getCompanyLogo() {
+  const rows = await query<{ logo: unknown; logo_type: string }>(
+    `SELECT logo, logo_type FROM company_profile WHERE id = 'default' AND COALESCE(logo_type, '') <> ''`,
+  );
+  const bytes = logoBytes(rows[0]?.logo);
+  const type = rows[0]?.logo_type;
+  if (!bytes?.length || (type !== "image/png" && type !== "image/jpeg")) return null;
+  return { bytes, type };
+}
+
+export async function saveCompanyLogo(file: File | null, remove: boolean) {
+  if (file && file.size > 0) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const raster = readLogo(bytes);
+    if (!raster) return false;
+    const type = raster.filter === "DCTDecode" ? "image/jpeg" : "image/png";
+    await execute(`UPDATE company_profile SET logo = ?, logo_type = ? WHERE id = 'default'`, [bytes, type]);
+    return true;
+  }
+  if (remove) {
+    await execute(`UPDATE company_profile SET logo = NULL, logo_type = '' WHERE id = 'default'`);
+  }
+  return true;
+}
+
+export async function documentLogo() {
+  const stored = await getCompanyLogo();
+  return stored ? readLogo(stored.bytes) : null;
 }
