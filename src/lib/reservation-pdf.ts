@@ -143,6 +143,42 @@ function paintLogo(sheet: Sheet, logo: PdfRaster | null | undefined, name: strin
   sheet.place((name.trim()[0] || "F").toUpperCase(), left + box / 2, top - 36, 18, true, [1, 1, 1], "center");
 }
 
+function paintBrand(sheet: Sheet, logo: PdfRaster | null | undefined, name: string, left: number, top: number) {
+  paintLogo(sheet, logo, name, left, top);
+  const lines = wrapLines(name, 34).slice(0, 2);
+  lines.forEach((line, index) => {
+    sheet.place(line, left, top - 72 - index * 11, 8, true, black, "start", 210);
+  });
+  return 72 + Math.max(lines.length, 1) * 11;
+}
+
+function paintFooter(
+  sheet: Sheet,
+  company: CompanyProfile,
+  today: string,
+) {
+  const bottom = 28;
+  const height = 46;
+  sheet.stamp(() => {
+    sheet.fill(sheet.left, bottom, sheet.right - sheet.left, height, [0.98, 0.985, 0.99]);
+    sheet.stroke(sheet.left, bottom, sheet.right - sheet.left, height, rule);
+    sheet.place(
+      `Official Business Name: ${company.legalName || company.name}`,
+      sheet.left + 8,
+      bottom + 30,
+      8,
+      true,
+      black,
+      "start",
+      280,
+    );
+    sheet.place(`Date: ${gregorian(today)}`, sheet.right - 8, bottom + 30, 8, false, muted, "end");
+    sheet.place(`Hijri Date: ${hijri(today)}`, sheet.right - 8, bottom + 16, 8, false, muted, "end");
+    sheet.place(`CR N°: ${company.commercialRegistration}`, sheet.left + 8, bottom + 8, 8, false, black, "start", 180);
+    sheet.place(`VAT N°: ${company.vatNumber}`, sheet.left + 200, bottom + 8, 8, false, black, "start", 160);
+  });
+}
+
 function paintQr(sheet: Sheet, text: string, left: number, top: number, size: number) {
   if (!text.trim()) return;
   let symbol;
@@ -184,20 +220,21 @@ export function clientDocumentPdf(input: {
     return line.supplierStatus !== "no_show";
   });
   const sheet = createPdfSheet();
+  sheet.margin(86);
   const today = new Date().toISOString().slice(0, 10);
   const top = sheet.y();
-  paintLogo(sheet, input.logo, input.company.name, sheet.left, top);
+  const below = top - paintBrand(sheet, input.logo, input.company.name, sheet.left, top) - 8;
   sheet.place(input.title.toUpperCase(), 230, top - 16, 16, true, black, "start", 210);
   sheet.place(input.allotment.number, sheet.right, top - 16, 13, true, black, "end");
   sheet.place(leads[input.kind] ?? input.title, 230, top - 32, 9, true, black, "start", 250);
   sheet.place(`Booking Status: ${input.status}`, 230, top - 46, 8, false, muted, "start", 250);
-  sheet.place(input.allotment.hotelName, sheet.left, top - 76, 11, true, black, "start", 340);
-  sheet.place(`Date: ${gregorian(today)}    Hijri Date: ${hijri(today)}`, sheet.left, top - 92, 8, false, muted);
+  sheet.place(input.allotment.hotelName, sheet.left, below, 11, true, black, "start", 340);
+  sheet.place(`Date: ${gregorian(today)}    Hijri Date: ${hijri(today)}`, sheet.left, below - 16, 8, false, muted);
 
   const address = wrapLines(input.company.address.en, 34);
   if (input.company.vatNumber) address.push(`VAT number: ${input.company.vatNumber}`);
   address.forEach((line, index) => {
-    sheet.place(line, sheet.right, top - 76 - index * 11, 7, false, muted, "end", 168);
+    sheet.place(line, sheet.right, below - index * 11, 7, false, muted, "end", 168);
   });
 
   const facts = [
@@ -209,13 +246,13 @@ export function clientDocumentPdf(input: {
     ["VAT number", input.parties.agencyVat],
     [input.labels.hotelConf, input.sheet.hotelConfirmation],
   ].filter((row) => row[1]);
-  let cursor = top - 114;
+  let cursor = below - 36;
   for (const [label, value] of facts) {
     sheet.place(label, sheet.left, cursor, 8, false, muted, "start", 84);
     sheet.place(`:  ${value}`, sheet.left + 88, cursor, 8, true, black, "start", 250);
     cursor -= 13;
   }
-  const addressBottom = top - 76 - Math.max(address.length, 1) * 11;
+  const addressBottom = below - Math.max(address.length, 1) * 11;
   sheet.setY(Math.min(cursor, addressBottom) - 8);
 
   const widths = priced ? [118, 72, 68, 62, 62, 42, 49, 50] : [150, 90, 80, 70, 70, 63];
@@ -307,33 +344,7 @@ export function clientDocumentPdf(input: {
     }
   }
 
-  const boxTop = sheet.reserve(46);
-  const boxBottom = boxTop - 40;
-  sheet.fill(sheet.left, boxBottom, sheet.right - sheet.left, 40, [0.98, 0.985, 0.99]);
-  sheet.stroke(sheet.left, boxBottom, sheet.right - sheet.left, 40, rule);
-  sheet.place(
-    `Official Business Name: ${input.company.legalName || input.company.name}`,
-    sheet.left + 8,
-    boxTop - 16,
-    8,
-    true,
-    black,
-    "start",
-    280,
-  );
-  sheet.place(`Date: ${gregorian(today)}`, sheet.right - 8, boxTop - 14, 8, false, muted, "end");
-  sheet.place(`Hijri Date: ${hijri(today)}`, sheet.right - 8, boxTop - 28, 8, false, muted, "end");
-  sheet.place(
-    `CR N°: ${input.company.commercialRegistration}`,
-    sheet.left + 8,
-    boxTop - 32,
-    8,
-    false,
-    black,
-    "start",
-    180,
-  );
-  sheet.place(`VAT N°: ${input.company.vatNumber}`, sheet.left + 200, boxTop - 32, 8, false, black, "start", 160);
+  paintFooter(sheet, input.company, today);
   return sheet.toBuffer();
 }
 

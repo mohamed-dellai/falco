@@ -125,7 +125,10 @@ function fitText(value: string, width: number, size: number) {
 export function createPdfSheet() {
   const pages: string[][] = [[]];
   const images: PdfRaster[] = [];
+  const footer: string[] = [];
+  let stamping = false;
   let y = 800;
+  let floor = 42;
   const left = 36;
   const right = 559;
 
@@ -133,8 +136,12 @@ export function createPdfSheet() {
     return pages[pages.length - 1];
   }
 
+  function sink() {
+    return stamping ? footer : page();
+  }
+
   function need(height: number) {
-    if (y - height >= 42) return;
+    if (y - height >= floor) return;
     pages.push([]);
     y = 800;
   }
@@ -211,6 +218,14 @@ export function createPdfSheet() {
       need(height);
       page().push(`${rgb(paper)} rg ${left} ${y - height} ${right - left} ${height} re f`);
     },
+    margin(next: number) {
+      floor = next;
+    },
+    stamp(draw: () => void) {
+      stamping = true;
+      draw();
+      stamping = false;
+    },
     y() {
       return y;
     },
@@ -237,22 +252,22 @@ export function createPdfSheet() {
       if (!shown) return;
       const used = shown.length * size * (bold ? 0.52 : 0.46);
       const tx = align === "end" ? x - used : align === "center" ? x - used / 2 : x;
-      page().push(
+      sink().push(
         `BT ${rgb(color)} rg /${bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${tx.toFixed(1)} ${baseline.toFixed(1)} Tm (${shown}) Tj ET`,
       );
     },
     fill(x: number, bottom: number, width: number, height: number, color: Rgb) {
-      page().push(
+      sink().push(
         `${rgb(color)} rg ${x.toFixed(2)} ${bottom.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re f`,
       );
     },
     stroke(x: number, bottom: number, width: number, height: number, color: Rgb) {
-      page().push(
+      sink().push(
         `${rgb(color)} RG 0.6 w ${x.toFixed(2)} ${bottom.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re S`,
       );
     },
     line(x1: number, y1: number, x2: number, y2: number, color: Rgb, width = 0.6) {
-      page().push(
+      sink().push(
         `${rgb(color)} RG ${width} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S`,
       );
     },
@@ -265,6 +280,9 @@ export function createPdfSheet() {
       );
     },
     toBuffer() {
+      if (footer.length) {
+        for (const commands of pages) commands.push(...footer);
+      }
       const fontId = 3 + pages.length * 2;
       const boldId = fontId + 1;
       const imageStart = boldId + 1;
