@@ -8,10 +8,10 @@ export default async function PurchasePoliciesPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   await requireAdmin();
   const { id } = await params;
   const query = await searchParams;
-  return <PurchaseSelling id={id} error={query.error} part="policies" />;
+  return <PurchaseSelling id={id} error={query.error} saved={query.saved} part="policies" />;
 }

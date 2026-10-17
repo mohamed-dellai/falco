@@ -252,6 +252,7 @@ export type AllotmentLine = {
   costPerNight: number;
   agencyPricePerNight: number;
   amountBasis: "night" | "stay";
+  priceIncludesVat: boolean;
   rateSnapshot: RateSnapshot;
   supplierStatus: LineSupplierStatus;
 };
@@ -276,6 +277,7 @@ export type AllotmentLineInput = {
   quantity: number;
   costPerNight: number;
   agencyPricePerNight: number;
+  priceIncludesVat?: boolean;
   quote?: boolean;
   mealCode?: string;
   viewName?: string;
@@ -3194,6 +3196,7 @@ type AllotmentLineRow = {
   cost_per_night: number;
   agency_price_per_night: number;
   amount_basis: string | null;
+  price_includes_vat: boolean | null;
   rate_snapshot: string | null;
   supplier_status: string | null;
 };
@@ -3239,6 +3242,7 @@ function mapAllotmentLine(row: AllotmentLineRow): AllotmentLine {
     costPerNight: Number(row.cost_per_night),
     agencyPricePerNight: Number(row.agency_price_per_night),
     amountBasis: row.amount_basis === "stay" ? "stay" : "night",
+    priceIncludesVat: Boolean(row.price_includes_vat),
     rateSnapshot: storedRateSnapshot(row.rate_snapshot),
     supplierStatus: asLineSupplierStatus(row.supplier_status),
   };
@@ -3301,7 +3305,7 @@ async function allotmentLines(allotmentId?: string) {
     `SELECT l.id, l.allotment_id, l.room_id, l.offer_id, l.purchase_line_id,
             l.contract_period_id, l.board_snapshot, l.view_snapshot, l.terms_snapshot,
             l.quantity, l.cost_per_night, l.agency_price_per_night,
-            l.amount_basis, l.rate_snapshot, l.supplier_status,
+            l.amount_basis, l.price_includes_vat, l.rate_snapshot, l.supplier_status,
             COALESCE(hotel.name, room_hotel.name, l.direct_hotel, '') AS hotel_name,
             COALESCE(type.name, room.name, l.direct_room, '') AS room_name,
             COALESCE(period.check_in, contract.check_in, room.check_in) AS room_check_in,
@@ -3527,9 +3531,9 @@ async function insertAllotmentLines(
         (id, allotment_id, room_id, offer_id, purchase_line_id,
          contract_period_id, quantity, cost_per_night,
          agency_price_per_night, sort_order, board_snapshot,
-         view_snapshot, terms_snapshot, amount_basis, rate_snapshot,
+         view_snapshot, terms_snapshot, amount_basis, price_includes_vat, rate_snapshot,
          direct_hotel, direct_room)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)`,
       [
         crypto.randomUUID(),
         allotmentId,
@@ -3545,6 +3549,7 @@ async function insertAllotmentLines(
         line.viewSnapshot ?? "",
         JSON.stringify(line.termsSnapshot ?? {}),
         line.amountBasis ?? "night",
+        Boolean(line.priceIncludesVat),
         JSON.stringify(line.rateSnapshot ?? {}),
         line.directHotel ?? "",
         line.directRoom ?? "",
@@ -4167,7 +4172,9 @@ export async function addReservationLine(input: {
     pricePerNight: number;
     hotelName: string;
     roomName: string;
+    priceIncludesVat?: boolean;
   };
+  priceIncludesVat?: boolean;
 }) {
   if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 5000) {
     return { ok: false as const, error: "quantity" as const };
@@ -4218,6 +4225,7 @@ export async function addReservationLine(input: {
         quantity: input.quantity,
         costPerNight: direct.costPerNight,
         agencyPricePerNight: direct.pricePerNight,
+        priceIncludesVat: Boolean(direct.priceIncludesVat),
         amountBasis: "stay",
         boardSnapshot: mealPlanCode(direct.mealCode) ?? "room_only",
         viewSnapshot: direct.viewName.trim().slice(0, 80),
@@ -4271,6 +4279,7 @@ export async function addReservationLine(input: {
             quantity: input.quantity,
             costPerNight: chosen.costPerNight,
             agencyPricePerNight: chosen.pricePerNight,
+            priceIncludesVat: Boolean(input.priceIncludesVat),
           },
         ],
         allotment.check_in,
@@ -4327,9 +4336,17 @@ export async function updateReservationLine(input: {
   quantity: number;
   supplierStatus: LineSupplierStatus;
   allowOverbook?: boolean;
+  priceIncludesVat?: boolean;
+  agencyPricePerNight?: number;
 }) {
   if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 5000) {
     return { ok: false as const, error: "quantity" as const };
+  }
+  if (
+    input.agencyPricePerNight !== undefined &&
+    (!Number.isInteger(input.agencyPricePerNight) || input.agencyPricePerNight < 0)
+  ) {
+    return { ok: false as const, error: "invalid" as const };
   }
   if (!lineSupplierStatuses.includes(input.supplierStatus)) {
     return { ok: false as const, error: "invalid" as const };
@@ -4388,11 +4405,22 @@ export async function updateReservationLine(input: {
       Boolean(input.allowOverbook),
     );
     if (!guarded.ok) return guarded;
+    const sets = ["quantity = ?", "supplier_status = ?"];
+    const values: Array<string | number | boolean> = [input.quantity, input.supplierStatus];
+    if (input.priceIncludesVat !== undefined) {
+      sets.push("price_includes_vat = ?");
+      values.push(input.priceIncludesVat);
+    }
+    if (input.agencyPricePerNight !== undefined) {
+      sets.push("agency_price_per_night = ?");
+      values.push(input.agencyPricePerNight);
+    }
+    values.push(input.lineId, allotment.id);
     await sql.execute(
       `UPDATE allotment_lines
-       SET quantity = ?, supplier_status = ?
+       SET ${sets.join(", ")}
        WHERE id = ? AND allotment_id = ?`,
-      [input.quantity, input.supplierStatus, input.lineId, allotment.id],
+      values,
     );
     await appendReservationEvent(sql, {
       allotmentId: allotment.id,

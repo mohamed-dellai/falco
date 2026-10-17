@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { query, transaction, type SqlClient } from "@/lib/db";
+import { execute, query, transaction, type SqlClient } from "@/lib/db";
 import { nightsBetween } from "@/lib/money";
 import {
   mealPlanCode,
@@ -22,6 +22,7 @@ export type ContractPolicy = {
   paymentTerms: string;
   releaseDays: number;
   refundable: boolean;
+  contentAr: string;
   active: boolean;
   createdAt: string;
 };
@@ -226,6 +227,7 @@ export async function listContractPolicies(purchaseId: string) {
     payment_terms: string;
     release_days: number;
     refundable: boolean;
+    content_ar: string;
     active: boolean;
     created_at: string;
   }>(
@@ -244,6 +246,7 @@ export async function listContractPolicies(purchaseId: string) {
       paymentTerms: row.payment_terms,
       releaseDays: Number(row.release_days),
       refundable: Boolean(row.refundable),
+      contentAr: row.content_ar ?? "",
       active: Boolean(row.active),
       createdAt: row.created_at,
     }),
@@ -306,6 +309,7 @@ export async function createContractPolicy(input: {
   paymentTerms: string;
   releaseDays: number;
   refundable: boolean;
+  contentAr?: string;
   actorId?: string | null;
 }) {
   if (
@@ -328,8 +332,8 @@ export async function createContractPolicy(input: {
     await sql.execute(
       `INSERT INTO contract_policies
         (id, purchase_id, name, general_terms, cancellation_terms,
-         payment_terms, release_days, refundable, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
+         payment_terms, release_days, refundable, content_ar, active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
       [
         id,
         input.purchaseId,
@@ -339,6 +343,7 @@ export async function createContractPolicy(input: {
         input.paymentTerms.trim().slice(0, 5000),
         input.releaseDays,
         input.refundable,
+        (input.contentAr ?? "").trim().slice(0, 4000),
         createdAt,
       ],
     );
@@ -357,6 +362,63 @@ export async function createContractPolicy(input: {
     });
   });
   return id;
+}
+
+export async function saveContractPolicyText(
+  purchaseId: string,
+  id: string,
+  name: string,
+  content: string,
+  contentAr: string,
+) {
+  const title = name.trim().slice(0, 100);
+  if (title.length < 2) return false;
+  const result = await execute(
+    `UPDATE contract_policies
+     SET name = ?, general_terms = ?, cancellation_terms = '', payment_terms = '', content_ar = ?
+     WHERE id = ? AND purchase_id = ?`,
+    [title, content.trim().slice(0, 5000), contentAr.trim().slice(0, 4000), id, purchaseId],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function deleteContractPolicy(purchaseId: string, id: string) {
+  return transaction(async (sql) => {
+    await sql.execute(
+      `UPDATE contract_periods AS period
+       SET policy_id = NULL
+       FROM purchase_lines AS line
+       WHERE period.purchase_line_id = line.id
+         AND line.purchase_id = ?
+         AND period.policy_id = ?`,
+      [purchaseId, id],
+    );
+    await sql.execute(
+      `DELETE FROM contract_policies WHERE id = ? AND purchase_id = ?`,
+      [id, purchaseId],
+    );
+    return true;
+  });
+}
+
+export async function assignContractPeriodPolicy(
+  purchaseId: string,
+  periodId: string,
+  policyId: string,
+) {
+  const result = await execute(
+    `UPDATE contract_periods AS period
+     SET policy_id = policy.id
+     FROM purchase_lines AS line, contract_policies AS policy
+     WHERE period.id = ?
+       AND period.purchase_line_id = line.id
+       AND line.purchase_id = ?
+       AND policy.id = ?
+       AND policy.purchase_id = line.purchase_id
+       AND policy.active = TRUE`,
+    [periodId, purchaseId, policyId],
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 type AmendInput = {

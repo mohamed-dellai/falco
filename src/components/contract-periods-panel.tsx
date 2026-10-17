@@ -7,12 +7,17 @@ import {
   saveContractGroupRateAction,
   saveContractPeriodRateAction,
 } from "@/app/admin/actions";
+import { assignContractPeriodPolicyAction } from "@/app/admin/policies/actions";
 import {
   AdminPanel,
   adminButtonClass,
   adminButtonDangerClass,
+  adminButtonSecondaryClass,
   adminFieldClass,
 } from "@/components/admin-ui";
+import { PolicyDesk } from "@/components/policy-desk";
+import type { AdminCopy } from "@/lib/admin-copy";
+import type { PolicyText } from "@/lib/policies";
 import { PhotoUploader } from "@/components/photo-uploader";
 import type {
   ContractGroupRate,
@@ -136,6 +141,8 @@ export function ContractPeriodsPanel({
   lines,
   periods,
   policies,
+  templates = [],
+  copy,
   rates,
   groupRates,
   groups,
@@ -148,6 +155,8 @@ export function ContractPeriodsPanel({
   lines: PurchaseLine[];
   periods: ContractPeriod[];
   policies: ContractPolicy[];
+  templates?: PolicyText[];
+  copy?: AdminCopy;
   rates: ContractPeriodRate[];
   groupRates: ContractGroupRate[];
   groups: Array<{ id: string; name: string }>;
@@ -177,7 +186,77 @@ export function ContractPeriodsPanel({
       </p>
       )}
 
-      {(part === "all" || part === "policies") && (
+      {part === "policies" && copy ? (
+      <div className="grid gap-4">
+        <PolicyDesk
+          items={policies.map((policy) => ({
+            id: policy.id,
+            name: policy.name,
+            content: [policy.generalTerms, policy.cancellationTerms, policy.paymentTerms]
+              .map((piece) => piece.trim())
+              .filter(Boolean)
+              .join("\n\n"),
+            contentAr: policy.contentAr,
+          }))}
+          templates={templates}
+          purchaseId={purchaseId}
+          copy={copy}
+          empty={copy.contractPolicyEmpty}
+        />
+        {activePolicies.length && periods.some((period) => period.active) ? (
+          <section className="overflow-hidden rounded-lg border border-[var(--desk-line)] bg-white shadow-sm">
+            <ul className="divide-y divide-[var(--desk-line)]">
+              {periods
+                .filter((period) => period.active)
+                .map((period) => (
+                  <li key={period.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] sm:items-end sm:px-5">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--desk-ink)]">
+                        {roomTypeLabel(period.roomName, (type) => labels[type])}
+                        <span className="font-normal text-[var(--desk-muted)]">
+                          {" "}
+                          · {mealLabel(period, labels)}
+                          {period.view ? ` · ${period.view}` : ""}
+                        </span>
+                      </p>
+                      <p className="mt-1 font-plex text-xs text-[var(--desk-muted)]">
+                        {formatDateRange(period.checkIn, period.checkOut, locale)}
+                      </p>
+                    </div>
+                    <form action={assignContractPeriodPolicyAction} className="flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="purchaseId" value={purchaseId} />
+                      <input type="hidden" name="periodId" value={period.id} />
+                      <label className="grid min-w-48 flex-1 gap-1.5 text-sm">
+                        <span className="text-[13px] font-medium text-[var(--desk-muted)]">{copy.contractPolicyPeriod}</span>
+                        <select
+                          name="policyId"
+                          required
+                          defaultValue={period.policyId ?? ""}
+                          className={adminFieldClass}
+                        >
+                          <option value="" disabled>
+                            {copy.contractPolicyPeriod}
+                          </option>
+                          {activePolicies.map((policy) => (
+                            <option key={policy.id} value={policy.id}>
+                              {policy.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button type="submit" className={adminButtonSecondaryClass}>
+                        {copy.policySave}
+                      </button>
+                    </form>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+      ) : null}
+
+      {part === "all" && (
       <section className="rounded-lg border border-[var(--desk-line)] bg-[var(--desk-surface-muted)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { type Allotment, type AllotmentStatus } from "@/lib/inventory";
-import { formatMoney, nightsBetween } from "@/lib/money";
+import { formatMoney, nightsBetween, roomVatSplit } from "@/lib/money";
 import { paymentTotals, listReservationPayments } from "@/lib/reservation-payments";
 import { listReservationPolicies } from "@/lib/policies";
 
@@ -137,29 +137,59 @@ export async function buildClientSheet(
     (line) => line.supplierStatus !== "cancelled" && line.supplierStatus !== "no_show",
   );
   const source = options.groupRooms
-    ? groupLines(active, (line) => `${line.roomName}|${line.boardSnapshot}|${line.viewSnapshot}`)
+    ? groupLines(active, (line) => `${line.roomName}|${line.boardSnapshot}|${line.viewSnapshot}|${line.priceIncludesVat ? "vat" : "net"}`)
     : active;
+  let vatAmount = 0;
+  let vatShown = false;
   const lines = source.map((line) => {
-    const amount =
-      amountLabel === "none"
-        ? null
-        : amountLabel === "cost"
-          ? lineMoney(allotment, line, "cost")
-          : lineMoney(allotment, line, "sell");
+    if (amountLabel === "none") {
+      return {
+        room: line.roomName,
+        board: line.boardSnapshot,
+        view: line.viewSnapshot,
+        quantity: line.quantity,
+        guests: allotment.guestName,
+        amount: null,
+      };
+    }
+    if (amountLabel === "cost") {
+      return {
+        room: line.roomName,
+        board: line.boardSnapshot,
+        view: line.viewSnapshot,
+        quantity: line.quantity,
+        guests: allotment.guestName,
+        amount: lineMoney(allotment, line, "cost"),
+      };
+    }
+    const sell = lineMoney(allotment, line, "sell");
+    if (!options.vatCharge && !line.priceIncludesVat) {
+      return {
+        room: line.roomName,
+        board: line.boardSnapshot,
+        view: line.viewSnapshot,
+        quantity: line.quantity,
+        guests: allotment.guestName,
+        amount: sell,
+      };
+    }
+    const split = roomVatSplit(sell, line.priceIncludesVat, options.vatCharge);
+    vatShown = true;
+    vatAmount += split.vat;
     return {
       room: line.roomName,
       board: line.boardSnapshot,
       view: line.viewSnapshot,
       quantity: line.quantity,
       guests: allotment.guestName,
-      amount,
+      amount: split.net,
     };
   });
   const total =
     amountLabel === "none"
       ? null
       : lines.reduce((sum, line) => sum + (line.amount ?? 0), 0);
-  const vatAmount = options.vatCharge && total !== null ? Math.round(total * 0.15) : null;
+  const vatTotal = vatShown ? vatAmount : null;
   const listed =
     policyIds !== undefined || options.terms ? await listReservationPolicies(allotment.id) : [];
   const chosen = new Set(policyIds);
@@ -178,7 +208,7 @@ export async function buildClientSheet(
     total,
     paid: options.remaining ? totals.paid - totals.refunded : null,
     due: options.remaining ? totals.due : null,
-    vatAmount,
+    vatAmount: vatTotal,
     terms: [
       ...new Set([...(options.terms ? active.flatMap(termText) : []), ...policyText]),
     ],

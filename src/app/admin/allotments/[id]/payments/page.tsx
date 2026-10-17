@@ -1,29 +1,23 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  addReservationPaymentAction,
   deleteReservationPaymentAction,
   savePayTermsAction,
   setPaymentPostedAction,
 } from "@/app/admin/actions";
 import { AdminError } from "@/components/admin-shell";
 import { DateField } from "@/components/calendar-date-field";
-import {
-  adminButtonClass,
-  adminButtonDangerClass,
-  adminButtonSecondaryClass,
-  adminFieldClass,
-} from "@/components/admin-ui";
+import { adminButtonDangerClass, adminButtonSecondaryClass } from "@/components/admin-ui";
+import { PaymentReceiptButton } from "@/components/payment-receipt-button";
+import { ReservationPaymentForm } from "@/components/reservation-payment-form";
 import { requireAdmin } from "@/lib/admin-auth";
 import { adminCopy, type AdminCopy } from "@/lib/admin-copy";
 import { getAdminLocale } from "@/lib/admin-locale";
 import { getAllotment } from "@/lib/inventory";
+import { listReservationPolicies } from "@/lib/policies";
 import { formatMoney } from "@/lib/money";
 import {
-  cardTypes,
   getPayTerms,
   listReservationPayments,
-  paymentMethods,
   paymentTotals,
   type PaymentMethod,
 } from "@/lib/reservation-payments";
@@ -52,12 +46,18 @@ export default async function ReservationPaymentsPage({
   const query = await searchParams;
   const allotment = await getAllotment(id);
   if (!allotment) notFound();
-  const [payments, terms] = await Promise.all([
+  const [payments, terms, policies] = await Promise.all([
     listReservationPayments(allotment.id),
     getPayTerms(allotment.id),
+    listReservationPolicies(allotment.id),
   ]);
   const totals = paymentTotals(allotment, payments);
-  const roomNames = new Map(allotment.lines.map((line) => [line.id, line.roomName]));
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
   return (
     <>
@@ -108,18 +108,6 @@ export default async function ReservationPaymentsPage({
             {copy.payOnArrival}
           </label>
         </div>
-        {terms.lines.map((line) => (
-          <label key={line.id} className="grid gap-1 text-sm">
-            {copy.paymentRoomDue}: {roomNames.get(line.id) || copy.rooms}
-            <input type="hidden" name="lineId" value={line.id} />
-            <DateField
-              name={`payBefore-${line.id}`}
-              label={copy.paymentRoomDue}
-              locale={locale}
-              defaultValue={line.payBefore}
-            />
-          </label>
-        ))}
         <button type="submit" className={`${adminButtonSecondaryClass} w-fit`}>
           {copy.saveReservation}
         </button>
@@ -140,9 +128,12 @@ export default async function ReservationPaymentsPage({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/admin/allotments/${allotment.id}/payments/${payment.id}`} className={adminButtonSecondaryClass}>
-                {copy.paymentReceipt}
-              </Link>
+              <PaymentReceiptButton
+                allotmentId={allotment.id}
+                paymentId={payment.id}
+                policies={policies.map((policy) => ({ id: policy.id, name: policy.name }))}
+                copy={copy}
+              />
               <form action={setPaymentPostedAction}>
                 <input type="hidden" name="allotmentId" value={allotment.id} />
                 <input type="hidden" name="paymentId" value={payment.id} />
@@ -167,82 +158,24 @@ export default async function ReservationPaymentsPage({
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         {totals.due > 0 ? (
-          <PaymentForm allotmentId={allotment.id} kind="payment" copy={copy} locale={locale} />
+          <ReservationPaymentForm
+            allotmentId={allotment.id}
+            kind="payment"
+            copy={copy}
+            locale={locale}
+            today={today}
+          />
         ) : null}
         {totals.net > 0 ? (
-          <PaymentForm allotmentId={allotment.id} kind="refund" copy={copy} locale={locale} />
+          <ReservationPaymentForm
+            allotmentId={allotment.id}
+            kind="refund"
+            copy={copy}
+            locale={locale}
+            today={today}
+          />
         ) : null}
       </div>
     </>
-  );
-}
-
-function PaymentForm({
-  allotmentId,
-  kind,
-  copy,
-  locale,
-}: {
-  allotmentId: string;
-  kind: "payment" | "refund";
-  copy: AdminCopy;
-  locale: string;
-}) {
-  return (
-    <form action={addReservationPaymentAction} className="grid gap-3 rounded-lg border border-[var(--desk-line)] bg-white p-4 shadow-sm">
-      <input type="hidden" name="allotmentId" value={allotmentId} />
-      <input type="hidden" name="kind" value={kind} />
-      <p className="font-semibold">{kind === "refund" ? copy.addRefund : copy.addPayment}</p>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentDate}
-        <DateField name="paidOn" label={copy.paymentDate} locale={locale} required />
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentAmount}
-        <input name="amount" inputMode="decimal" required className={adminFieldClass} />
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentMethod}
-        <select name="method" className={adminFieldClass} defaultValue="cash">
-          {paymentMethods.map((method) => (
-            <option key={method} value={method}>
-              {copy[methodLabel[method]]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentCardType}
-        <select name="cardType" className={adminFieldClass} defaultValue="">
-          <option value="" />
-          {cardTypes.map((card) => (
-            <option key={card} value={card}>
-              {card === "amex" ? "Amex" : card === "mada" ? "Mada" : card[0].toUpperCase() + card.slice(1)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentReference}
-        <input name="reference" className={adminFieldClass} />
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentChequeDate}
-        <DateField name="chequeDate" label={copy.paymentChequeDate} locale={locale} />
-      </label>
-      <label className="grid gap-1 text-sm">
-        {copy.paymentNote}
-        <input name="note" className={adminFieldClass} />
-      </label>
-      {kind === "payment" ? (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="downPayment" />
-          {copy.paymentDown}
-        </label>
-      ) : null}
-      <button type="submit" className={`${adminButtonClass} w-fit`}>
-        {kind === "refund" ? copy.addRefund : copy.addPayment}
-      </button>
-    </form>
   );
 }

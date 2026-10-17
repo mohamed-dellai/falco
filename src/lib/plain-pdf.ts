@@ -115,6 +115,38 @@ function pdfText(value: string) {
   return latin(value).replaceAll("(", "\\(").replaceAll(")", "\\)");
 }
 
+function toUnicodeCmap(chars: Map<number, number>) {
+  const pairs = [...chars.entries()].filter(([, code]) => code > 0 && code <= 0xffff);
+  const blocks: string[] = [];
+  for (let index = 0; index < pairs.length; index += 100) {
+    const slice = pairs.slice(index, index + 100);
+    blocks.push(`${slice.length} beginbfchar`);
+    for (const [glyph, code] of slice) {
+      blocks.push(
+        `<${(glyph & 0xffff).toString(16).padStart(4, "0")}> <${code.toString(16).padStart(4, "0")}>`,
+      );
+    }
+    blocks.push("endbfchar");
+  }
+  const body = [
+    "/CIDInit /ProcSet findresource begin",
+    "12 dict begin",
+    "begincmap",
+    "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> def",
+    "/CMapName /Amiri def",
+    "/CMapType 2 def",
+    "1 begincodespacerange",
+    "<0000> <FFFF>",
+    "endcodespacerange",
+    blocks.join("\n") || "0 beginbfchar\nendbfchar",
+    "endcmap",
+    "CMapName currentdict /CMap defineresource pop",
+    "end",
+    "end",
+  ].join("\n");
+  return `<< /Length ${Buffer.byteLength(body, "latin1")} >>\nstream\n${body}\nendstream`;
+}
+
 function fitText(value: string, width: number, size: number) {
   const max = Math.max(1, Math.floor(width / (size * 0.48)));
   const text = latin(value);
@@ -128,6 +160,14 @@ export function createPdfSheet() {
   const footer: string[] = [];
   let stamping = false;
   let y = 800;
+  let arabic: {
+    bytes: Buffer;
+    widths: number[];
+    ascent: number;
+    descent: number;
+    bbox: [number, number, number, number];
+    unicode: Map<number, number>;
+  } | null = null;
   let floor = 42;
   const left = 36;
   const right = 559;
@@ -271,6 +311,32 @@ export function createPdfSheet() {
         `${rgb(color)} RG ${width} w ${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S`,
       );
     },
+    useArabic(font: {
+      bytes: Buffer;
+      widths: number[];
+      ascent: number;
+      descent: number;
+      bbox: [number, number, number, number];
+    }) {
+      arabic = { ...font, unicode: new Map() };
+    },
+    glyphs(
+      ids: number[],
+      unicodes: number[],
+      x: number,
+      baseline: number,
+      size = 9,
+      color: Rgb = ink,
+    ) {
+      if (!arabic || !ids.length) return;
+      ids.forEach((id, index) => {
+        if (!arabic!.unicode.has(id)) arabic!.unicode.set(id, unicodes[index] ?? 0);
+      });
+      const hex = ids.map((id) => (id & 0xffff).toString(16).padStart(4, "0")).join("");
+      sink().push(
+        `BT ${rgb(color)} rg /F3 ${size} Tf 1 0 0 1 ${x.toFixed(1)} ${baseline.toFixed(1)} Tm <${hex}> Tj ET`,
+      );
+    },
     image(raster: PdfRaster, x: number, top: number, width: number, height: number) {
       if (width <= 0 || height <= 0) return;
       const name = `Im${images.push(raster)}`;
@@ -285,13 +351,17 @@ export function createPdfSheet() {
       }
       const fontId = 3 + pages.length * 2;
       const boldId = fontId + 1;
-      const imageStart = boldId + 1;
+      const arabicType0 = arabic ? boldId + 1 : 0;
+      const imageStart = boldId + 1 + (arabic ? 5 : 0);
       const xobject = images
         .map((unused, index) => `/Im${index + 1} ${imageStart + index} 0 R`)
         .join(" ");
+      const fonts = arabic
+        ? `/Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R /F3 ${arabicType0} 0 R >>`
+        : `/Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >>`;
       const resources = images.length
-        ? `/Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> /XObject << ${xobject} >> >>`
-        : `/Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> >>`;
+        ? `/Resources << ${fonts} /XObject << ${xobject} >> >>`
+        : `/Resources << ${fonts} >>`;
       const objects: string[] = ["<< /Type /Catalog /Pages 2 0 R >>", ""];
       const pageIds: number[] = [];
       pages.forEach((commands, index) => {
@@ -309,6 +379,27 @@ export function createPdfSheet() {
       objects[1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`;
       objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
       objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+      if (arabic) {
+        const cid = arabicType0 + 1;
+        const descriptor = arabicType0 + 2;
+        const file = arabicType0 + 3;
+        const unicode = arabicType0 + 4;
+        const [xMin, yMin, xMax, yMax] = arabic.bbox;
+        const widthList = arabic.widths.map((width) => String(width)).join(" ");
+        objects.push(
+          `<< /Type /Font /Subtype /Type0 /BaseFont /Amiri /Encoding /Identity-H /DescendantFonts [${cid} 0 R] /ToUnicode ${unicode} 0 R >>`,
+        );
+        objects.push(
+          `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Amiri /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptor} 0 R /DW 400 /W [0 [${widthList}]] /CIDToGIDMap /Identity >>`,
+        );
+        objects.push(
+          `<< /Type /FontDescriptor /FontName /Amiri /Flags 4 /FontBBox [${xMin} ${yMin} ${xMax} ${yMax}] /ItalicAngle 0 /Ascent ${arabic.ascent} /Descent ${arabic.descent} /CapHeight ${Math.round(arabic.ascent * 0.7)} /StemV 80 /FontFile2 ${file} 0 R >>`,
+        );
+        objects.push(
+          `<< /Length ${arabic.bytes.length} /Length1 ${arabic.bytes.length} >>\nstream\n${arabic.bytes.toString("latin1")}\nendstream`,
+        );
+        objects.push(toUnicodeCmap(arabic.unicode));
+      }
       for (const raster of images) {
         const stream = raster.data.toString("latin1");
         objects.push(

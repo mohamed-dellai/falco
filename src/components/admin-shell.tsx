@@ -8,8 +8,7 @@ import {
   BedDouble,
   Bell,
   ChartNoAxesCombined,
-  BadgePercent,
-  Folders,
+  ConciergeBell,
   Users,
   Settings,
   ExternalLink,
@@ -17,6 +16,7 @@ import {
   LayoutDashboard,
   LogOut,
   MoreHorizontal,
+  Landmark,
   ReceiptText,
   Search,
   X,
@@ -85,13 +85,40 @@ const reportsLink: NavItem = {
   label: "reports",
   icon: ChartNoAxesCombined,
 };
+const servicesLink: NavItem = {
+  href: "/admin/services",
+  label: "services",
+  icon: ConciergeBell,
+};
+
+const clientsLink: NavItem = {
+  href: "/admin/agencies",
+  label: "directory",
+  icon: Users,
+  children: [
+    { href: "/admin/agencies", label: "agencies", kind: "records" },
+    { href: "/admin/commercials", label: "commercials", kind: "prefix" },
+    { href: "/admin/client-groups", label: "clientGroups", kind: "prefix" },
+  ],
+};
+
+const accountingLink: NavItem = {
+  href: "/admin/accounting",
+  label: "accounting",
+  icon: Landmark,
+  children: [
+    { href: "/admin/accounting/invoices", label: "invoicePhase1", kind: "prefix" },
+    { href: "/admin/accounting/phase-2", label: "invoicePhase2", kind: "prefix" },
+    { href: "/admin/accounting/payments", label: "allPayments", kind: "prefix" },
+  ],
+};
 const navigationGroups: Array<{
   label: keyof AdminCopy;
   items: NavItem[];
 }> = [
   {
     label: "deskGroup",
-    items: [overviewLink, allotmentLink, reportsLink],
+      items: [overviewLink, allotmentLink, servicesLink, accountingLink, reportsLink],
   },
   {
     label: "inventoryGroup",
@@ -106,23 +133,7 @@ const navigationGroups: Array<{
   },
   {
     label: "partnersGroup",
-    items: [
-      {
-        href: "/admin/agencies",
-        label: "agencies",
-        icon: Users,
-      },
-      {
-        href: "/admin/commercials",
-        label: "commercials",
-        icon: BadgePercent,
-      },
-      {
-        href: "/admin/client-groups",
-        label: "clientGroups",
-        icon: Folders,
-      },
-    ],
+    items: [clientsLink],
   },
   {
     label: "settings",
@@ -435,7 +446,12 @@ function isActive(pathname: string, item: NavItem) {
   ) {
     return true;
   }
-  return pathname.startsWith(item.href);
+  if (pathname.startsWith(item.href)) return true;
+  return (
+    item.children?.some(
+      (child) => pathname === child.href || pathname.startsWith(`${child.href}/`),
+    ) ?? false
+  );
 }
 
 function useFreshRequests() {

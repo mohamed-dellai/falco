@@ -20,6 +20,7 @@ export const mailTemplateKinds = [
   { kind: "client.rooming_list", audience: "client", label: "docRoomingList" },
   { kind: "client.lease", audience: "client", label: "docLease" },
   { kind: "client.price_offer", audience: "client", label: "docPriceOffer" },
+  { kind: "client.receipt", audience: "client", label: "paymentReceipt" },
 ] as const;
 
 export type MailTemplateKind = (typeof mailTemplateKinds)[number]["kind"];
@@ -89,6 +90,7 @@ const openings: Record<MailTemplateKind, { en: string; ar: string }> = {
   "client.rooming_list": { en: "The rooming list for your group.", ar: "قائمة الغرف لمجموعتكم." },
   "client.lease": { en: "The lease for your stay.", ar: "عقد الإيجار لإقامتكم." },
   "client.price_offer": { en: "A price offer for your stay.", ar: "عرض سعر لإقامتكم." },
+  "client.receipt": { en: "Your payment receipt.", ar: "إيصال دفعتكم." },
 };
 
 export function isMailTemplateKind(value: string): value is MailTemplateKind {

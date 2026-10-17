@@ -11,6 +11,7 @@ import { getAdminLocale } from "@/lib/admin-locale";
 import { listCommercials } from "@/lib/client-crm";
 import { clientIsOpen } from "@/lib/client-sale";
 import { allotmentValue, getAllotment, listAgencies, listHotels } from "@/lib/inventory";
+import { getInvoiceForAllotment } from "@/lib/invoices";
 import { listReservationPayments, paymentTotals } from "@/lib/reservation-payments";
 import { listPolicyTemplates, listReservationPolicies } from "@/lib/policies";
 
@@ -28,7 +29,7 @@ export default async function ReservationDetailsPage({
   const copy = adminCopy(locale);
   const { id } = await params;
   const query = await searchParams;
-  const [allotment, agencies, hotels, commercials, payments, policies, templates] = await Promise.all([
+  const [allotment, agencies, hotels, commercials, payments, policies, templates, issued] = await Promise.all([
     getAllotment(id),
     listAgencies(),
     listHotels(),
@@ -36,6 +37,7 @@ export default async function ReservationDetailsPage({
     listReservationPayments(id),
     listReservationPolicies(id),
     listPolicyTemplates(),
+    getInvoiceForAllotment(id),
   ]);
   if (!allotment) notFound();
   const stay = allotmentValue(allotment);
@@ -58,6 +60,7 @@ export default async function ReservationDetailsPage({
             allotment={allotment}
             copy={copy}
             policies={policies.map((policy) => ({ id: policy.id, name: policy.name }))}
+            invoice={issued}
           />
         </div>
       )}

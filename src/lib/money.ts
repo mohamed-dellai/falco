@@ -1,3 +1,12 @@
+export function roomVatSplit(amount: number, includesVat: boolean, chargeVat: boolean) {
+  if (includesVat) {
+    const vat = Math.round((amount * 15) / 115);
+    return { net: amount - vat, vat, gross: amount };
+  }
+  const vat = chargeVat ? Math.round(amount * 0.15) : 0;
+  return { net: amount, vat, gross: amount + vat };
+}
+
 export function parseMoney(value: FormDataEntryValue | null) {
   const normalized = String(value ?? "")
     .replaceAll(",", "")

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   cancelAllotmentAction,
@@ -15,7 +16,6 @@ import {
 import { MailNotifyDialog } from "@/components/mail-notify-dialog";
 import { fill, type AdminCopy } from "@/lib/admin-copy";
 import type { Allotment } from "@/lib/inventory";
-import type { NoticeMailKind } from "@/lib/reservation-mail";
 
 const chip =
   "desk-focus desk-press inline-flex h-8 items-center rounded-lg border px-2.5 text-[13px] font-bold transition";
@@ -48,17 +48,22 @@ export function ReservationActions({
   allotment,
   copy,
   policies,
+  invoice = null,
 }: {
   allotment: Allotment;
   copy: AdminCopy;
   policies: { id: string; name: string }[];
+  invoice?: { id: string; number: number } | null;
 }) {
   const [overbook, setOverbook] = useState(false);
   const [ask, setAsk] = useState<
-    | "client.confirmation"
-    | "client.cancel"
-    | "client.regret"
-    | "client.unavailable"
+    | "confirm"
+    | "confirm-all"
+    | "cancel"
+    | "cancel-all"
+    | "regret"
+    | "unavailable"
+    | "no-show"
     | null
   >(null);
   if (allotment.channel === "b2c") return null;
@@ -69,14 +74,27 @@ export function ReservationActions({
   const canConfirm = status === "request" || status === "provisional";
   const open = canConfirm || status === "confirmed";
   const askAction = {
-    "client.confirmation": confirmReservationAction,
-    "client.cancel": cancelAllotmentAction,
-    "client.regret": regretAllotmentAction,
-    "client.unavailable": unavailableReservationAction,
+    confirm: confirmReservationAction,
+    "confirm-all": confirmAllReservationAction,
+    cancel: cancelAllotmentAction,
+    "cancel-all": cancelAllReservationAction,
+    regret: regretAllotmentAction,
+    unavailable: unavailableReservationAction,
+    "no-show": reservationNoShowAction,
+  } as const;
+  const askMail = {
+    confirm: "client.confirmation",
+    "confirm-all": "client.confirmation",
+    cancel: "client.cancel",
+    "cancel-all": "client.cancel",
+    regret: "client.regret",
+    unavailable: "client.unavailable",
+    "no-show": "client.no_show",
   } as const;
 
   return (
     <>
+    <div className="flex flex-col items-start gap-2">
     <form className="flex flex-wrap items-center gap-1.5">
       <input type="hidden" name="id" value={allotment.id} />
       {status === "provisional" ? (
@@ -103,74 +121,72 @@ export function ReservationActions({
       {status === "confirmed" ? (
         <span className={tone(true, "success")}>{copy.confirmed}</span>
       ) : canConfirm ? (
-        <button type="button" onClick={() => setAsk("client.confirmation")} className={tone(false, "success")}>
+        <button type="button" onClick={() => setAsk("confirm")} className={tone(false, "success")}>
           {copy.confirmAction}
         </button>
       ) : null}
       {open && lines.length > 0 && !(status === "confirmed" && allConfirmed) ? (
-        <button type="submit" formAction={confirmAllReservationAction} className={tone(false, "success")}>
+        <button type="button" onClick={() => setAsk("confirm-all")} className={tone(false, "success")}>
           {copy.confirmAll}
         </button>
       ) : null}
       {status === "cancelled" ? (
         <span className={tone(true, "danger")}>{copy.cancelled}</span>
       ) : (
-        <button type="button" onClick={() => setAsk("client.cancel")} className={tone(false, "danger")}>
+        <button type="button" onClick={() => setAsk("cancel")} className={tone(false, "danger")}>
           {copy.cancelAction}
         </button>
       )}
       {status === "cancelled" && (lines.length === 0 || allCancelled) ? null : (
-        <button
-          type="submit"
-          formAction={cancelAllReservationAction}
-          className={tone(false, "danger")}
-          onClick={(event) => {
-            if (!window.confirm(fill(copy.cancelAllotmentTitle, { number: allotment.number }))) {
-              event.preventDefault();
-            }
-          }}
-        >
+        <button type="button" onClick={() => setAsk("cancel-all")} className={tone(false, "danger")}>
           {copy.cancelAll}
         </button>
       )}
       {status === "no_show" ? (
         <span className={tone(true, "warning")}>{copy.statusNoShow}</span>
       ) : (
-        <button
-          type="submit"
-          formAction={reservationNoShowAction}
-          className={tone(false, "warning")}
-          onClick={(event) => {
-            if (!window.confirm(copy.statusNoShow)) event.preventDefault();
-          }}
-        >
+        <button type="button" onClick={() => setAsk("no-show")} className={tone(false, "warning")}>
           {copy.statusNoShow}
         </button>
       )}
       {status === "unavailable" ? (
         <span className={tone(true, "gold")}>{copy.statusUnavailable}</span>
       ) : (
-        <button type="button" onClick={() => setAsk("client.unavailable")} className={tone(false, "gold")}>
+        <button type="button" onClick={() => setAsk("unavailable")} className={tone(false, "gold")}>
           {copy.statusUnavailable}
         </button>
       )}
       {status === "regret" ? (
         <span className={tone(true, "ink")}>{copy.statusRegret}</span>
       ) : (
-        <button type="button" onClick={() => setAsk("client.regret")} className={tone(false, "ink")}>
+        <button type="button" onClick={() => setAsk("regret")} className={tone(false, "ink")}>
           {copy.statusRegret}
         </button>
       )}
     </form>
+    <div className="flex flex-wrap items-center gap-1.5">
+      {invoice ? (
+        <Link href={`/admin/accounting/invoices/${invoice.id}`} className={tone(true, "success")}>
+          {fill(copy.invoiceIssued, { number: invoice.number })}
+        </Link>
+      ) : status === "confirmed" ? (
+        <Link href={`/admin/allotments/${allotment.id}/invoice`} className={tone(false, "primary")}>
+          {copy.invoiceCreate}
+        </Link>
+      ) : (
+        <span className={tone(false, "ink")}>{copy.invoiceMissing}</span>
+      )}
+    </div>
+    </div>
     {ask ? (
       <MailNotifyDialog
         action={askAction[ask]}
         allotmentId={allotment.id}
         policies={policies}
-        overbook={ask === "client.confirmation" && overbook}
+        overbook={(ask === "confirm" || ask === "confirm-all") && overbook}
         copy={copy}
         onClose={() => setAsk(null)}
-        load={(policyIds) => previewReservationNoticeAction({ id: allotment.id, kind: ask, policyIds })}
+        load={(policyIds) => previewReservationNoticeAction({ id: allotment.id, kind: askMail[ask], policyIds })}
         refreshKey={ask}
       />
     ) : null}

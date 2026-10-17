@@ -15,13 +15,17 @@ import {
   documentParties,
   reservationMailbox,
 } from "@/lib/reservation-documents";
-import { clientDocumentPdf, supplierDocumentPdf } from "@/lib/reservation-pdf";
+import { clientDocumentPdf, receiptDocumentPdf, supplierDocumentPdf } from "@/lib/reservation-pdf";
+import { getReservationPayment, type PaymentMethod } from "@/lib/reservation-payments";
+import { listDeskServices, serviceTotals, type DeskService } from "@/lib/services";
+import { formatMoney } from "@/lib/money";
 
 const noticeKind = {
   "client.confirmation": "confirmation",
   "client.cancel": "client_cancel",
   "client.regret": "regret",
   "client.unavailable": "unavailable",
+  "client.no_show": "no_show",
 } as const;
 
 const noticeFile = {
@@ -29,13 +33,25 @@ const noticeFile = {
   "client.cancel": "cancel",
   "client.regret": "regret",
   "client.unavailable": "unavailable",
+  "client.no_show": "no-show",
 } as const;
+
+function serviceLetter(services: DeskService[], side: "sell" | "cost") {
+  if (!services.length) return "";
+  const lines = services.map((service) => {
+    const totals = serviceTotals(service);
+    const amount = side === "sell" ? totals.gross : totals.cost;
+    return `${service.quantity} x ${service.typeName} — ${formatMoney(amount, "en")}`;
+  });
+  return ["Services", ...lines].join("\n");
+}
 
 const noticeTitle = {
   "client.confirmation": "mailNoticeConfirm",
   "client.cancel": "mailNoticeCancel",
   "client.regret": "mailNoticeRegret",
   "client.unavailable": "mailNoticeUnavailable",
+  "client.no_show": "docNoShow",
 } as const;
 
 const noticeStatus = {
@@ -43,6 +59,7 @@ const noticeStatus = {
   "client.cancel": "cancelled",
   "client.regret": "statusRegret",
   "client.unavailable": "statusUnavailable",
+  "client.no_show": "statusNoShow",
 } as const;
 
 function address(value: string) {
@@ -90,13 +107,14 @@ export async function composeReservationNotice(
   const allotment = await getAllotment(allotmentId);
   if (!allotment) return { ok: false, error: "allotment" };
   const chosen = policyIdsOf(policyIds);
-  const [mailbox, parties, company, template, policies, logo] = await Promise.all([
+  const [mailbox, parties, company, template, policies, logo, bookedServices] = await Promise.all([
     reservationMailbox(allotment.id),
     documentParties(allotment.id),
     getCompanyProfile(),
     defaultMailTemplate(kind satisfies MailTemplateKind),
     listReservationPolicies(allotment.id),
     documentLogo(),
+    listDeskServices({ allotmentId }),
   ]);
   if (!template) return { ok: false, error: "mail-missing" };
   const selected = policies.filter((policy) => chosen.includes(policy.id));
@@ -115,12 +133,19 @@ export async function composeReservationNotice(
   const subject =
     fillMailPlaceholders(template.subjectEn || template.subjectAr, values) ||
     `${copy[noticeTitle[kind]]} ${allotment.number}`;
-  const english = fillMailPlaceholders(template.bodyEn, values).trim();
+  const noticeServices =
+    kind === "client.cancel" || kind === "client.regret" || kind === "client.unavailable"
+      ? bookedServices
+      : bookedServices.filter((service) => service.clientStatus !== "cancelled");
+  const english = [fillMailPlaceholders(template.bodyEn, values).trim(), serviceLetter(noticeServices, "sell")]
+    .filter(Boolean)
+    .join("\n\n");
   const arabic = fillMailPlaceholders(template.bodyAr, values).trim();
+  const sheetKind = kind === "client.no_show" ? "no_show" : "voucher";
   const sheet = await buildClientSheet(
     allotment,
-    "voucher",
-    documentOptions("voucher", {}),
+    sheetKind,
+    documentOptions(sheetKind, {}),
     mailbox.hotelNameAr,
     selected.map((policy) => policy.id),
   );
@@ -136,6 +161,7 @@ export async function composeReservationNotice(
     refunded: null,
     due: null,
     logo,
+    services: noticeServices,
     labels: {
       room: copy.roomType,
       view: copy.viewName,
@@ -188,6 +214,119 @@ function mailList(value: string) {
   const parts = [...new Set(value.split(/[,;\s]+/).map((part) => part.trim()).filter(Boolean))];
   if (parts.some((part) => !address(part))) return null;
   return parts;
+}
+
+const receiptMethod: Record<PaymentMethod, "paymentCash" | "paymentCheque" | "paymentTransfer" | "paymentCompany" | "paymentCard"> = {
+  cash: "paymentCash",
+  cheque: "paymentCheque",
+  transfer: "paymentTransfer",
+  company: "paymentCompany",
+  card: "paymentCard",
+};
+
+function cardName(value: string) {
+  if (value === "amex") return "Amex";
+  if (value === "mada") return "Mada";
+  if (!value) return "";
+  return value[0].toUpperCase() + value.slice(1);
+}
+
+export async function composeReceiptNotice(
+  allotmentId: string,
+  paymentId: string,
+  policyIds: string[] = [],
+): Promise<{ ok: true; preview: NoticePreview } | { ok: false; error: string }> {
+  const allotment = await getAllotment(allotmentId);
+  const payment = allotment ? await getReservationPayment(allotment.id, paymentId) : null;
+  if (!allotment || !payment) return { ok: false, error: "allotment" };
+  const chosen = policyIdsOf(policyIds);
+  const [mailbox, parties, company, template, policies, logo] = await Promise.all([
+    reservationMailbox(allotment.id),
+    documentParties(allotment.id),
+    getCompanyProfile(),
+    defaultMailTemplate("client.receipt"),
+    listReservationPolicies(allotment.id),
+    documentLogo(),
+  ]);
+  if (!template) return { ok: false, error: "mail-missing" };
+  const selected = policies.filter((policy) => chosen.includes(policy.id));
+  const copy = adminCopy("en");
+  const rooms = allotment.lines
+    .filter((line) => line.supplierStatus !== "cancelled")
+    .map((line) => `${line.quantity} x ${line.roomName}`)
+    .join(", ");
+  const values = {
+    number: allotment.number,
+    hotel: allotment.hotelName,
+    guest: allotment.guestName,
+    stay: `${allotment.checkIn} → ${allotment.checkOut}`,
+    rooms,
+  };
+  const subject =
+    fillMailPlaceholders(template.subjectEn || template.subjectAr, values) ||
+    `${copy.paymentReceipt} ${payment.code}`;
+  const amount = formatMoney(payment.amount, "en");
+  const english = [
+    fillMailPlaceholders(template.bodyEn, values).trim(),
+    `${payment.kind === "refund" ? copy.addRefund : copy.paymentReceipt} ${payment.code} — ${amount}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const arabic = fillMailPlaceholders(template.bodyAr, values).trim();
+  const rows: Array<[string, string]> = [
+    [copy.guest, allotment.guestName],
+    [copy.client, allotment.agencyName],
+    [copy.hotel, allotment.hotelName],
+    [copy.paymentDate, payment.paidOn],
+    [copy.paymentMethod, copy[receiptMethod[payment.method]]],
+  ];
+  if (payment.cardType) rows.push([copy.paymentCardType, cardName(payment.cardType)]);
+  if (payment.reference) rows.push([copy.paymentReference, payment.reference]);
+  if (payment.chequeDate) rows.push([copy.paymentChequeDate, payment.chequeDate]);
+  if (payment.note) rows.push([copy.paymentNote, payment.note]);
+  if (parties.agencyEmail) rows.push(["Mail", parties.agencyEmail]);
+  const terms = selected
+    .map((policy) => [policy.name.trim(), policy.content.trim()].filter(Boolean).join("\n"))
+    .filter(Boolean);
+  const pdf = receiptDocumentPdf({
+    allotment,
+    company,
+    logo,
+    title: copy.paymentReceipt,
+    code: payment.code,
+    rows: rows.filter((row) => row[1]),
+    amountLabel: payment.kind === "refund" ? copy.addRefund : copy.paymentAmount,
+    amount,
+    terms,
+  });
+  return {
+    ok: true,
+    preview: {
+      to: address(mailbox.agencyEmail),
+      subject,
+      english,
+      arabic,
+      policies: selected.map((policy) => ({
+        id: policy.id,
+        name: policy.name,
+        content: policy.content.trim(),
+        contentAr: policy.contentAr.trim(),
+      })),
+      filename: `${allotment.number}-${payment.code}.pdf`,
+      pdfBase64: pdf.toString("base64"),
+    },
+  };
+}
+
+export async function sendReceiptNotice(
+  allotmentId: string,
+  paymentId: string,
+  policyIds: string[] = [],
+  draft?: NoticeDraft,
+) {
+  const composed = await composeReceiptNotice(allotmentId, paymentId, policyIds);
+  if (!composed.ok) return composed;
+  return deliverNotice(composed.preview, draft);
 }
 
 export async function sendReservationNotice(
@@ -281,13 +420,14 @@ export async function composeHotelRoomNotice(input: {
   if (!lines.length) return { ok: false as const, error: "invalid" };
   const chosen = policyIdsOf(input.policyIds ?? []);
   const templateKind = hotelRoomTemplate[input.kind];
-  const [mailbox, parties, company, template, policies, logo] = await Promise.all([
+  const [mailbox, parties, company, template, policies, logo, bookedServices] = await Promise.all([
     reservationMailbox(allotment.id),
     documentParties(allotment.id),
     getCompanyProfile(),
     defaultMailTemplate(templateKind satisfies MailTemplateKind),
     listReservationPolicies(allotment.id),
     documentLogo(),
+    listDeskServices({ allotmentId: allotment.id }),
   ]);
   if (!template) return { ok: false as const, error: "mail-missing" };
   const selected = policies.filter((policy) => chosen.includes(policy.id));
@@ -303,7 +443,12 @@ export async function composeHotelRoomNotice(input: {
   const subject =
     fillMailPlaceholders(template.subjectEn || template.subjectAr, values) ||
     `${copy[hotelRoomTitle[input.kind]]} ${allotment.number}`;
-  const english = fillMailPlaceholders(template.bodyEn, values).trim();
+  const hotelServices = input.kind === "amendment"
+    ? []
+    : bookedServices.filter((service) => service.hotelId === allotment.hotelId && service.providerStatus !== "cancelled");
+  const english = [fillMailPlaceholders(template.bodyEn, values).trim(), serviceLetter(hotelServices, "cost")]
+    .filter(Boolean)
+    .join("\n\n");
   const arabic = fillMailPlaceholders(template.bodyAr, values).trim();
   const rooming = input.rooming
     ? lines.map((line) => `${line.quantity} x ${line.roomName} | ${allotment.guestName}`).join("\n")
@@ -321,6 +466,7 @@ export async function composeHotelRoomNotice(input: {
     title: copy[hotelRoomTitle[input.kind]],
     amendment: [(input.amendment ?? "").slice(0, 2000), rooming, policyNote].filter(Boolean).join("\n\n"),
     logo,
+    services: hotelServices,
     labels: {
       room: copy.roomType,
       view: copy.viewName,

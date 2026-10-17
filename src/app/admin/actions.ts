@@ -134,8 +134,10 @@ import {
 } from "@/lib/reservations";
 import {
   composeHotelRoomNotice,
+  composeReceiptNotice,
   composeReservationNotice,
   sendHotelRoomNotice,
+  sendReceiptNotice,
   sendReservationNotice,
   type HotelRoomMailKind,
   type NoticeMailKind,
@@ -1496,7 +1498,9 @@ export async function cancelAllReservationAction(formData: FormData) {
   const penalty = penaltyRaw ? parseMoney(penaltyRaw) : 0;
   if (penalty === null) redirect(detailsBack(id, "invalid"));
   const result = await cancelAllReservation(id, { type: "admin" }, penalty);
-  redirect(result.ok ? detailsBack(id) : detailsBack(id, result.error));
+  if (!result.ok) redirect(detailsBack(id, result.error));
+  await notifyIfAsked(formData, id, "client.cancel");
+  redirect(detailsBack(id));
 }
 
 export async function confirmAllReservationAction(formData: FormData) {
@@ -1515,14 +1519,18 @@ export async function confirmAllReservationAction(formData: FormData) {
     redirect(detailsBack(id, "allotment"));
   }
   const lined = await setAllReservationLines(id, "confirmed");
-  redirect(lined.ok ? detailsBack(id) : detailsBack(id, lined.error));
+  if (!lined.ok) redirect(detailsBack(id, lined.error));
+  await notifyIfAsked(formData, id, "client.confirmation");
+  redirect(detailsBack(id));
 }
 
 export async function reservationNoShowAction(formData: FormData) {
   await requireAdmin();
   const id = text(formData, "id");
   const result = await noShowReservation(id, { type: "admin" });
-  redirect(result.ok ? detailsBack(id) : detailsBack(id, result.error));
+  if (!result.ok) redirect(detailsBack(id, result.error));
+  await notifyIfAsked(formData, id, "client.no_show");
+  redirect(detailsBack(id));
 }
 
 export async function unavailableReservationAction(formData: FormData) {
@@ -1795,6 +1803,7 @@ const noticeMailKinds = new Set<NoticeMailKind>([
   "client.cancel",
   "client.regret",
   "client.unavailable",
+  "client.no_show",
 ]);
 
 function noticeKindOf(value: string): NoticeMailKind | null {
@@ -2048,6 +2057,7 @@ export async function addReservationLineAction(formData: FormData) {
         pricePerNight,
         hotelName: hotel.name,
         roomName: roomType.name,
+        priceIncludesVat: formData.get("priceVat") === "included",
       },
     });
   } else {
@@ -2059,6 +2069,7 @@ export async function addReservationLineAction(formData: FormData) {
           roomTypeId: text(formData, "roomTypeId"),
           mealCode: text(formData, "mealCode"),
           viewName: text(formData, "viewName"),
+          priceIncludesVat: formData.get("priceVat") === "included",
         });
   }
   redirect(
@@ -2077,12 +2088,20 @@ export async function updateReservationLineAction(formData: FormData) {
   const allotmentId = text(formData, "allotmentId");
   const quantity = integer(formData, "quantity");
   if (!quantity) redirect(`/admin/allotments/${allotmentId}/rooms?error=quantity`);
+  const priceField = formData.get("price");
+  const agencyPricePerNight = priceField === null ? undefined : parseMoney(priceField);
+  if (priceField !== null && agencyPricePerNight === null) {
+    redirect(`/admin/allotments/${allotmentId}/rooms?error=invalid`);
+  }
+  const vatField = formData.get("priceVat");
   const saved = await updateReservationLine({
     allotmentId,
     lineId: text(formData, "lineId"),
     quantity,
     supplierStatus: asLineSupplierStatus(text(formData, "supplierStatus")),
     allowOverbook: formData.get("useOverbook") === "on",
+    priceIncludesVat: vatField === null ? undefined : vatField === "included",
+    agencyPricePerNight: agencyPricePerNight ?? undefined,
   });
   redirect(
     saved.ok
@@ -2131,7 +2150,8 @@ export async function addReservationPaymentAction(formData: FormData) {
   if (amount === null || !paidOn || !paymentMethods.includes(method as PaymentMethod)) {
     redirect(`${back}?error=invalid`);
   }
-  const cardType = text(formData, "cardType");
+  const paidBy = method as PaymentMethod;
+  const cardType = paidBy === "card" ? text(formData, "cardType") : "";
   if (cardType && !cardTypes.includes(cardType as (typeof cardTypes)[number])) {
     redirect(`${back}?error=invalid`);
   }
@@ -2139,12 +2159,12 @@ export async function addReservationPaymentAction(formData: FormData) {
   const saved = await addReservationPayment({
     allotmentId,
     kind,
-    method: method as PaymentMethod,
+    method: paidBy,
     cardType,
-    reference: text(formData, "reference"),
+    reference: paidBy === "cash" ? "" : text(formData, "reference"),
     amount,
     paidOn,
-    chequeDate: dateValue(text(formData, "chequeDate")),
+    chequeDate: paidBy === "cheque" ? dateValue(text(formData, "chequeDate")) : "",
     note: text(formData, "note"),
     downPayment: kind === "payment" && formData.get("downPayment") === "on",
     due: totals.due,
@@ -2160,6 +2180,44 @@ export async function addReservationPaymentAction(formData: FormData) {
       actorId: admin?.id,
       details: { amount },
     });
+  });
+  redirect(back);
+}
+
+export async function previewReceiptNoticeAction(input: {
+  id: string;
+  paymentId: string;
+  policyIds: string[];
+}) {
+  await requireAdmin();
+  if (!input.id || !input.paymentId) return { ok: false as const, error: "invalid" };
+  return composeReceiptNotice(
+    input.id,
+    input.paymentId,
+    Array.isArray(input.policyIds) ? input.policyIds : [],
+  );
+}
+
+export async function sendReceiptNoticeAction(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const paymentId = text(formData, "paymentId");
+  const back = `/admin/allotments/${id}/payments`;
+  if (!paymentId) redirect(`${back}?error=invalid`);
+  if (formData.get("notify") !== "1") redirect(back);
+  const mailed = await sendReceiptNotice(id, paymentId, policyIdsFrom(formData), {
+    to: text(formData, "mailTo"),
+    cc: text(formData, "mailCc"),
+    subject: text(formData, "mailSubject"),
+    body: text(formData, "mailBody"),
+  });
+  if (!mailed.ok) redirect(`${back}?error=${mailed.error}`);
+  const admin = await currentAdmin();
+  await recordReservationCommunication({
+    allotmentId: id,
+    kind: "agency_email",
+    recipient: text(formData, "mailTo"),
+    actorId: admin?.id,
   });
   redirect(back);
 }

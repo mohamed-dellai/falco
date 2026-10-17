@@ -230,6 +230,8 @@ async function migrate() {
   await ensureMailSettings();
   await ensureMailTemplates();
   await ensurePolicies();
+  await ensureServices();
+  await ensureInvoices();
   await ensureContracts();
   await ensureBookingDesk();
   await ensureBookingOperations();
@@ -1112,6 +1114,113 @@ async function ensurePolicies() {
   );
 }
 
+async function ensureServices() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS service_types (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS desk_services (
+      id TEXT PRIMARY KEY,
+      number INTEGER NOT NULL,
+      type_id TEXT NOT NULL REFERENCES service_types (id),
+      agency_id TEXT NOT NULL DEFAULT '',
+      hotel_id TEXT NOT NULL DEFAULT '',
+      booking_number TEXT NOT NULL DEFAULT '',
+      service_date TEXT NOT NULL,
+      end_date TEXT NOT NULL DEFAULT '',
+      quantity INTEGER NOT NULL,
+      unit_cost INTEGER NOT NULL,
+      unit_price INTEGER NOT NULL,
+      vat_included BOOLEAN NOT NULL DEFAULT FALSE,
+      description TEXT NOT NULL DEFAULT '',
+      client_status TEXT NOT NULL DEFAULT 'new',
+      payment_status TEXT NOT NULL DEFAULT 'not_paid',
+      provider_status TEXT NOT NULL DEFAULT 'new',
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await addColumn("desk_services", "allotment_id", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("desk_services", "tax_type", "TEXT NOT NULL DEFAULT 'sales'");
+  await addColumn("desk_services", "guest_name", "TEXT NOT NULL DEFAULT ''");
+  await addColumn("desk_services", "internal_notes", "TEXT NOT NULL DEFAULT ''");
+  await pool().query(
+    `UPDATE desk_services
+     SET unit_price = CAST(ROUND(unit_price * 100.0 / 115.0) AS INTEGER),
+         vat_included = FALSE,
+         tax_type = 'sales'
+     WHERE vat_included = TRUE`,
+  );
+  const seededAt = "2026-10-16T00:00:00.000Z";
+  for (const [id, name] of [
+    ["service-visa", "Visa"],
+    ["service-airport", "Airport reception"],
+    ["service-transport", "Transportation"],
+    ["service-breakfast", "Breakfast"],
+    ["service-lunch", "Lunch"],
+    ["service-dinner", "Dinner"],
+    ["service-ground", "Ground services"],
+  ] as const) {
+    await pool().query(
+      `INSERT INTO service_types (id, name, created_at) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+      [id, name, seededAt],
+    );
+  }
+}
+
+async function ensureInvoices() {
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS invoice_counters (
+      id TEXT PRIMARY KEY,
+      next_number INTEGER NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS issued_invoices (
+      id TEXT PRIMARY KEY,
+      number INTEGER NOT NULL UNIQUE,
+      agency_id TEXT NOT NULL REFERENCES agencies (id),
+      agency_name TEXT NOT NULL,
+      issued_on TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      net INTEGER NOT NULL,
+      vat INTEGER NOT NULL,
+      gross INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS invoice_stays (
+      invoice_id TEXT NOT NULL REFERENCES issued_invoices (id),
+      allotment_id TEXT NOT NULL UNIQUE REFERENCES allotments (id),
+      booking_number TEXT NOT NULL,
+      hotel_name TEXT NOT NULL,
+      guest_name TEXT NOT NULL,
+      check_in TEXT NOT NULL,
+      check_out TEXT NOT NULL,
+      PRIMARY KEY (invoice_id, allotment_id)
+    )`,
+  );
+  await pool().query(
+    `CREATE TABLE IF NOT EXISTS invoice_lines (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL REFERENCES issued_invoices (id),
+      allotment_id TEXT NOT NULL,
+      sort_order INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      label TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      quantity INTEGER NOT NULL,
+      net INTEGER NOT NULL,
+      vat INTEGER NOT NULL,
+      gross INTEGER NOT NULL
+    )`,
+  );
+}
+
 async function ensureMailTemplates() {
   await pool().query(
     `CREATE TABLE IF NOT EXISTS mail_templates (
@@ -1407,6 +1516,7 @@ async function ensureBookingDesk() {
       created_at TEXT NOT NULL
     )`,
   );
+  await addColumn("contract_policies", "content_ar", "TEXT NOT NULL DEFAULT ''");
   await pool().query(
     `CREATE TABLE IF NOT EXISTS contract_periods (
       id TEXT PRIMARY KEY,
@@ -1466,6 +1576,7 @@ async function ensureBookingDesk() {
   );
   await addColumn("allotments", "sale_source", "TEXT NOT NULL DEFAULT 'contract'");
   await addColumn("allotment_lines", "amount_basis", "TEXT NOT NULL DEFAULT 'night'");
+  await addColumn("allotment_lines", "price_includes_vat", "BOOLEAN NOT NULL DEFAULT FALSE");
   await addColumn("allotment_lines", "rate_snapshot", "TEXT NOT NULL DEFAULT '{}'");
   await addColumn("allotment_lines", "direct_hotel", "TEXT NOT NULL DEFAULT ''");
   await addColumn("allotment_lines", "direct_room", "TEXT NOT NULL DEFAULT ''");

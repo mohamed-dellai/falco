@@ -81,14 +81,18 @@ export async function addReservationPolicy(
   return id;
 }
 
-export async function addReservationPolicyFromTemplate(allotmentId: string, templateId: string) {
+export async function getPolicyTemplate(id: string) {
   const rows = await query<PolicyRow>(
     `SELECT id, name, content, content_ar FROM policy_templates WHERE id = ?`,
-    [templateId],
+    [id],
   );
-  const template = rows[0];
+  return rows[0] ? mapPolicy(rows[0]) : null;
+}
+
+export async function addReservationPolicyFromTemplate(allotmentId: string, templateId: string) {
+  const template = await getPolicyTemplate(templateId);
   if (!template) return null;
-  return addReservationPolicy(allotmentId, template.name, template.content, template.content_ar);
+  return addReservationPolicy(allotmentId, template.name, template.content, template.contentAr);
 }
 
 export async function saveReservationPolicy(

@@ -18,8 +18,20 @@ import type {
   LineSupplierStatus,
   StayRoomChoice,
 } from "@/lib/inventory";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, moneyInput } from "@/lib/money";
 import { mealPlanLabel, type MealPlan } from "@/lib/room-types";
+
+function PriceVatField({ copy, value }: { copy: AdminCopy; value?: boolean }) {
+  return (
+    <label className="grid gap-1 text-sm">
+      <span className="text-[13px] font-medium text-[var(--desk-muted)]">{copy.roomPriceVat}</span>
+      <select name="priceVat" defaultValue={value ? "included" : "excluded"} className={adminFieldClass}>
+        <option value="excluded">{copy.roomPriceWithoutVat}</option>
+        <option value="included">{copy.roomPriceWithVat}</option>
+      </select>
+    </label>
+  );
+}
 
 function boardNames(copy: AdminCopy) {
   return {
@@ -47,6 +59,10 @@ function supplierTone(status: LineSupplierStatus) {
 }
 
 const roomActionTone = {
+  provisional: {
+    rest: "border-[var(--desk-gold)] bg-[var(--desk-gold-soft)] text-[var(--desk-warning)] hover:bg-[var(--desk-gold)] hover:text-white",
+    current: "border-[var(--desk-gold)] bg-[var(--desk-gold)] text-white shadow-sm",
+  },
   confirmed: {
     rest: "border-[var(--desk-success)] bg-[var(--desk-success-soft)] text-[var(--desk-success)] hover:bg-[var(--desk-success)] hover:text-white",
     current: "border-[var(--desk-success)] bg-[var(--desk-success)] text-white shadow-sm",
@@ -323,6 +339,7 @@ export function ReservationRooms({
                           <div className="flex flex-wrap gap-1.5">
                             {(
                               [
+                                ["provisional", copy.roomStatusTentative],
                                 ["confirmed", copy.roomStatusConfirm],
                                 ["cancelled", copy.roomStatusCancel],
                                 ["no_show", copy.roomStatusNoShow],
@@ -358,6 +375,9 @@ export function ReservationRooms({
                       </td>
                       <td className="font-plex px-3 py-2.5 text-end align-top text-sm font-bold text-[var(--desk-ink)] tabular-nums">
                         {formatMoney(line.agencyPricePerNight, locale)}
+                        <p className="mt-0.5 text-xs font-medium text-[var(--desk-muted)]">
+                          {line.priceIncludesVat ? copy.roomPriceWithVat : copy.roomPriceWithoutVat}
+                        </p>
                       </td>
                       <td className="font-plex px-3 py-2.5 text-end align-top text-sm font-bold text-[var(--desk-ink)] tabular-nums">
                         {formatMoney(lineSell(line, totals.nights), locale)}
@@ -410,6 +430,19 @@ export function ReservationRooms({
                                 className={`${adminFieldClass} w-24`}
                               />
                             </label>
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-[13px] font-medium text-[var(--desk-muted)]">
+                                {copy.agencyPriceNight}
+                              </span>
+                              <input
+                                name="price"
+                                inputMode="decimal"
+                                required
+                                defaultValue={moneyInput(line.agencyPricePerNight)}
+                                className={`${adminFieldClass} w-36`}
+                              />
+                            </label>
+                            <PriceVatField copy={copy} value={line.priceIncludesVat} />
                             {(allotment.status === "provisional" || allotment.status === "confirmed") && !direct ? (
                               <label className="flex items-center gap-2 pb-2 text-xs text-[var(--desk-muted)]">
                                 <input type="checkbox" name="useOverbook" />
@@ -680,6 +713,7 @@ function ContractAdd({
         </span>
         <input name="quantity" type="number" min={1} max={5000} required defaultValue={1} className={adminFieldClass} />
       </label>
+      <PriceVatField copy={copy} />
       {(allotment.status === "provisional" || allotment.status === "confirmed") && (
         <label className="flex items-center gap-2 text-sm sm:col-span-2 lg:col-span-3">
           <input type="checkbox" name="useOverbook" />
@@ -773,6 +807,7 @@ function DirectAdd({
         </span>
         <input name="price" inputMode="decimal" required className={adminFieldClass} />
       </label>
+      <PriceVatField copy={copy} />
       <div className="sm:col-span-2 lg:col-span-3">
         <button type="submit" className={adminButtonSecondaryClass}>
           {copy.addRoom}

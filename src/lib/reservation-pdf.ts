@@ -1,8 +1,10 @@
+import { arabicFontResource, arabicLines } from "@/lib/arabic-text";
 import type { CompanyProfile } from "@/lib/company";
 import type { Allotment, AllotmentLine } from "@/lib/inventory";
 import { nightsBetween } from "@/lib/money";
 import { createPdfSheet, type PdfRaster } from "@/lib/plain-pdf";
 import type { DocumentSheet, SupplierDocumentKind } from "@/lib/reservation-documents";
+import { serviceTotals, type DeskService } from "@/lib/services";
 import { create as createQr } from "qrcode/lib/core/qrcode";
 
 type Parties = {
@@ -211,6 +213,7 @@ export function clientDocumentPdf(input: {
   refunded: number | null;
   due: number | null;
   logo?: PdfRaster | null;
+  services?: DeskService[];
 }) {
   const priced = input.sheet.amountLabel !== "none";
   const side = input.sheet.amountLabel === "cost" ? "cost" : "sell";
@@ -309,6 +312,74 @@ export function clientDocumentPdf(input: {
     drawRow(cells, false);
   }
 
+  const serviceMode =
+    input.kind === "amendment" || input.sheet.titleKey === "amendment" || input.sheet.titleKey === "lease" || input.sheet.titleKey === "rooming_list"
+      ? "off"
+      : input.kind === "voucher" && input.sheet.titleKey === "voucher"
+        ? "names"
+        : input.sheet.titleKey === "supplier_voucher"
+          ? input.sheet.amountLabel === "sell"
+            ? "sell"
+            : "cost"
+          : "sell";
+  const closing = input.kind === "client_cancel" || input.kind === "regret" || input.kind === "unavailable";
+  const services = (input.services ?? []).filter((service) => closing || service.clientStatus !== "cancelled");
+  const serviceMoney = (service: DeskService) => {
+    const totals = serviceTotals(service);
+    return serviceMode === "cost" ? totals.cost : totals.gross;
+  };
+  const serviceSum = serviceMode === "names" || serviceMode === "off"
+    ? 0
+    : services.reduce((sum, service) => sum + serviceMoney(service), 0);
+  const serviceDue = serviceMode === "sell"
+    ? services.reduce((sum, service) => sum + (service.paymentStatus === "paid" ? 0 : serviceMoney(service)), 0)
+    : 0;
+  if (serviceMode !== "off" && services.length) {
+    sheet.reserve(8);
+    const heading = sheet.reserve(16);
+    sheet.place("Services", sheet.left, heading - 12, 10, true, black);
+    const pricedServices = serviceMode !== "names";
+    const serviceWidths = pricedServices ? [221, 90, 42, 80, 90] : [370, 90, 63];
+    const serviceHeaders = pricedServices ? ["SERVICE", "DATE", "QTY", "RATE", "TOTAL"] : ["SERVICE", "DATE", "QTY"];
+    const serviceAligns = pricedServices ? [false, false, true, true, true] : [false, false, true];
+    const drawService = (cells: string[], header: boolean) => {
+      const rowTop = sheet.reserve(16);
+      const bottom = rowTop - 16;
+      if (header) sheet.fill(sheet.left, bottom, sheet.right - sheet.left, 16, head);
+      let x = sheet.left;
+      cells.forEach((text, index) => {
+        const end = serviceAligns[index];
+        sheet.place(
+          text,
+          end ? x + serviceWidths[index] - 3 : x + 3,
+          bottom + 4,
+          7,
+          header || end,
+          black,
+          end ? "end" : "start",
+          serviceWidths[index] - 6,
+        );
+        sheet.line(x, rowTop, x, bottom, rule);
+        x += serviceWidths[index];
+      });
+      sheet.line(sheet.right, rowTop, sheet.right, bottom, rule);
+      sheet.line(sheet.left, rowTop, sheet.right, rowTop, rule);
+      sheet.line(sheet.left, bottom, sheet.right, bottom, rule);
+    };
+    drawService(serviceHeaders, true);
+    for (const service of services) {
+      const totals = serviceTotals(service);
+      const cells = [service.typeName, gregorian(service.serviceDate), String(service.quantity)];
+      if (pricedServices) {
+        cells.push(
+          money(serviceMode === "cost" ? service.unitCost : service.unitPrice),
+          money(serviceMode === "cost" ? totals.cost : totals.gross),
+        );
+      }
+      drawService(cells, false);
+    }
+  }
+
   if (priced && input.sheet.total !== null) {
     sheet.reserve(8);
     const vat = input.sheet.vatAmount;
@@ -316,10 +387,11 @@ export function clientDocumentPdf(input: {
       ["Net Accommodation Charge", input.sheet.total, black, false],
     ];
     if (vat !== null) rows.push(["VAT Charge", vat, black, false]);
-    rows.push(["(SAR) TOTAL", input.sheet.total + (vat ?? 0), black, true]);
+    if (serviceSum) rows.push(["Services", serviceSum, black, false]);
+    rows.push(["(SAR) TOTAL", input.sheet.total + (vat ?? 0) + serviceSum, black, true]);
     if (input.paid !== null) rows.push([input.labels.paid.toUpperCase(), input.paid, paidColor, true]);
     if (input.refunded !== null) rows.push([input.labels.refund.toUpperCase(), input.refunded, refundColor, true]);
-    if (input.due !== null) rows.push(["REMAINING", input.due, dueColor, true]);
+    if (input.due !== null) rows.push(["REMAINING", input.due + serviceDue, dueColor, true]);
     for (const [label, amount, color, bold] of rows) {
       const rowTop = sheet.reserve(14);
       sheet.place(label, sheet.right - 78, rowTop - 11, 8, false, color, "end", 220);
@@ -358,6 +430,7 @@ export function supplierDocumentPdf(input: {
   labels: Labels;
   amendment: string;
   logo?: PdfRaster | null;
+  services?: DeskService[];
 }) {
   const leadKey =
     input.kind === "amendment"
@@ -410,6 +483,35 @@ export function supplierDocumentPdf(input: {
   sheet.text(`${input.labels.guest}: ${input.allotment.guestName}`);
   sheet.text(`${input.labels.client}: ${input.allotment.agencyName}`);
   if (input.parties.hotelPhone) sheet.caption(input.parties.hotelPhone);
+  if (input.kind !== "amendment") {
+    const services = (input.services ?? []).filter(
+      (service) =>
+        service.hotelId === input.allotment.hotelId &&
+        (input.kind === "cancel" || service.providerStatus !== "cancelled"),
+    );
+    if (services.length) {
+      sheet.gap(8);
+      sheet.text("Services", sheet.left, 10, true);
+      sheet.gap(4);
+      sheet.band([
+        { text: "SERVICE", width: 220 },
+        { text: "DATE", width: 90 },
+        { text: "QTY", width: 50, align: "end" },
+        { text: "COST", width: 80, align: "end" },
+        { text: "TOTAL", width: 83, align: "end" },
+      ]);
+      for (const service of services) {
+        const totals = serviceTotals(service);
+        sheet.columns([
+          { text: service.typeName, width: 220 },
+          { text: gregorian(service.serviceDate), width: 90 },
+          { text: String(service.quantity), width: 50, align: "end" },
+          { text: money(service.unitCost), width: 80, align: "end" },
+          { text: money(totals.cost), width: 83, align: "end" },
+        ]);
+      }
+    }
+  }
   if (input.amendment) {
     sheet.gap(6);
     let rest = input.amendment.trim();
@@ -417,6 +519,295 @@ export function supplierDocumentPdf(input: {
       sheet.caption(rest.slice(0, 110));
       rest = rest.slice(110).trim();
     }
+  }
+  return sheet.toBuffer();
+}
+
+export function receiptDocumentPdf(input: {
+  allotment: Allotment;
+  company: CompanyProfile;
+  logo?: PdfRaster | null;
+  title: string;
+  code: string;
+  rows: Array<[string, string]>;
+  amountLabel: string;
+  amount: string;
+  terms: string[];
+}) {
+  const sheet = createPdfSheet();
+  sheet.margin(86);
+  const today = new Date().toISOString().slice(0, 10);
+  const top = sheet.y();
+  const below = top - paintBrand(sheet, input.logo, input.company.name, sheet.left, top) - 8;
+  sheet.place(input.title.toUpperCase(), 230, top - 16, 16, true, black, "start", 210);
+  sheet.place(input.code, sheet.right, top - 16, 13, true, black, "end");
+  sheet.place(input.allotment.number, 230, top - 34, 9, true, black, "start", 250);
+  sheet.place(input.allotment.hotelName, sheet.left, below, 11, true, black, "start", 340);
+  sheet.place(`Date: ${gregorian(today)}    Hijri Date: ${hijri(today)}`, sheet.left, below - 16, 8, false, muted);
+  sheet.setY(below - 36);
+  for (const [label, value] of input.rows) {
+    const rowTop = sheet.reserve(16);
+    sheet.place(label, sheet.left + 3, rowTop - 12, 8, false, muted, "start", 140);
+    sheet.place(value, sheet.left + 150, rowTop - 12, 8, true, black, "start", 320);
+  }
+  sheet.reserve(8);
+  const totalTop = sheet.reserve(18);
+  sheet.place(input.amountLabel, sheet.right - 78, totalTop - 14, 8, false, black, "end", 220);
+  sheet.place(input.amount, sheet.right, totalTop - 14, 11, true, black, "end", 90);
+  if (input.terms.length) {
+    sheet.reserve(8);
+    const heading = sheet.reserve(16);
+    sheet.place("Terms & Conditions", sheet.left, heading - 12, 10, true, black);
+    for (const term of input.terms) {
+      for (const part of term.split(/\n+/)) {
+        for (const row of wrapLines(part, 96)) {
+          const lineTop = sheet.reserve(11);
+          sheet.place(row, sheet.left, lineTop - 9, 8, false, muted, "start", sheet.right - sheet.left);
+        }
+      }
+    }
+  }
+  paintFooter(sheet, input.company, today);
+  return sheet.toBuffer();
+}
+
+const invoiceLabels = {
+  en: {
+    title: "INVOICE",
+    lead: "Tax invoice",
+    bill: "Bill to",
+    guest: "Guest",
+    hotel: "Hotel",
+    booking: "Booking",
+    description: "Description",
+    qty: "Qty",
+    net: "Without VAT",
+    vat: "VAT",
+    total: "Total",
+    date: "Date",
+    hijri: "Hijri date",
+    cr: "CR",
+    vatNo: "VAT number",
+    mail: "Email",
+  },
+  ar: {
+    title: "فاتورة ضريبية",
+    lead: "فاتورة",
+    bill: "فاتورة إلى",
+    guest: "الضيف",
+    hotel: "الفندق",
+    booking: "الحجز",
+    description: "البيان",
+    qty: "الكمية",
+    net: "دون الضريبة",
+    vat: "الضريبة",
+    total: "الإجمالي",
+    date: "التاريخ",
+    hijri: "التاريخ الهجري",
+    cr: "السجل التجاري",
+    vatNo: "الرقم الضريبي",
+    mail: "البريد",
+  },
+} as const;
+
+function writeArabic(
+  sheet: Sheet,
+  text: string,
+  right: number,
+  baseline: number,
+  size: number,
+  color: (typeof black) | (typeof muted),
+  maxWidth: number,
+) {
+  const lines = arabicLines(text, size, maxWidth);
+  lines.forEach((line, index) => {
+    sheet.glyphs(line.ids, line.unicodes, right - line.width, baseline - index * (size + 3), size, color);
+  });
+  return Math.max(lines.length, 1);
+}
+
+export function issuedInvoicePdf(input: {
+  format?: "en" | "ar";
+  number: number;
+  issuedOn: string;
+  client: string;
+  clientVat?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  stays: Array<{
+    number: string;
+    hotel: string;
+    guest: string;
+    checkIn: string;
+    checkOut: string;
+    lines: Array<{ label: string; detail: string; quantity: number; net: number; vat: number; gross: number }>;
+  }>;
+  net: number;
+  vat: number;
+  gross: number;
+  company: CompanyProfile;
+  logo?: PdfRaster | null;
+}) {
+  const arabic = input.format === "ar";
+  const labels = arabic ? invoiceLabels.ar : invoiceLabels.en;
+  const sheet = createPdfSheet();
+  if (arabic) sheet.useArabic(arabicFontResource());
+  sheet.margin(86);
+  const top = sheet.y();
+  const below = top - paintBrand(sheet, input.logo, input.company.name, sheet.left, top) - 8;
+  if (arabic) {
+    writeArabic(sheet, labels.title, sheet.right, top - 16, 16, black, 250);
+    sheet.place(String(input.number), 110, top - 18, 13, true, black, "start");
+    writeArabic(sheet, labels.lead, sheet.right, top - 36, 9, black, 220);
+  } else {
+    sheet.place(labels.title, 230, top - 16, 16, true, black, "start", 180);
+    sheet.place(String(input.number), sheet.right, top - 16, 13, true, black, "end");
+    sheet.place(labels.lead, 230, top - 34, 9, true, black, "start", 220);
+  }
+  const address = input.address?.trim() || (arabic ? input.company.address.ar : input.company.address.en);
+  const addressLines = arabic ? arabicLines(address, 7, 168) : wrapLines(address, 34).map((line) => line);
+  if (arabic) {
+    addressLines.forEach((line, index) => {
+      if (typeof line === "string") return;
+      sheet.glyphs(line.ids, line.unicodes, sheet.left + 168 - line.width, below - index * 10, 7, muted);
+    });
+    if (input.company.vatNumber) {
+      writeArabic(
+        sheet,
+        `${labels.vatNo} ${input.company.vatNumber}`,
+        sheet.left + 168,
+        below - addressLines.length * 10,
+        7,
+        muted,
+        168,
+      );
+    }
+  } else {
+    (addressLines as string[]).forEach((line, index) => {
+      sheet.place(line, sheet.right, below - index * 11, 7, false, muted, "end", 168);
+    });
+    if (input.company.vatNumber) {
+      sheet.place(
+        `${labels.vatNo}: ${input.company.vatNumber}`,
+        sheet.right,
+        below - addressLines.length * 11,
+        7,
+        false,
+        muted,
+        "end",
+        168,
+      );
+    }
+  }
+  const facts = [
+    [labels.bill, input.client],
+    [labels.guest, input.stays.map((stay) => stay.guest).filter(Boolean)[0] ?? ""],
+    [labels.hotel, input.stays.map((stay) => stay.hotel).filter(Boolean).join(", ")],
+    [labels.booking, input.stays.map((stay) => stay.number).join(", ")],
+    [labels.vatNo, input.clientVat ?? ""],
+    [labels.mail, input.email ?? ""],
+    [labels.date, `${gregorian(input.issuedOn)}    ${labels.hijri}: ${hijri(input.issuedOn)}`],
+  ].filter((row) => row[1]);
+  let cursor = below - 16;
+  for (const [label, value] of facts) {
+    if (arabic) {
+      writeArabic(sheet, label, sheet.right, cursor, 8, muted, 90);
+      if (/[\u0600-\u06FF]/.test(value)) writeArabic(sheet, value, sheet.right - 100, cursor, 8, black, 280);
+      else sheet.place(value, sheet.right - 108, cursor, 8, true, black, "end", 280);
+    } else {
+      sheet.place(label, sheet.left, cursor, 8, false, muted, "start", 84);
+      sheet.place(value, sheet.left + 92, cursor, 8, true, black, "start", 280);
+    }
+    cursor -= 13;
+  }
+  sheet.setY(cursor - 10);
+  const widths = [243, 40, 80, 80, 80];
+  const headers = [labels.description, labels.qty, labels.net, labels.vat, labels.total];
+  const draw = (cells: string[], header: boolean, arabicCells = false) => {
+    const rowTop = sheet.reserve(16);
+    const bottom = rowTop - 16;
+    if (header) sheet.fill(sheet.left, bottom, sheet.right - sheet.left, 16, head);
+    let x = arabicCells ? sheet.right : sheet.left;
+    if (arabicCells) sheet.line(sheet.right, rowTop, sheet.right, bottom, rule);
+    cells.forEach((text, index) => {
+      const width = widths[arabicCells ? index : index];
+      if (arabicCells) x -= width;
+      const numeric = index > 0;
+      if (arabicCells && !numeric) {
+        const run = arabicLines(text, 7, width - 6)[0];
+        if (run) sheet.glyphs(run.ids, run.unicodes, x + width - 3 - run.width, bottom + 4, 7, black);
+      } else if (arabicCells && header) {
+        const run = arabicLines(text, 7, width - 6)[0];
+        if (run) sheet.glyphs(run.ids, run.unicodes, x + 3, bottom + 4, 7, black);
+      } else {
+        const end = numeric;
+        sheet.place(
+          text,
+          end ? x + width - 3 : x + 3,
+          bottom + 4,
+          7,
+          header || end,
+          black,
+          end ? "end" : "start",
+          width - 6,
+        );
+      }
+      sheet.line(x, rowTop, x, bottom, rule);
+      if (!arabicCells) x += width;
+    });
+    sheet.line(arabicCells ? sheet.left : sheet.right, rowTop, arabicCells ? sheet.left : sheet.right, bottom, rule);
+    sheet.line(sheet.left, rowTop, sheet.right, rowTop, rule);
+    sheet.line(sheet.left, bottom, sheet.right, bottom, rule);
+  };
+  for (const stay of input.stays) {
+    sheet.reserve(8);
+    const heading = sheet.reserve(28);
+    const stayTitle = `${stay.number}  ${stay.hotel}`;
+    const stayMeta = `${stay.guest}    ${gregorian(stay.checkIn)} - ${gregorian(stay.checkOut)}    ${hijri(stay.checkIn)} - ${hijri(stay.checkOut)}`;
+    if (arabic) {
+      writeArabic(sheet, stayTitle, sheet.right, heading - 12, 10, black, 500);
+      sheet.place(stayMeta, sheet.right, heading - 24, 8, false, muted, "end", 500);
+    } else {
+      sheet.place(stayTitle, sheet.left, heading - 12, 10, true, black, "start", 500);
+      sheet.place(stayMeta, sheet.left, heading - 24, 8, false, muted, "start", 500);
+    }
+    draw(headers, true, arabic);
+    for (const line of stay.lines) {
+      const label = line.detail ? `${line.label}  ${line.detail}` : line.label;
+      draw(
+        [label, String(line.quantity), money(line.net), money(line.vat), money(line.gross)],
+        false,
+        arabic,
+      );
+    }
+  }
+  sheet.reserve(12);
+  const totals: Array<[string, number, boolean]> = [
+    [labels.net, input.net, false],
+    [labels.vat, input.vat, false],
+    [labels.total, input.gross, true],
+  ];
+  for (const [label, amount, strong] of totals) {
+    const rowTop = sheet.reserve(16);
+    if (arabic) writeArabic(sheet, label, sheet.right - 78, rowTop - 12, 8, black, 160);
+    else sheet.place(label, sheet.right - 78, rowTop - 12, 8, strong, black, "end", 160);
+    sheet.place(money(amount), sheet.right, rowTop - 12, strong ? 11 : 8, true, black, "end", 90);
+  }
+  const qrTop = sheet.reserve(84);
+  paintQr(sheet, String(input.number), sheet.left + (sheet.right - sheet.left - 64) / 2, qrTop - 4, 64);
+  if (arabic) {
+    sheet.stamp(() => {
+      const bottom = 28;
+      sheet.fill(sheet.left, bottom, sheet.right - sheet.left, 46, [0.98, 0.985, 0.99]);
+      sheet.stroke(sheet.left, bottom, sheet.right - sheet.left, 46, rule);
+      writeArabic(sheet, input.company.legalName || input.company.name, sheet.right - 8, bottom + 30, 8, black, 280);
+      sheet.place(`${gregorian(input.issuedOn)}    ${hijri(input.issuedOn)}`, sheet.left + 8, bottom + 30, 8, false, muted, "start");
+      writeArabic(sheet, `${labels.cr} ${input.company.commercialRegistration}`, sheet.right - 8, bottom + 12, 8, black, 180);
+      writeArabic(sheet, `${labels.vatNo} ${input.company.vatNumber}`, sheet.right - 200, bottom + 12, 8, black, 180);
+    });
+  } else {
+    paintFooter(sheet, input.company, input.issuedOn);
   }
   return sheet.toBuffer();
 }

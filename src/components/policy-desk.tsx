@@ -1,11 +1,15 @@
 "use client";
 
 import {
+  addContractPolicyAction,
+  addContractPolicyFromTemplateAction,
   addPolicyTemplateAction,
   addReservationPolicyAction,
   addReservationPolicyFromTemplateAction,
+  deleteContractPolicyAction,
   deletePolicyTemplateAction,
   deleteReservationPolicyAction,
+  saveContractPolicyAction,
   savePolicyTemplateAction,
   saveReservationPolicyAction,
 } from "@/app/admin/policies/actions";
@@ -18,17 +22,37 @@ export function PolicyDesk({
   items,
   templates = [],
   allotmentId,
+  purchaseId,
   copy,
   empty,
 }: {
   items: PolicyText[];
   templates?: PolicyText[];
   allotmentId?: string;
+  purchaseId?: string;
   copy: AdminCopy;
   empty: string;
 }) {
-  const save = allotmentId ? saveReservationPolicyAction : savePolicyTemplateAction;
-  const remove = allotmentId ? deleteReservationPolicyAction : deletePolicyTemplateAction;
+  const ownerId = allotmentId ?? purchaseId;
+  const ownerField = allotmentId ? "allotmentId" : "purchaseId";
+  const save = allotmentId
+    ? saveReservationPolicyAction
+    : purchaseId
+      ? saveContractPolicyAction
+      : savePolicyTemplateAction;
+  const remove = allotmentId
+    ? deleteReservationPolicyAction
+    : purchaseId
+      ? deleteContractPolicyAction
+      : deletePolicyTemplateAction;
+  const add = allotmentId
+    ? addReservationPolicyAction
+    : purchaseId
+      ? addContractPolicyAction
+      : addPolicyTemplateAction;
+  const addFromTemplate = allotmentId
+    ? addReservationPolicyFromTemplateAction
+    : addContractPolicyFromTemplateAction;
 
   return (
     <section className="overflow-hidden rounded-lg border border-[var(--desk-line)] bg-white shadow-sm">
@@ -56,13 +80,13 @@ export function PolicyDesk({
                     cancelLabel={copy.mailNotifyBack}
                     trigger={copy.policyDelete}
                     action={remove}
-                    fields={allotmentId ? { id: item.id, allotmentId } : { id: item.id }}
+                    fields={ownerId ? { id: item.id, [ownerField]: ownerId } : { id: item.id }}
                     triggerClassName="desk-focus shrink-0 text-sm font-semibold text-[var(--desk-danger)]"
                   />
                 </div>
                 <form id={formId} action={save} className="grid gap-3">
                   <input type="hidden" name="id" value={item.id} />
-                  {allotmentId ? <input type="hidden" name="allotmentId" value={allotmentId} /> : null}
+                  {ownerId ? <input type="hidden" name={ownerField} value={ownerId} /> : null}
                   <label className="grid gap-1.5 text-sm">
                     <span className="text-[13px] font-medium text-[var(--desk-muted)]">{copy.mailTemplateEnglish}</span>
                     <textarea
@@ -98,15 +122,15 @@ export function PolicyDesk({
         <p className="px-4 py-4 text-sm text-[var(--desk-muted)] sm:px-5">{empty}</p>
       )}
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--desk-line)] px-4 py-3 sm:px-5">
-        <form action={allotmentId ? addReservationPolicyAction : addPolicyTemplateAction}>
-          {allotmentId ? <input type="hidden" name="allotmentId" value={allotmentId} /> : null}
+        <form action={add}>
+          {ownerId ? <input type="hidden" name={ownerField} value={ownerId} /> : null}
           <button type="submit" className={adminButtonSecondaryClass}>
-            {allotmentId ? copy.policyWrite : copy.policyAdd}
+            {ownerId ? copy.policyWrite : copy.policyAdd}
           </button>
         </form>
-        {allotmentId && templates.length ? (
-          <form action={addReservationPolicyFromTemplateAction} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <input type="hidden" name="allotmentId" value={allotmentId} />
+        {ownerId && templates.length ? (
+          <form action={addFromTemplate} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <input type="hidden" name={ownerField} value={ownerId} />
             <select name="templateId" required defaultValue="" className={`${adminFieldClass} min-w-48 flex-1`}>
               <option value="" disabled>
                 {copy.policyFromTemplate}

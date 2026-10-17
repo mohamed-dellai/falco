@@ -1,14 +1,21 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
+import { currentAdmin, requireAdmin } from "@/lib/admin-auth";
 import { getAdminLocale } from "@/lib/admin-locale";
+import {
+  assignContractPeriodPolicy,
+  createContractPolicy,
+  deleteContractPolicy,
+  saveContractPolicyText,
+} from "@/lib/contracts";
 import {
   addPolicyTemplate,
   addReservationPolicy,
   addReservationPolicyFromTemplate,
   deletePolicyTemplate,
   deleteReservationPolicy,
+  getPolicyTemplate,
   savePolicyTemplate,
   saveReservationPolicy,
 } from "@/lib/policies";
@@ -84,4 +91,80 @@ export async function deleteReservationPolicyAction(formData: FormData) {
   const allotmentId = text(formData, "allotmentId");
   await deleteReservationPolicy(allotmentId, text(formData, "id"));
   redirect(details(allotmentId, "saved"));
+}
+
+function contractPolicies(id: string, flag: "saved" | "error") {
+  return flag === "saved"
+    ? `/admin/purchases/${id}/policies?saved=policy`
+    : `/admin/purchases/${id}/policies?error=invalid`;
+}
+
+export async function addContractPolicyAction(formData: FormData) {
+  await requireAdmin();
+  const purchaseId = text(formData, "purchaseId");
+  const locale = await getAdminLocale();
+  const admin = await currentAdmin();
+  const id = await createContractPolicy({
+    purchaseId,
+    name: locale === "fr" ? "Politique" : "Policy",
+    generalTerms: "",
+    cancellationTerms: "",
+    paymentTerms: "",
+    releaseDays: 0,
+    refundable: true,
+    actorId: admin?.id,
+  });
+  redirect(id ? contractPolicies(purchaseId, "saved") : contractPolicies(purchaseId, "error"));
+}
+
+export async function addContractPolicyFromTemplateAction(formData: FormData) {
+  await requireAdmin();
+  const purchaseId = text(formData, "purchaseId");
+  const template = await getPolicyTemplate(text(formData, "templateId"));
+  const admin = await currentAdmin();
+  const id = template
+    ? await createContractPolicy({
+        purchaseId,
+        name: template.name,
+        generalTerms: template.content,
+        cancellationTerms: "",
+        paymentTerms: "",
+        releaseDays: 0,
+        refundable: true,
+        contentAr: template.contentAr,
+        actorId: admin?.id,
+      })
+    : null;
+  redirect(id ? contractPolicies(purchaseId, "saved") : contractPolicies(purchaseId, "error"));
+}
+
+export async function saveContractPolicyAction(formData: FormData) {
+  await requireAdmin();
+  const purchaseId = text(formData, "purchaseId");
+  const saved = await saveContractPolicyText(
+    purchaseId,
+    text(formData, "id"),
+    text(formData, "name"),
+    text(formData, "content"),
+    text(formData, "contentAr"),
+  );
+  redirect(saved ? contractPolicies(purchaseId, "saved") : contractPolicies(purchaseId, "error"));
+}
+
+export async function deleteContractPolicyAction(formData: FormData) {
+  await requireAdmin();
+  const purchaseId = text(formData, "purchaseId");
+  await deleteContractPolicy(purchaseId, text(formData, "id"));
+  redirect(contractPolicies(purchaseId, "saved"));
+}
+
+export async function assignContractPeriodPolicyAction(formData: FormData) {
+  await requireAdmin();
+  const purchaseId = text(formData, "purchaseId");
+  const saved = await assignContractPeriodPolicy(
+    purchaseId,
+    text(formData, "periodId"),
+    text(formData, "policyId"),
+  );
+  redirect(saved ? contractPolicies(purchaseId, "saved") : contractPolicies(purchaseId, "error"));
 }

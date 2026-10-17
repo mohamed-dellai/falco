@@ -7,6 +7,7 @@ import { getAllotment } from "@/lib/inventory";
 import { pdfFile } from "@/lib/plain-pdf";
 import { documentParties, isSupplierDocument, type SupplierDocumentKind } from "@/lib/reservation-documents";
 import { supplierDocumentPdf } from "@/lib/reservation-pdf";
+import { listDeskServices } from "@/lib/services";
 import { appendReservationEvent } from "@/lib/reservations";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,11 @@ export async function GET(
   const lines = allotment.lines.filter((line) => lineIds.includes(line.id));
   if (!lines.length) notFound();
   const copy = adminCopy("en");
-  const [parties, company, logo] = await Promise.all([
+  const [parties, company, logo, services] = await Promise.all([
     documentParties(allotment.id),
     getCompanyProfile(),
     documentLogo(),
+    listDeskServices({ allotmentId: allotment.id }),
   ]);
   const amendment = (query.get("amendmentDetails") ?? "").slice(0, 2000);
   const rooming = query.get("roomingList") === "on"
@@ -53,6 +55,7 @@ export async function GET(
     title: copy[titles[kind]],
     amendment: [amendment, rooming].filter(Boolean).join("\n"),
     logo,
+    services,
     labels: {
       room: copy.roomType,
       view: copy.viewName,

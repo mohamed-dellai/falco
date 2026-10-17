@@ -147,6 +147,91 @@
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 
+  .folio-index {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.2rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--desk-line);
+    scrollbar-width: none;
+  }
+
+  .folio-index::-webkit-scrollbar {
+    display: none;
+  }
+
+  .folio-tab {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: -1px;
+    padding: 0.6rem 0.95rem 0.7rem;
+    border: 1px solid transparent;
+    border-radius: 0.7rem 0.7rem 0 0;
+    background: transparent;
+    color: var(--desk-muted);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .folio-tab:hover {
+    color: var(--desk-ink);
+    background: color-mix(in srgb, var(--desk-primary-soft) 72%, white);
+  }
+
+  .folio-tab[aria-current="page"] {
+    border-color: var(--desk-line);
+    border-bottom-color: var(--desk-canvas);
+    background: var(--desk-surface);
+    color: var(--desk-ink);
+    font-weight: 700;
+  }
+
+  .folio-spine {
+    position: absolute;
+    top: 0;
+    left: 0.85rem;
+    width: 1.35rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--desk-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+    pointer-events: none;
+    transition: transform 180ms ease;
+  }
+
+  .folio-tab:hover .folio-spine {
+    transform: scaleX(1);
+  }
+
+  .folio-tab[aria-current="page"] .folio-spine {
+    top: -1px;
+    left: -1px;
+    width: calc(100% + 2px);
+    height: 3px;
+    border-radius: 0.7rem 0.7rem 0 0;
+    transform: scaleX(1);
+  }
+
+  .folio-due {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--desk-gold);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--desk-gold) 22%, white);
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .cap-fill {
       transform-origin: left center;
@@ -220,5 +305,10 @@
   .desk-press {
     animation: none;
     transform: none;
+  }
+
+  .folio-spine,
+  .folio-tab {
+    transition: none;
   }
 }
