@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { agencySignOutAction } from "@/app/[locale]/hotels/agency-actions";
 import { AgencyHotelList } from "@/components/agency-hotel-list";
 import { HotelCatalog } from "@/components/agency-hotel-browser";
-import { Link } from "@/i18n/navigation";
+import { AgencyPortalNav } from "@/components/agency-portal-nav";
 import { localeAlternates, type Locale } from "@/i18n/routing";
 import { agencyPortalName, currentAgency } from "@/lib/agency-auth";
 import {
+  catalogHref,
   catalogViews,
   filterCatalog,
   parseCatalogFilters,
@@ -59,11 +61,23 @@ export default async function HotelsPage({
   }));
   const stay = parseStay(filters.checkIn, filters.checkOut);
   const agency = await currentAgency();
+  if (!agency) {
+    const next = `/${locale}${catalogHref(filters)}`;
+    redirect(`/${locale}/hotels/login?next=${encodeURIComponent(next)}`);
+  }
   const listed = await listAgencyCatalog(stay);
-  const catalog = agency
-    ? await withAgencyRates(listed, agency.id, stay)
-    : listed;
-  const hotels = filterCatalog(catalog, filters);
+  const priced = await withAgencyRates(listed, agency.id, stay);
+  const available = stay
+    ? priced
+        .map((hotel) => ({
+          ...hotel,
+          rooms: hotel.rooms.filter(
+            (room) => room.saleMode === "request" || (room.open ?? 0) > 0,
+          ),
+        }))
+        .filter((hotel) => hotel.rooms.length > 0)
+    : priced;
+  const hotels = stay ? filterCatalog(available, filters) : [];
 
   return (
     <section className="section-space">
@@ -75,34 +89,23 @@ export default async function HotelsPage({
         <p className="mt-4 max-w-2xl text-base leading-8 text-muted">
           {t("description")}
         </p>
-        <div className="mt-6 flex items-center gap-4 text-sm">
-          {agency ? (
-            <div className="flex flex-wrap items-center gap-4">
-              <span>{t("signedIn", { name: agencyPortalName(agency, locale) })}</span>
-              <Link href="/hotels/basket" className="font-semibold text-primary underline">
-                {t("basket")}
-              </Link>
-              <Link href="/hotels/reservations" className="font-semibold text-primary underline">
-                {t("reservations")}
-              </Link>
-              <form action={agencySignOutAction}>
-                <input type="hidden" name="locale" value={locale} />
-                <button type="submit" className="font-semibold text-primary underline">
-                  {t("signOut")}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <Link href="/hotels/login" className="font-semibold text-primary underline">
-              {t("signIn")}
-            </Link>
-          )}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-4">
+            <span>{t("signedIn", { name: agencyPortalName(agency, locale) })}</span>
+            <form action={agencySignOutAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <button type="submit" className="font-semibold text-primary underline">
+                {t("signOut")}
+              </button>
+            </form>
+          </div>
+          <AgencyPortalNav locale={locale} active="hotels" />
         </div>
         <div className="mt-8">
           <HotelCatalog
             key={JSON.stringify(filters)}
             filters={filters}
-            views={catalogViews(catalog)}
+            views={catalogViews(priced)}
             boards={boards}
             minDate={todayInRiyadh()}
             count={hotels.length}
@@ -111,7 +114,8 @@ export default async function HotelsPage({
               hotels={hotels}
               filters={filters}
               dated={Boolean(stay)}
-              datesMiss={Boolean(stay) && catalog.length === 0}
+              needsDates={!stay}
+              datesMiss={Boolean(stay) && available.length === 0}
             />
           </HotelCatalog>
         </div>

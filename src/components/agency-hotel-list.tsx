@@ -12,17 +12,28 @@ export async function AgencyHotelList({
   hotels,
   filters,
   dated,
+  needsDates,
   datesMiss,
 }: {
   hotels: Catalog;
   filters: CatalogFilters;
   dated: boolean;
+  needsDates: boolean;
   datesMiss: boolean;
 }) {
   const t = await getTranslations("Hotels");
   const search = await getTranslations("Search");
   const common = await getTranslations("Common");
   const locale = await getLocale();
+
+  if (needsDates) {
+    return (
+      <div className="mt-5 max-w-3xl rounded-2xl border border-line bg-white p-6">
+        <h3 className="font-bold text-ink">{t("chooseDates")}</h3>
+        <p className="mt-1 text-sm leading-6 text-muted">{t("chooseDatesHint")}</p>
+      </div>
+    );
+  }
 
   if (!hotels.length) {
     return (

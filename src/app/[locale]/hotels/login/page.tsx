@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { agencySignInAction } from "@/app/[locale]/hotels/agency-actions";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
+import { agencyReturnPath, currentAgency } from "@/lib/agency-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +12,15 @@ export default async function AgencyLoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: Locale }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
   setRequestLocale(locale);
+  if (await currentAgency()) {
+    redirect(agencyReturnPath(locale, query.next ?? ""));
+  }
+  const next = agencyReturnPath(locale, query.next ?? "");
   const t = await getTranslations("Hotels");
 
   return (
@@ -29,6 +35,7 @@ export default async function AgencyLoginPage({
         ) : null}
         <form action={agencySignInAction} className="mt-8 grid gap-4">
           <input type="hidden" name="locale" value={locale} />
+          <input type="hidden" name="next" value={next} />
           <label className="grid gap-2 text-sm font-semibold text-primary">
             {t("loginEmail")}
             <input

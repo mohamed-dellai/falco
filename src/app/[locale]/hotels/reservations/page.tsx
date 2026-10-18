@@ -33,6 +33,7 @@ function labels(locale: Locale) {
       confirmed: "Confirmée",
       cancelled: "Annulée",
       no_show: "No-show",
+      unavailable: "Indisponible",
       regret: "Non disponible",
     };
   if (locale === "ar")
@@ -58,6 +59,7 @@ function labels(locale: Locale) {
       confirmed: "مؤكد",
       cancelled: "ملغي",
       no_show: "عدم حضور",
+      unavailable: "غير متوفر",
       regret: "غير متاح",
     };
   if (locale === "it")
@@ -83,6 +85,7 @@ function labels(locale: Locale) {
       confirmed: "Confermata",
       cancelled: "Annullata",
       no_show: "No-show",
+      unavailable: "Non disponibile",
       regret: "Non disponible",
     };
   return {
@@ -107,6 +110,7 @@ function labels(locale: Locale) {
     confirmed: "Confirmed",
     cancelled: "Cancelled",
     no_show: "No-show",
+    unavailable: "Unavailable",
     regret: "Cannot provide",
   };
 }
@@ -129,7 +133,11 @@ export default async function AgencyReservationsPage({
   const query = await searchParams;
   const copy = labels(locale);
   const agency = await currentAgency();
-  if (!agency) redirect(`/${locale}/hotels/login`);
+  if (!agency) {
+    redirect(
+      `/${locale}/hotels/login?next=${encodeURIComponent(`/${locale}/hotels/reservations`)}`,
+    );
+  }
   const reservations = await listAgencyReservations(agency.id);
   const view = ["active", "closed"].includes(query.view ?? "")
     ? query.view
@@ -141,6 +149,7 @@ export default async function AgencyReservationsPage({
     "confirmed",
     "cancelled",
     "no_show",
+    "unavailable",
     "regret",
   ];
   const status = statuses.includes(query.status ?? "") ? query.status ?? "" : "";
@@ -158,7 +167,13 @@ export default async function AgencyReservationsPage({
   const statusLabel = (status: string) =>
     copy[status as keyof Pick<
       typeof copy,
-      "request" | "provisional" | "confirmed" | "cancelled" | "no_show" | "regret"
+      | "request"
+      | "provisional"
+      | "confirmed"
+      | "cancelled"
+      | "no_show"
+      | "unavailable"
+      | "regret"
     >] ?? status;
 
   return (

@@ -720,25 +720,18 @@ export function AllotmentForm({
               {source === "direct" ? copy.saleHotelDirect : copy.saleFromContract}
             </span>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {(["contract", "direct"] as const).map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  onClick={() => {
-                    setSource(choice);
-                    setLines([emptyLine(undefined, locale, copy)]);
-                  }}
-                  className={`desk-focus rounded border px-3 py-1.5 text-xs font-semibold ${
-                    source === choice
-                      ? "border-[var(--desk-primary)] bg-[var(--desk-primary-soft)] text-[var(--desk-primary)]"
-                      : "border-[var(--desk-line)] bg-white text-[var(--desk-ink)]"
-                  }`}
-                >
-                  {choice === "direct" ? copy.saleHotelDirect : copy.saleFromContract}
-                </button>
-              ))}
-            </div>
+            <select
+              value={source}
+              onChange={(event) => {
+                const choice = event.target.value === "direct" ? "direct" : "contract";
+                setSource(choice);
+                setLines([emptyLine(undefined, locale, copy)]);
+              }}
+              className={`${adminFieldClass} max-w-xs`}
+            >
+              <option value="contract">{copy.saleFromContract}</option>
+              <option value="direct">{copy.saleHotelDirect}</option>
+            </select>
           )}
           <p className="text-xs text-[var(--desk-muted)]">
             {source === "direct" ? copy.directTotalsHint : copy.contractRateHint}

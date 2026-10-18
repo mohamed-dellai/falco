@@ -201,7 +201,11 @@ export default async function BasketPage({
   setRequestLocale(locale);
   const copy = labels(locale);
   const agency = await currentAgency();
-  if (!agency) redirect(`/${locale}/hotels/login`);
+  if (!agency) {
+    redirect(
+      `/${locale}/hotels/login?next=${encodeURIComponent(`/${locale}/hotels/basket`)}`,
+    );
+  }
   const cart = await getAgencyCart(agency.id);
   const hotels = await getTranslations("Hotels");
   const uniquePolicies = cart

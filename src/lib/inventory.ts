@@ -3817,7 +3817,6 @@ async function guardHoldingLines(
     channel: string;
     checkIn: string;
     checkOut: string;
-    saleSource: "contract" | "direct";
   },
   lines: HoldingLine[],
   allowOverbook: boolean,
@@ -3828,7 +3827,6 @@ async function guardHoldingLines(
   if (allotment.status !== "provisional" && allotment.status !== "confirmed") {
     return { ok: true as const };
   }
-  if (allotment.saleSource === "direct") return { ok: true as const };
   const holding = lines.filter(
     (line) =>
       line.contractPeriodId &&
@@ -4014,7 +4012,6 @@ export async function saveReservationHeader(input: {
             channel: existing.channel,
             checkIn: input.checkIn,
             checkOut: input.checkOut,
-            saleSource: currentSource,
           },
           lines,
           true,
@@ -4193,7 +4190,6 @@ export async function addReservationLine(input: {
       return { ok: false as const, error: "allotment" as const };
     }
     if (!allotment.hotel_id) return { ok: false as const, error: "hotel" as const };
-    const saleSource = allotment.sale_source === "direct" ? "direct" : "contract";
     const existing = await sql.query<HoldingLine>(
       `SELECT contract_period_id AS "contractPeriodId", quantity,
               supplier_status AS "supplierStatus"
@@ -4201,7 +4197,7 @@ export async function addReservationLine(input: {
       [allotment.id],
     );
     let preparedLine: AllotmentLineInput;
-    if (saleSource === "direct") {
+    if (input.direct) {
       const direct = input.direct;
       if (
         !direct ||
@@ -4291,7 +4287,6 @@ export async function addReservationLine(input: {
         channel: allotment.channel,
         checkIn: allotment.check_in,
         checkOut: allotment.check_out,
-        saleSource,
       },
       [
         ...existing,
@@ -4394,7 +4389,6 @@ export async function updateReservationLine(input: {
         channel: allotment.channel,
         checkIn: allotment.check_in,
         checkOut: allotment.check_out,
-        saleSource: allotment.sale_source === "direct" ? "direct" : "contract",
       },
       next,
       Boolean(input.allowOverbook),

@@ -43,6 +43,16 @@ export function agencyPortalName(
   return locale === "ar" && arabic ? arabic : agency.name;
 }
 
+export function agencyReturnPath(locale: string, value: string) {
+  const fallback = `/${locale}/hotels`;
+  if (!value.startsWith(`/${locale}/hotels`)) return fallback;
+  if (value.startsWith(`/${locale}/hotels/login`)) return fallback;
+  if (value.includes("://") || value.includes("\\") || value.includes("//")) {
+    return fallback;
+  }
+  return value;
+}
+
 export async function currentAgency(): Promise<AgencySession | null> {
   const agencyId = readSession((await cookies()).get(cookieName)?.value);
   if (!agencyId) return null;

@@ -197,6 +197,8 @@
     "listedRooms": "{count, plural, one {# room listed} other {# rooms listed}}",
     "noMatches": "No hotels match these filters.",
     "noMatchesHint": "Clear a filter or try another city.",
+    "chooseDates": "Choose dates to see what is open",
+    "chooseDatesHint": "Set a check-in and a check-out. Add a hotel name when you want one hotel.",
     "noDatedRooms": "No dated rooms listed yet.",
     "viewHotel": "View hotel",
     "rateNote": "Agency rates are confirmed when you request the rooms."

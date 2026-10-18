@@ -598,7 +598,16 @@ function MobileNavigation({ fresh }: { fresh: number }) {
         kind: child.kind,
       }));
       if (primary) return children;
-      return [{ href: item.href, label: item.label, icon: item.icon, kind: "prefix" as const }, ...children];
+      if (children.some((child) => child.href === item.href)) return children;
+      return [
+        {
+          href: item.href,
+          label: item.label,
+          icon: item.icon,
+          kind: "prefix" as const,
+        },
+        ...children,
+      ];
     }),
   );
   const search = useSearchParams().toString();
@@ -668,7 +677,7 @@ function MobileNavigation({ fresh }: { fresh: number }) {
             </button>
           </div>
           <nav className="mt-3 grid gap-1">
-            {moreItems.map((item) => {
+            {moreItems.map((item, index) => {
               const Icon = item.icon;
               const active =
                 "kind" in item
@@ -676,7 +685,7 @@ function MobileNavigation({ fresh }: { fresh: number }) {
                   : isActive(pathname, item);
               return (
                 <Link
-                  key={item.href}
+                  key={`${index}:${item.label}:${item.href}`}
                   href={item.href}
                   onClick={() => setOpen(false)}
                   aria-current={active ? "page" : undefined}

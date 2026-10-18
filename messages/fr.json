@@ -197,6 +197,8 @@
     "listedRooms": "{count, plural, one {# chambre au catalogue} other {# chambres au catalogue}}",
     "noMatches": "Aucun hôtel ne correspond à ces filtres.",
     "noMatchesHint": "Effacez un filtre ou essayez une autre ville.",
+    "chooseDates": "Choisissez les dates pour voir les disponibilités",
+    "chooseDatesHint": "Indiquez l’arrivée et le départ. Ajoutez le nom de l’hôtel pour n’en voir qu’un.",
     "noDatedRooms": "Aucune chambre datée n’est encore au catalogue.",
     "viewHotel": "Voir l’hôtel",
     "rateNote": "Le tarif agence est confirmé lorsque vous demandez les chambres."

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { bookAgencyOfferAction } from "@/app/[locale]/hotels/agency-actions";
 import { HotelLocationMap } from "@/components/hotel-map";
 import { RoomRequest } from "@/components/room-request";
@@ -55,12 +55,12 @@ export default async function HotelPage({
   const hotel = await getHotel(id);
   if (!hotel?.publishedDesk) notFound();
   const agency = await currentAgency();
+  if (!agency) {
+    const next = catalogHref(filters, `/${locale}/hotels/${id}`);
+    redirect(`/${locale}/hotels/login?next=${encodeURIComponent(next)}`);
+  }
   const listed = stay ? await getShowcaseHotel(id, stay) : null;
-  const priced = listed
-    ? agency
-      ? await withAgencyRates([listed], agency.id, stay)
-      : [listed]
-    : [];
+  const priced = listed ? await withAgencyRates([listed], agency.id, stay) : [];
   const rooms = priced[0]?.rooms ?? [];
   const booked = typeof query.booked === "string" ? query.booked : "";
   const kind = query.kind === "request" ? "request" : "provisional";
@@ -303,9 +303,9 @@ export default async function HotelPage({
                       ? `${t("companyRate")} ${formatMoney(room.agencyPricePerNight, locale)}`
                       : t("rateOnRequest")}
                   </p>
-                  {agency &&
-                  room.agencyPricePerNight != null &&
-                  room.contractPeriodId ? (
+                  {room.agencyPricePerNight != null &&
+                  room.contractPeriodId &&
+                  (room.saleMode === "request" || (room.open ?? 0) > 0) ? (
                     <form action={bookAgencyOfferAction} className="mt-4 flex flex-wrap items-end gap-3">
                       <input type="hidden" name="locale" value={locale} />
                       <input type="hidden" name="hotelId" value={hotel.id} />
@@ -322,7 +322,7 @@ export default async function HotelPage({
                           name="quantity"
                           type="number"
                           min={1}
-                          max={room.saleMode === "request" || (room.open ?? 0) < 1 ? 50 : room.open ?? 1}
+                          max={room.saleMode === "request" ? 50 : room.open ?? 1}
                           defaultValue={1}
                           className="w-24 rounded-xl border border-line px-3 py-2 font-normal"
                         />
@@ -334,6 +334,10 @@ export default async function HotelPage({
                         {t("addToBasket")}
                       </button>
                     </form>
+                  ) : room.agencyPricePerNight != null ? (
+                    <p className="mt-4 text-sm font-semibold text-muted">
+                      {t("fullyAllotted")}
+                    </p>
                   ) : (
                     <RoomRequest
                       hotelId={hotel.id}

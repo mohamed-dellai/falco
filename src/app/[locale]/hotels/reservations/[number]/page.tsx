@@ -49,6 +49,7 @@ function labels(locale: Locale) {
       confirmed: "Confirmée",
       cancelled: "Annulée",
       no_show: "No-show",
+      unavailable: "Indisponible",
       regret: "Non disponible",
       room_only: "Sans repas",
       breakfast: "Petit-déjeuner",
@@ -98,6 +99,7 @@ function labels(locale: Locale) {
       confirmed: "مؤكد",
       cancelled: "ملغي",
       no_show: "عدم حضور",
+      unavailable: "غير متوفر",
       regret: "غير متاح",
       room_only: "بدون وجبات",
       breakfast: "إفطار",
@@ -148,6 +150,7 @@ function labels(locale: Locale) {
       confirmed: "Confermata",
       cancelled: "Annullata",
       no_show: "No-show",
+      unavailable: "Non disponibile",
       regret: "Non disponible",
       room_only: "Senza pasti",
       breakfast: "Colazione",
@@ -197,6 +200,7 @@ function labels(locale: Locale) {
     confirmed: "Confirmed",
     cancelled: "Cancelled",
     no_show: "No-show",
+    unavailable: "Unavailable",
     regret: "Cannot provide",
     room_only: "No meals",
     breakfast: "Breakfast",
@@ -313,7 +317,13 @@ export default async function AgencyReservationPage({
     copy[
       reservation.status as keyof Pick<
         typeof copy,
-        "request" | "provisional" | "confirmed" | "cancelled" | "no_show" | "regret"
+        | "request"
+        | "provisional"
+        | "confirmed"
+        | "cancelled"
+        | "no_show"
+        | "unavailable"
+        | "regret"
       >
     ] ?? reservation.status;
   const policies = [

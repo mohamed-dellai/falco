@@ -134,10 +134,12 @@ export function ReservationRooms({
     (allotment.status === "request" ||
       allotment.status === "provisional" ||
       allotment.status === "confirmed");
-  const direct = allotment.saleSource === "direct";
   const [selected, setSelected] = useState<string[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(openAdd);
+  const [lineSource, setLineSource] = useState<"contract" | "direct">(
+    allotment.saleSource === "direct" ? "direct" : "contract",
+  );
   const [hotelMail, setHotelMail] = useState<null | "request" | "amendment" | "voucher">(null);
   const [amendment, setAmendment] = useState("");
   const [rooming, setRooming] = useState(false);
@@ -325,7 +327,7 @@ export function ReservationRooms({
                             {line.viewSnapshot ? ` · ${line.viewSnapshot}` : ""}
                           </span>
                           <span className="rounded border border-[var(--desk-line)] bg-white px-1.5 py-px text-xs font-medium text-[var(--desk-text-soft)]">
-                            {direct ? copy.saleHotelDirect : copy.saleFromContract}
+                            {line.contractPeriodId ? copy.saleFromContract : copy.saleHotelDirect}
                           </span>
                         </p>
                       </td>
@@ -442,7 +444,7 @@ export function ReservationRooms({
                               />
                             </label>
                             <PriceVatField copy={copy} value={line.priceIncludesVat} />
-                            {(allotment.status === "provisional" || allotment.status === "confirmed") && !direct ? (
+                            {(allotment.status === "provisional" || allotment.status === "confirmed") && line.contractPeriodId ? (
                               <label className="flex items-center gap-2 pb-2 text-xs text-[var(--desk-muted)]">
                                 <input type="checkbox" name="useOverbook" />
                                 {copy.useOverbook}
@@ -485,17 +487,27 @@ export function ReservationRooms({
       </section>
       {open && adding ? (
         <section id="add-room" className="overflow-hidden rounded-xl border border-[var(--desk-line)] bg-white shadow-sm">
-          <header className="px-4 py-3.5">
+          <header className="flex flex-wrap items-end justify-between gap-3 px-4 py-3.5">
             <h2 className="text-base font-semibold text-[var(--desk-ink)]">{copy.addRoom}</h2>
-            <p className="mt-0.5 text-sm text-[var(--desk-muted)]">
-              {direct ? copy.saleHotelDirect : copy.saleFromContract}
-            </p>
+            <label className="grid gap-1 text-sm">
+              <span className="text-[13px] font-medium text-[var(--desk-muted)]">{copy.saleSource}</span>
+              <select
+                value={lineSource}
+                onChange={(event) =>
+                  setLineSource(event.target.value === "direct" ? "direct" : "contract")
+                }
+                className={`${adminFieldClass} w-48`}
+              >
+                <option value="contract">{copy.saleFromContract}</option>
+                <option value="direct">{copy.saleHotelDirect}</option>
+              </select>
+            </label>
           </header>
           {!allotment.hotelId ? (
             <p className="border-t border-[var(--desk-line)] px-4 py-3 text-sm text-[var(--desk-muted)]">
               {copy.setHotelBeforeRooms}
             </p>
-          ) : direct ? (
+          ) : lineSource === "direct" ? (
             <DirectAdd
               allotmentId={allotment.id}
               roomTypes={roomTypes.filter((type) => hotelRoomTypeIds.includes(type.id))}

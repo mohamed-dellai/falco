@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import {
+  agencyReturnPath,
   clearAgencySession,
   createAgencySession,
   currentAgency,
@@ -26,8 +27,13 @@ export async function agencySignInAction(formData: FormData) {
     String(formData.get("email") ?? ""),
     String(formData.get("password") ?? ""),
   );
-  if (!ok) redirect(`/${locale}/hotels/login?error=1`);
-  redirect(`/${locale}/hotels`);
+  if (!ok) {
+    const next = agencyReturnPath(locale, String(formData.get("next") ?? ""));
+    redirect(
+      `/${locale}/hotels/login?error=1&next=${encodeURIComponent(next)}`,
+    );
+  }
+  redirect(agencyReturnPath(locale, String(formData.get("next") ?? "")));
 }
 
 export async function agencySignOutAction(formData: FormData) {
