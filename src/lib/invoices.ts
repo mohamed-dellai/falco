@@ -80,7 +80,6 @@ function riyadhToday() {
 
 function roomNet(allotment: Allotment, line: AllotmentLine) {
   const nights = Math.max(1, nightsBetween(allotment.checkIn, allotment.checkOut));
-  if (line.amountBasis === "stay") return line.agencyPricePerNight * line.quantity;
   return line.agencyPricePerNight * nights * line.quantity;
 }
 
@@ -305,6 +304,68 @@ export async function createIssuedInvoice(ids: string[], vatCharge: boolean) {
     if (code === "23505") return { ok: false as const, error: "taken" as const };
     throw error;
   }
+}
+
+export async function updateIssuedInvoice(
+  invoiceId: string,
+  lines: Array<{ id: string; label: string; detail: string; quantity: number; net: number; vat: number }>,
+) {
+  if (!lines.length) return { ok: false as const, error: "invalid" as const };
+  const ids = lines.map((line) => line.id);
+  if (new Set(ids).size !== ids.length) return { ok: false as const, error: "invalid" as const };
+  for (const line of lines) {
+    if (!line.id || !line.label.trim()) return { ok: false as const, error: "invalid" as const };
+    if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 5000) {
+      return { ok: false as const, error: "invalid" as const };
+    }
+    if (!Number.isInteger(line.net) || line.net < 0 || !Number.isInteger(line.vat) || line.vat < 0) {
+      return { ok: false as const, error: "invalid" as const };
+    }
+  }
+  return transaction(async (sql) => {
+    const header = await sql.query<{ id: string }>(
+      `SELECT id FROM issued_invoices WHERE id = ? FOR UPDATE`,
+      [invoiceId],
+    );
+    if (!header[0]) return { ok: false as const, error: "invalid" as const };
+    const existing = await sql.query<{ id: string }>(
+      `SELECT id FROM invoice_lines WHERE invoice_id = ?`,
+      [invoiceId],
+    );
+    const known = new Set(existing.map((row) => row.id));
+    if (lines.some((line) => !known.has(line.id))) return { ok: false as const, error: "invalid" as const };
+    const keep = new Set(ids);
+    for (const row of existing) {
+      if (keep.has(row.id)) continue;
+      await sql.execute(`DELETE FROM invoice_lines WHERE id = ? AND invoice_id = ?`, [row.id, invoiceId]);
+    }
+    for (const line of lines) {
+      await sql.execute(
+        `UPDATE invoice_lines
+         SET label = ?, detail = ?, quantity = ?, net = ?, vat = ?, gross = ?
+         WHERE id = ? AND invoice_id = ?`,
+        [
+          line.label.trim().slice(0, 200),
+          line.detail.trim().slice(0, 400),
+          line.quantity,
+          line.net,
+          line.vat,
+          line.net + line.vat,
+          line.id,
+          invoiceId,
+        ],
+      );
+    }
+    const net = lines.reduce((sum, line) => sum + line.net, 0);
+    const vat = lines.reduce((sum, line) => sum + line.vat, 0);
+    await sql.execute(`UPDATE issued_invoices SET net = ?, vat = ?, gross = ? WHERE id = ?`, [
+      net,
+      vat,
+      net + vat,
+      invoiceId,
+    ]);
+    return { ok: true as const };
+  });
 }
 
 type InvoiceHeaderRow = {

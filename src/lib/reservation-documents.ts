@@ -223,7 +223,6 @@ function lineMoney(
 ) {
   const nights = Math.max(1, nightsBetween(allotment.checkIn, allotment.checkOut));
   const rate = side === "cost" ? line.costPerNight : line.agencyPricePerNight;
-  if (line.amountBasis === "stay") return rate * line.quantity;
   return rate * nights * line.quantity;
 }
 

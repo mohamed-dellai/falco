@@ -54,6 +54,9 @@ export default async function InvoicePage({
           <Link href="/admin/accounting/invoices" className={adminButtonGhostClass}>
             {copy.invoiceBack}
           </Link>
+          <Link href={`${page}/edit`} className={adminButtonSecondaryClass}>
+            {copy.invoiceEdit}
+          </Link>
           <a href={`${page}/pdf`} className={adminButtonSecondaryClass}>
             {copy.invoicePrint}
           </a>

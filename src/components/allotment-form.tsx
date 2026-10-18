@@ -798,8 +798,7 @@ export function AllotmentForm({
                               allotment.checkIn,
                               allotment.checkOut,
                             );
-                            const units = line.amountBasis === "stay" ? 1 : nights;
-                            return sum + line.agencyPricePerNight * line.quantity * units;
+                            return sum + line.agencyPricePerNight * line.quantity * nights;
                           }, 0) *
                             allotment.commissionPercent) /
                             100,

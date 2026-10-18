@@ -78,7 +78,6 @@ const roomActionTone = {
 } as const;
 
 function lineSell(line: Allotment["lines"][number], nights: number) {
-  if (line.amountBasis === "stay") return line.agencyPricePerNight;
   return line.agencyPricePerNight * nights * line.quantity;
 }
 

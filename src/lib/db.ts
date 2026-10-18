@@ -1576,6 +1576,9 @@ async function ensureBookingDesk() {
   );
   await addColumn("allotments", "sale_source", "TEXT NOT NULL DEFAULT 'contract'");
   await addColumn("allotment_lines", "amount_basis", "TEXT NOT NULL DEFAULT 'night'");
+  await pool().query(
+    `UPDATE allotment_lines SET amount_basis = 'night' WHERE amount_basis = 'stay'`,
+  );
   await addColumn("allotment_lines", "price_includes_vat", "BOOLEAN NOT NULL DEFAULT FALSE");
   await addColumn("allotment_lines", "rate_snapshot", "TEXT NOT NULL DEFAULT '{}'");
   await addColumn("allotment_lines", "direct_hotel", "TEXT NOT NULL DEFAULT ''");

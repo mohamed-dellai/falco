@@ -3033,11 +3033,6 @@ export function allotmentValue(allotment: {
   let rooms = 0;
   for (const line of allotment.lines) {
     rooms += line.quantity;
-    if (line.amountBasis === "stay") {
-      cost += line.costPerNight;
-      revenue += line.agencyPricePerNight;
-      continue;
-    }
     cost += line.costPerNight * nights * line.quantity;
     revenue += line.agencyPricePerNight * nights * line.quantity;
   }
@@ -4226,7 +4221,7 @@ export async function addReservationLine(input: {
         costPerNight: direct.costPerNight,
         agencyPricePerNight: direct.pricePerNight,
         priceIncludesVat: Boolean(direct.priceIncludesVat),
-        amountBasis: "stay",
+        amountBasis: "night",
         boardSnapshot: mealPlanCode(direct.mealCode) ?? "room_only",
         viewSnapshot: direct.viewName.trim().slice(0, 80),
         directHotel: direct.hotelName,

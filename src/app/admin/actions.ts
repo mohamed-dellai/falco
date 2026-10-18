@@ -1400,7 +1400,7 @@ async function directAllotmentLines(formData: FormData) {
       quantity,
       costPerNight: cost,
       agencyPricePerNight: price,
-      amountBasis: "stay",
+      amountBasis: "night",
       boardSnapshot: mealCodes[0] ?? "room_only",
       viewSnapshot: viewName,
       directHotel: hotel.name,

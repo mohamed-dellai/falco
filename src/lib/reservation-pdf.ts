@@ -102,7 +102,6 @@ function stayNights(allotment: Allotment, line: AllotmentLine) {
 function lineAmount(allotment: Allotment, line: AllotmentLine, side: "cost" | "sell") {
   const nights = stayNights(allotment, line);
   const rate = side === "cost" ? line.costPerNight : line.agencyPricePerNight;
-  if (line.amountBasis === "stay") return rate * line.quantity;
   return rate * nights * line.quantity;
 }
 
